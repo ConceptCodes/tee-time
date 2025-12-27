@@ -1,13 +1,38 @@
-import type { Database } from "@tee-time/database";
+import type { Database, NewMemberProfile } from "@tee-time/database";
 import { createMemberRepository } from "@tee-time/database";
+import { randomUUID } from "crypto";
 import { logger } from "../../logger";
+
+const MEMBERSHIP_ID_PREFIX = "MEM-";
+const MEMBERSHIP_ID_ATTEMPTS = 5;
+
+const generateMembershipId = () =>
+  `${MEMBERSHIP_ID_PREFIX}${randomUUID().split("-")[0].toUpperCase()}`;
+
+export type MemberProfileCreateInput = Omit<NewMemberProfile, "membershipId"> & {
+  membershipId?: string;
+};
 
 export const createMemberProfile = async (
   db: Database,
-  data: Parameters<ReturnType<typeof createMemberRepository>["create"]>[0]
+  data: MemberProfileCreateInput
 ) => {
   const repo = createMemberRepository(db);
-  const result = await repo.create(data);
+  let membershipId = data.membershipId;
+  if (!membershipId) {
+    for (let attempt = 0; attempt < MEMBERSHIP_ID_ATTEMPTS; attempt += 1) {
+      const candidate = generateMembershipId();
+      const existing = await repo.getByMembershipId(candidate);
+      if (!existing) {
+        membershipId = candidate;
+        break;
+      }
+    }
+  }
+  if (!membershipId) {
+    throw new Error("membership_id_generation_failed");
+  }
+  const result = await repo.create({ ...data, membershipId });
   logger.info("core.admin.members.create", { memberId: result.id });
   return result;
 };

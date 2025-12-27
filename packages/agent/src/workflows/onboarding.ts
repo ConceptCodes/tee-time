@@ -1,12 +1,18 @@
 import { generateObject } from "ai";
 import { z } from "zod";
+import type { Database } from "@tee-time/database";
 import { getOpenRouterClient, resolveModelId } from "../provider";
+import { createMemberProfile } from "@tee-time/core";
 
 export type OnboardingInput = {
   message: string;
   phoneNumber: string;
   existingState?: Partial<OnboardingState>;
   defaults?: Partial<OnboardingState>;
+  db?: Database;
+  submitMember?: (payload: Parameters<typeof createMemberProfile>[1]) => Promise<{
+    memberId: string;
+  }>;
   suggestions?: {
     timezones?: string[];
     clubs?: string[];
@@ -34,6 +40,11 @@ export type OnboardingDecision =
     }
   | {
       type: "complete";
+      payload: OnboardingState;
+    }
+  | {
+      type: "submitted";
+      memberId: string;
       payload: OnboardingState;
     }
   | {
@@ -150,6 +161,41 @@ export const runOnboardingFlow = async (
       prompt: buildAskPrompt(missing, PROMPTS[missing], input.suggestions),
       nextState: state,
     };
+  }
+
+  if (input.submitMember || input.db) {
+    const now = new Date();
+    const favoriteLocationLabel =
+      state.favoriteLocation ?? state.favoriteClub ?? "Unknown";
+    const payload = {
+      phoneNumber: input.phoneNumber,
+      name: state.name as string,
+      timezone: state.timezone as string,
+      favoriteLocationLabel,
+      preferredLocationLabel: state.favoriteLocation ?? undefined,
+      preferredTimeOfDay: undefined,
+      preferredBayLabel: undefined,
+      onboardingCompletedAt: now,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const submit =
+      input.submitMember ??
+      (input.db
+        ? async (memberPayload: Parameters<typeof createMemberProfile>[1]) => {
+            const member = await createMemberProfile(input.db as Database, memberPayload);
+            return { memberId: member.id };
+          }
+        : undefined);
+    if (submit) {
+      const result = await submit(payload);
+      return {
+        type: "submitted",
+        memberId: result.memberId,
+        payload: state,
+      };
+    }
   }
 
   return {
