@@ -1,0 +1,16 @@
+{
+  "name": "@syndicate/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.1",
+    "@syndicate/database": "workspace:*",
+    "better-auth": "^1.4.0",
+    "hono": "^4.6.8"
+  }
+}
