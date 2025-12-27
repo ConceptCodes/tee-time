@@ -53,7 +53,7 @@ export const jobTypeEnum = pgEnum("job_type", [
   "retention"
 ]);
 
-export const staffRoleEnum = pgEnum("staff_role", ["admin", "member"]);
+export const staffRoleEnum = pgEnum("staff_role", ["admin", "staff", "member"]);
 
 export const memberProfiles = pgTable(
   "member_profiles",
