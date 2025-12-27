@@ -9,4 +9,5 @@ export * from "./bays";
 export * from "./availability";
 export * from "./member-preferences";
 export * from "./faq-retrieval";
+export * from "./jobs";
 export * from "./services/admin";
