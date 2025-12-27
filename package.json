@@ -2,15 +2,21 @@
   "name": "syndicate",
   "private": true,
   "scripts": {
+    "db:generate": "cd packages/database && bunx drizzle-kit generate",
+    "db:migrate": "cd packages/database && bunx drizzle-kit migrate",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check ."
   },
-  "devDependencies": {
-    "biome": "^1.9.4"
-  },
+  "devDependencies": {},
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "biome": "^0.3.3",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.8",
+    "zod": "^4.2.1"
+  }
 }

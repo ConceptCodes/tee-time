@@ -1,0 +1,2 @@
+ALTER TABLE "club_locations" ALTER COLUMN "location_point" SET DATA TYPE geometry(point);--> statement-breakpoint
+ALTER TABLE "member_profiles" ALTER COLUMN "favorite_location_point" SET DATA TYPE geometry(point);
