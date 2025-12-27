@@ -2,9 +2,16 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./auth";
+import { loggingMiddleware } from "./middleware/logging";
+import { sessionMiddleware } from "./middleware/auth";
+import { traceMiddleware } from "./middleware/trace";
+import type { ApiVariables } from "./middleware/types";
 
-const app = new Hono();
+const app = new Hono<{ Variables: ApiVariables }>();
 
+app.use("*", traceMiddleware());
+app.use("*", loggingMiddleware());
+app.use("*", sessionMiddleware());
 app.use(
   "/api/auth/*",
   cors({
