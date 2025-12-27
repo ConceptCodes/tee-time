@@ -1,4 +1,5 @@
 import { createAuditLogRepository, type Database } from "@syndicate/database";
+import { logger } from "./logger";
 
 export type AuditEventParams = {
   actorId?: string | null;
@@ -11,7 +12,7 @@ export type AuditEventParams = {
 
 export const logAuditEvent = async (db: Database, params: AuditEventParams) => {
   const repo = createAuditLogRepository(db);
-  return repo.log({
+  const result = await repo.log({
     actorId: params.actorId ?? null,
     action: params.action,
     resourceType: params.resourceType,
@@ -19,4 +20,11 @@ export const logAuditEvent = async (db: Database, params: AuditEventParams) => {
     metadata: params.metadata ?? {},
     createdAt: params.createdAt ?? new Date()
   });
+  logger.info("core.auditLog.created", {
+    actorId: params.actorId ?? null,
+    action: params.action,
+    resourceType: params.resourceType,
+    resourceId: params.resourceId
+  });
+  return result;
 };

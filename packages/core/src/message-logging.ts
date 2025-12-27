@@ -3,6 +3,7 @@ import {
   messageLogs,
   type Database
 } from "@syndicate/database";
+import { logger } from "./logger";
 
 export type MessageLogParams = {
   memberId: string;
@@ -17,7 +18,7 @@ export type MessageLogParams = {
 
 export const logMessage = async (db: Database, params: MessageLogParams) => {
   const repo = createMessageLogRepository(db);
-  return repo.logMessage({
+  const result = await repo.logMessage({
     memberId: params.memberId,
     direction: params.direction,
     channel: params.channel,
@@ -27,4 +28,11 @@ export const logMessage = async (db: Database, params: MessageLogParams) => {
     metadata: params.metadata,
     createdAt: params.createdAt ?? new Date()
   });
+  logger.info("core.messageLog.created", {
+    memberId: params.memberId,
+    direction: params.direction,
+    channel: params.channel,
+    providerMessageId: params.providerMessageId ?? null
+  });
+  return result;
 };

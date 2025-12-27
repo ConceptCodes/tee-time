@@ -9,6 +9,7 @@ import {
   createBookingRepository,
   createBookingStatusHistoryRepository
 } from "@syndicate/database";
+import { logger } from "./logger";
 
 export type SetBookingStatusParams = {
   bookingId: string;
@@ -28,6 +29,11 @@ export const setBookingStatusWithHistory = async (
   params: SetBookingStatusParams
 ) => {
   const now = params.now ?? new Date();
+  logger.info("core.bookingStatus.start", {
+    bookingId: params.bookingId,
+    nextStatus: params.nextStatus,
+    actorId: params.changedByStaffId ?? null
+  });
   return db.transaction(async (tx) => {
     const bookingRepo = createBookingRepository(tx);
     const historyRepo = createBookingStatusHistoryRepository(tx);
@@ -35,6 +41,7 @@ export const setBookingStatusWithHistory = async (
 
     const current = await bookingRepo.getById(params.bookingId);
     if (!current) {
+      logger.warn("core.bookingStatus.notFound", { bookingId: params.bookingId });
       return { booking: null, history: null };
     }
 
@@ -65,6 +72,11 @@ export const setBookingStatusWithHistory = async (
       });
     }
 
+    logger.info("core.bookingStatus.success", {
+      bookingId: params.bookingId,
+      previousStatus: current.status,
+      nextStatus: params.nextStatus
+    });
     return {
       booking: updated as Booking | null,
       history: history as BookingStatusHistory | null
