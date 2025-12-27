@@ -40,6 +40,13 @@ export const createStaffRepository = (db: Database) => ({
       .where(eq(staffUsers.email, email));
     return firstOrNull(rows);
   },
+  getByAuthUserId: async (authUserId: string): Promise<StaffUser | null> => {
+    const rows = await db
+      .select()
+      .from(staffUsers)
+      .where(eq(staffUsers.authUserId, authUserId));
+    return firstOrNull(rows);
+  },
 });
 
 export const createTeamRepository = (db: Database) => ({
