@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",
+    "@syndicate/core": "workspace:*",
     "@syndicate/database": "workspace:*",
     "better-auth": "^1.4.0",
     "hono": "^4.6.8"
