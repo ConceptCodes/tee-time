@@ -7,14 +7,17 @@ export const listSupportRequests = async (
   params?: { status?: string; limit?: number; offset?: number }
 ) => {
   const repo = createSupportRequestRepository(db);
-  const result = await repo.list(params);
+  const [result, total] = await Promise.all([
+    repo.list(params),
+    repo.count({ status: params?.status })
+  ]);
   logger.info("core.admin.supportRequests.list", {
     count: result.length,
     status: params?.status ?? null,
     limit: params?.limit ?? null,
     offset: params?.offset ?? null
   });
-  return result;
+  return { data: result, total };
 };
 
 export const resolveSupportRequest = async (db: Database, id: string) => {

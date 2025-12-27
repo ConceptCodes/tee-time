@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { auditLogs } from "../schema";
 import { firstOrNull } from "./utils";
@@ -66,5 +66,20 @@ export const createAuditLogRepository = (db: Database) => ({
       query.offset(params.offset);
     }
     return query;
+  },
+  count: async (params?: { actorId?: string; resourceType?: string }): Promise<number> => {
+    const query = db.select({ count: sql<number>`count(*)` }).from(auditLogs);
+    const conditions = [];
+    if (params?.actorId) {
+      conditions.push(eq(auditLogs.actorId, params.actorId));
+    }
+    if (params?.resourceType) {
+      conditions.push(eq(auditLogs.resourceType, params.resourceType));
+    }
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+    const rows = await query;
+    return Number(rows[0]?.count ?? 0);
   },
 });

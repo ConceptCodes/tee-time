@@ -5,24 +5,37 @@ import {
 } from "@syndicate/database";
 import { logger } from "../../logger";
 
-export const listClubs = async (db: Database, params?: { activeOnly?: boolean }) => {
+export const listClubs = async (
+  db: Database,
+  params?: { activeOnly?: boolean; limit?: number; offset?: number }
+) => {
   const repo = createClubRepository(db);
-  const result = params?.activeOnly ? await repo.listActive() : await repo.listAll();
+  const [result, total] = await Promise.all([
+    params?.activeOnly ? repo.listActive(params) : repo.listAll(params),
+    params?.activeOnly ? repo.countActive() : repo.countAll()
+  ]);
   logger.info("core.admin.clubs.list", {
     count: result.length,
     activeOnly: Boolean(params?.activeOnly)
   });
-  return result;
+  return { data: result, total };
 };
 
-export const listClubLocations = async (db: Database, clubId: string) => {
+export const listClubLocations = async (
+  db: Database,
+  clubId: string,
+  params?: { limit?: number; offset?: number }
+) => {
   const repo = createClubLocationRepository(db);
-  const result = await repo.listByClubId(clubId);
+  const [result, total] = await Promise.all([
+    repo.listByClubId(clubId, params),
+    repo.countByClubId(clubId)
+  ]);
   logger.info("core.admin.clubLocations.list", {
     clubId,
     count: result.length
   });
-  return result;
+  return { data: result, total };
 };
 
 export const createClubLocation = async (

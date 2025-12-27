@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { faqEntries } from "../schema";
 import { firstOrNull } from "./utils";
@@ -29,7 +29,21 @@ export const createFaqRepository = (db: Database) => ({
       .where(eq(faqEntries.id, id));
     return firstOrNull(rows);
   },
-  listActive: async (): Promise<FaqEntry[]> => {
-    return db.select().from(faqEntries).where(eq(faqEntries.isActive, true));
+  listActive: async (params?: { limit?: number; offset?: number }): Promise<FaqEntry[]> => {
+    const query = db.select().from(faqEntries).where(eq(faqEntries.isActive, true));
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  countActive: async (): Promise<number> => {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(faqEntries)
+      .where(eq(faqEntries.isActive, true));
+    return Number(rows[0]?.count ?? 0);
   },
 });

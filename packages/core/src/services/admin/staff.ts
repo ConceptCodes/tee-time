@@ -35,13 +35,13 @@ export const listStaffUsers = async (
   params?: { limit?: number; offset?: number }
 ) => {
   const repo = createStaffRepository(db);
-  const result = await repo.list(params);
+  const [result, total] = await Promise.all([repo.list(params), repo.count()]);
   logger.info("core.admin.staff.list", {
     count: result.length,
     limit: params?.limit ?? null,
     offset: params?.offset ?? null
   });
-  return result;
+  return { data: result, total };
 };
 
 export const getStaffUserById = async (db: Database, id: string) => {

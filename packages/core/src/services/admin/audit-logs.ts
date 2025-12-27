@@ -7,7 +7,10 @@ export const listAuditLogs = async (
   params?: { actorId?: string; resourceType?: string; limit?: number; offset?: number }
 ) => {
   const repo = createAuditLogRepository(db);
-  const result = await repo.list(params);
+  const [result, total] = await Promise.all([
+    repo.list(params),
+    repo.count({ actorId: params?.actorId, resourceType: params?.resourceType })
+  ]);
   logger.info("core.admin.auditLogs.list", {
     count: result.length,
     actorId: params?.actorId ?? null,
@@ -15,7 +18,7 @@ export const listAuditLogs = async (
     limit: params?.limit ?? null,
     offset: params?.offset ?? null
   });
-  return result;
+  return { data: result, total };
 };
 
 export const getAuditLogById = async (db: Database, id: string) => {

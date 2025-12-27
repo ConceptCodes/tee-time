@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { supportRequests } from "../schema";
 import { firstOrNull } from "./utils";
@@ -48,6 +48,16 @@ export const createSupportRequestRepository = (db: Database) => ({
       query.offset(params.offset);
     }
     return query;
+  },
+  count: async (params?: { status?: string }): Promise<number> => {
+    const query = db
+      .select({ count: sql<number>`count(*)` })
+      .from(supportRequests);
+    if (params?.status) {
+      query.where(eq(supportRequests.status, params.status));
+    }
+    const rows = await query;
+    return Number(rows[0]?.count ?? 0);
   },
   resolve: async (
     id: string,

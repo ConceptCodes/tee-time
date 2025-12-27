@@ -35,14 +35,17 @@ export const listMembers = async (
   params?: { search?: string; limit?: number; offset?: number }
 ) => {
   const repo = createMemberRepository(db);
-  const result = await repo.list(params);
+  const [result, total] = await Promise.all([
+    repo.list(params),
+    repo.count({ search: params?.search })
+  ]);
   logger.info("core.admin.members.list", {
     count: result.length,
     hasSearch: Boolean(params?.search),
     limit: params?.limit ?? null,
     offset: params?.offset ?? null
   });
-  return result;
+  return { data: result, total };
 };
 
 export const getMemberById = async (db: Database, id: string) => {

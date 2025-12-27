@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { clubLocations, clubs } from "../schema";
 import { firstOrNull } from "./utils";
@@ -29,11 +29,36 @@ export const createClubRepository = (db: Database) => ({
     const rows = await db.select().from(clubs).where(eq(clubs.name, name));
     return firstOrNull(rows);
   },
-  listActive: async (): Promise<Club[]> => {
-    return db.select().from(clubs).where(eq(clubs.isActive, true));
+  listActive: async (params?: { limit?: number; offset?: number }): Promise<Club[]> => {
+    const query = db.select().from(clubs).where(eq(clubs.isActive, true));
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
   },
-  listAll: async (): Promise<Club[]> => {
-    return db.select().from(clubs);
+  countActive: async (): Promise<number> => {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(clubs)
+      .where(eq(clubs.isActive, true));
+    return Number(rows[0]?.count ?? 0);
+  },
+  listAll: async (params?: { limit?: number; offset?: number }): Promise<Club[]> => {
+    const query = db.select().from(clubs);
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  countAll: async (): Promise<number> => {
+    const rows = await db.select({ count: sql<number>`count(*)` }).from(clubs);
+    return Number(rows[0]?.count ?? 0);
   },
 });
 
@@ -60,19 +85,55 @@ export const createClubLocationRepository = (db: Database) => ({
       .where(eq(clubLocations.id, id));
     return firstOrNull(rows);
   },
-  listByClubId: async (clubId: string): Promise<ClubLocation[]> => {
-    return db
+  listByClubId: async (
+    clubId: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<ClubLocation[]> => {
+    const query = db
       .select()
       .from(clubLocations)
       .where(eq(clubLocations.clubId, clubId));
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
   },
-  listActiveByClubId: async (clubId: string): Promise<ClubLocation[]> => {
-    return db
+  countByClubId: async (clubId: string): Promise<number> => {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(clubLocations)
+      .where(eq(clubLocations.clubId, clubId));
+    return Number(rows[0]?.count ?? 0);
+  },
+  listActiveByClubId: async (
+    clubId: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<ClubLocation[]> => {
+    const query = db
       .select()
       .from(clubLocations)
       .where(
         and(eq(clubLocations.clubId, clubId), eq(clubLocations.isActive, true))
       );
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  countActiveByClubId: async (clubId: string): Promise<number> => {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(clubLocations)
+      .where(
+        and(eq(clubLocations.clubId, clubId), eq(clubLocations.isActive, true))
+      );
+    return Number(rows[0]?.count ?? 0);
   },
   delete: async (id: string): Promise<ClubLocation | null> => {
     const rows = await db

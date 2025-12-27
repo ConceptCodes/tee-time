@@ -13,7 +13,14 @@ export const listMessageLogs = async (
   }
 ) => {
   const repo = createMessageLogRepository(db);
-  const result = await repo.list(params);
+  const [result, total] = await Promise.all([
+    repo.list(params),
+    repo.count({
+      memberId: params?.memberId,
+      direction: params?.direction,
+      channel: params?.channel
+    })
+  ]);
   logger.info("core.admin.messageLogs.list", {
     count: result.length,
     memberId: params?.memberId ?? null,
@@ -22,5 +29,5 @@ export const listMessageLogs = async (
     limit: params?.limit ?? null,
     offset: params?.offset ?? null
   });
-  return result;
+  return { data: result, total };
 };

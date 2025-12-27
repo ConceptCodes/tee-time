@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { messageDedup, messageLogs } from "../schema";
 import { firstOrNull } from "./utils";
@@ -63,6 +63,28 @@ export const createMessageLogRepository = (db: Database) => ({
       query.offset(params.offset);
     }
     return query;
+  },
+  count: async (params?: {
+    memberId?: string;
+    direction?: MessageLog["direction"];
+    channel?: MessageLog["channel"];
+  }): Promise<number> => {
+    const query = db.select({ count: sql<number>`count(*)` }).from(messageLogs);
+    const conditions = [];
+    if (params?.memberId) {
+      conditions.push(eq(messageLogs.memberId, params.memberId));
+    }
+    if (params?.direction) {
+      conditions.push(eq(messageLogs.direction, params.direction));
+    }
+    if (params?.channel) {
+      conditions.push(eq(messageLogs.channel, params.channel));
+    }
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+    const rows = await query;
+    return Number(rows[0]?.count ?? 0);
   },
 });
 

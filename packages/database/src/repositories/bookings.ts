@@ -55,6 +55,31 @@ export const createBookingRepository = (db: Database) => ({
       .where(eq(bookings.memberId, memberId))
       .orderBy(desc(bookings.createdAt));
   },
+  list: async (params?: { status?: Booking["status"]; limit?: number; offset?: number }) => {
+    const query = db.select().from(bookings).orderBy(desc(bookings.createdAt));
+    if (params?.status) {
+      query.where(eq(bookings.status, params.status));
+    }
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  count: async (params?: { status?: Booking["status"] }): Promise<number> => {
+    const query = db
+      .select({
+        count: sql<number>`count(*)`
+      })
+      .from(bookings);
+    if (params?.status) {
+      query.where(eq(bookings.status, params.status));
+    }
+    const rows = await query;
+    return Number(rows[0]?.count ?? 0);
+  },
   listRecent: async (limit = 20): Promise<Booking[]> => {
     return db.select().from(bookings).orderBy(desc(bookings.createdAt)).limit(limit);
   },
@@ -114,12 +139,27 @@ export const createBookingStatusHistoryRepository = (db: Database) => ({
     return rows[0] as BookingStatusHistory;
   },
   listByBookingId: async (
-    bookingId: string
+    bookingId: string,
+    params?: { limit?: number; offset?: number }
   ): Promise<BookingStatusHistory[]> => {
-    return db
+    const query = db
       .select()
       .from(bookingStatusHistory)
       .where(eq(bookingStatusHistory.bookingId, bookingId))
       .orderBy(desc(bookingStatusHistory.createdAt));
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  countByBookingId: async (bookingId: string): Promise<number> => {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(bookingStatusHistory)
+      .where(eq(bookingStatusHistory.bookingId, bookingId));
+    return Number(rows[0]?.count ?? 0);
   },
 });

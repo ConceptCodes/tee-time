@@ -1,4 +1,4 @@
-import { eq, ilike, or } from "drizzle-orm";
+import { eq, ilike, or, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { memberProfiles } from "../schema";
 import { firstOrNull } from "./utils";
@@ -78,5 +78,20 @@ export const createMemberRepository = (db: Database) => ({
       query.offset(params.offset);
     }
     return query;
+  },
+  count: async (params?: { search?: string }): Promise<number> => {
+    const search = params?.search?.trim();
+    const query = db.select({ count: sql<number>`count(*)` }).from(memberProfiles);
+    if (search) {
+      const like = `%${search}%`;
+      query.where(
+        or(
+          ilike(memberProfiles.name, like),
+          ilike(memberProfiles.membershipId, like)
+        )
+      );
+    }
+    const rows = await query;
+    return Number(rows[0]?.count ?? 0);
   },
 });

@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { staffUsers, teamMemberships, teams } from "../schema";
 import { firstOrNull } from "./utils";
@@ -59,6 +59,10 @@ export const createStaffRepository = (db: Database) => ({
       query.offset(params.offset);
     }
     return query;
+  },
+  count: async (): Promise<number> => {
+    const rows = await db.select({ count: sql<number>`count(*)` }).from(staffUsers);
+    return Number(rows[0]?.count ?? 0);
   },
 });
 
