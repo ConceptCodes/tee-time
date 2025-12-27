@@ -9,6 +9,9 @@ import MembersPage from "./pages/MembersPage"
 import MemberProfilePage from "./pages/MemberProfilePage"
 import SettingsPage from "./pages/SettingsPage"
 import ReportsPage from "./pages/ReportsPage"
+import OverviewPage from "./pages/OverviewPage"
+import MessagesPage from "./pages/MessagesPage"
+import AuditLogsPage from "./pages/AuditLogsPage"
 
 const queryClient = new QueryClient()
 
@@ -20,13 +23,14 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           
           <Route element={<DashboardLayout />}>
-            <Route path="/" element={<div>Overview Page (TODO)</div>} />
+            <Route path="/" element={<OverviewPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="/bookings/:id" element={<BookingDetailPage />} />
             <Route path="/members" element={<MembersPage />} />
             <Route path="/members/:id" element={<MemberProfilePage />} />
-            <Route path="/messages" element={<div>Messages Page (TODO)</div>} />
+            <Route path="/messages" element={<MessagesPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/audit-logs" element={<AuditLogsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
