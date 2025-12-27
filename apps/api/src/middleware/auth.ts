@@ -32,7 +32,9 @@ export const requireAuth = (): MiddlewareHandler => {
   };
 };
 
-export const requireRole = (roles: Array<"admin" | "member">): MiddlewareHandler => {
+export const requireRole = (
+  roles: Array<"admin" | "staff" | "member">
+): MiddlewareHandler => {
   return async (c, next) => {
     const staffUser = c.get("staffUser");
     if (!staffUser || !roles.includes(staffUser.role)) {

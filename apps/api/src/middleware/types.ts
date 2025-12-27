@@ -8,4 +8,5 @@ export type ApiVariables = {
   requestStart: number;
   session: Session | null;
   staffUser: StaffUser | null;
+  validatedBody?: unknown;
 };
