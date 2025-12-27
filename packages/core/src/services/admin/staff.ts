@@ -25,7 +25,7 @@ export const updateStaffUser = async (
 
 export const disableStaffUser = async (db: Database, id: string) => {
   const repo = createStaffRepository(db);
-  const result = await repo.update(id, { isActive: false });
+  const result = await repo.update(id, { isActive: false, updatedAt: new Date() });
   logger.info("core.admin.staff.disable", { staffUserId: id });
   return result;
 };

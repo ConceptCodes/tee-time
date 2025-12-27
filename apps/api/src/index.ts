@@ -8,6 +8,7 @@ import { loggingMiddleware } from "./middleware/logging";
 import { sessionMiddleware } from "./middleware/auth";
 import { traceMiddleware } from "./middleware/trace";
 import type { ApiVariables } from "./middleware/types";
+import { staffRoutes } from "./routes/admin/staff";
 
 const app = new Hono<{ Variables: ApiVariables }>();
 
@@ -24,6 +25,7 @@ app.use(
 );
 app.get("/health", (c) => c.json({ ok: true }));
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+app.route("/api/staff-users", staffRoutes);
 app.onError(errorHandler);
 
 const port = Number.parseInt(process.env.PORT ?? "8787", 10);

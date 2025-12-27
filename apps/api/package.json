@@ -12,6 +12,7 @@
     "@syndicate/core": "workspace:*",
     "@syndicate/database": "workspace:*",
     "better-auth": "^1.4.0",
-    "hono": "^4.6.8"
+    "hono": "^4.6.8",
+    "zod": "^4.2.1"
   }
 }
