@@ -1,5 +1,5 @@
 {
-  "name": "@ai-tee-time/agent",
+  "name": "@syndicate/agent",
   "version": "0.0.0",
   "private": true,
   "type": "module"

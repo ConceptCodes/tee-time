@@ -1,6 +1,14 @@
 {
-  "name": "ai-tee-time-booking",
+  "name": "syndicate",
   "private": true,
+  "scripts": {
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check ."
+  },
+  "devDependencies": {
+    "biome": "^1.9.4"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
