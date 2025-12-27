@@ -25,6 +25,25 @@ export const createBookingRepository = (db: Database) => ({
       .returning();
     return firstOrNull(rows);
   },
+  updateStatus: async (params: {
+    id: string;
+    status: Booking["status"];
+    staffMemberId?: string | null;
+    cancelledAt?: Date | null;
+    updatedAt?: Date;
+  }): Promise<Booking | null> => {
+    const rows = await db
+      .update(bookings)
+      .set({
+        status: params.status,
+        staffMemberId: params.staffMemberId ?? null,
+        cancelledAt: params.cancelledAt ?? null,
+        updatedAt: params.updatedAt ?? new Date()
+      })
+      .where(eq(bookings.id, params.id))
+      .returning();
+    return firstOrNull(rows);
+  },
   getById: async (id: string): Promise<Booking | null> => {
     const rows = await db.select().from(bookings).where(eq(bookings.id, id));
     return firstOrNull(rows);
@@ -35,7 +54,7 @@ export const createBookingRepository = (db: Database) => ({
       .from(bookings)
       .where(eq(bookings.memberId, memberId))
       .orderBy(desc(bookings.createdAt));
-  },
+  }
 });
 
 export const createBookingStatusHistoryRepository = (db: Database) => ({

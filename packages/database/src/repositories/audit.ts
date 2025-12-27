@@ -11,6 +11,18 @@ export const createAuditLogRepository = (db: Database) => ({
     const rows = await db.insert(auditLogs).values(data).returning();
     return rows[0] as AuditLog;
   },
+  log: async (
+    data: Omit<NewAuditLog, "createdAt"> & { createdAt?: Date }
+  ): Promise<AuditLog> => {
+    const rows = await db
+      .insert(auditLogs)
+      .values({
+        ...data,
+        createdAt: data.createdAt ?? new Date()
+      })
+      .returning();
+    return rows[0] as AuditLog;
+  },
   getById: async (id: string): Promise<AuditLog | null> => {
     const rows = await db.select().from(auditLogs).where(eq(auditLogs.id, id));
     return firstOrNull(rows);

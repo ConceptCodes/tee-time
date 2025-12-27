@@ -13,6 +13,18 @@ export const createMessageLogRepository = (db: Database) => ({
     const rows = await db.insert(messageLogs).values(data).returning();
     return rows[0] as MessageLog;
   },
+  logMessage: async (
+    data: Omit<NewMessageLog, "createdAt"> & { createdAt?: Date }
+  ): Promise<MessageLog> => {
+    const rows = await db
+      .insert(messageLogs)
+      .values({
+        ...data,
+        createdAt: data.createdAt ?? new Date()
+      })
+      .returning();
+    return rows[0] as MessageLog;
+  },
   listByMemberId: async (memberId: string): Promise<MessageLog[]> => {
     return db
       .select()
@@ -25,6 +37,21 @@ export const createMessageLogRepository = (db: Database) => ({
 export const createMessageDedupRepository = (db: Database) => ({
   create: async (data: NewMessageDedup): Promise<MessageDedup> => {
     const rows = await db.insert(messageDedup).values(data).returning();
+    return rows[0] as MessageDedup;
+  },
+  createWithExpiry: async (
+    data: Omit<NewMessageDedup, "receivedAt" | "expiresAt"> & {
+      receivedAt?: Date;
+      expiresAt: Date;
+    }
+  ): Promise<MessageDedup> => {
+    const rows = await db
+      .insert(messageDedup)
+      .values({
+        ...data,
+        receivedAt: data.receivedAt ?? new Date()
+      })
+      .returning();
     return rows[0] as MessageDedup;
   },
   getByMemberAndHash: async (
