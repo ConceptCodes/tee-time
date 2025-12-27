@@ -1,9 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import StaffTab from "@/pages/settings/StaffTab"
 import KnowledgeBaseTab from "@/pages/settings/KnowledgeBaseTab"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ShieldCheck } from "lucide-react"
 
 
 export default function SettingsPage() {
@@ -20,13 +17,6 @@ export default function SettingsPage() {
           <p className="text-sm text-muted-foreground">
             Manage staff, knowledge base, and club configuration.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">Policy synced</Badge>
-          <Button variant="outline" className="gap-2">
-            <ShieldCheck className="h-4 w-4" />
-            Review security
-          </Button>
         </div>
       </div>
       <Tabs defaultValue="staff" className="space-y-4">
