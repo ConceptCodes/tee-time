@@ -50,7 +50,7 @@ bookingRoutes.get("/:id", async (c) => {
 });
 
 bookingRoutes.post("/", validateJson(bookingSchemas.create), async (c) => {
-  const payload = c.get("validatedBody") as typeof bookingSchemas.create._type;
+  const payload = c.get("validatedBody") as typeof bookingSchemas.create;
   const db = getDb();
   const now = new Date();
   try {
@@ -131,13 +131,14 @@ bookingRoutes.post(
   "/:id/confirm",
   validateJson(bookingSchemas.statusChange),
   async (c) => {
-    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange._type;
+    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange;
     const db = getDb();
     const result = await setBookingStatusWithHistory(db, {
       bookingId: c.req.param("id"),
       nextStatus: "Confirmed",
       changedByStaffId: c.get("staffUser")?.id ?? null,
       reason: payload.reason ?? null,
+      notifyMember: true, // Trigger WhatsApp notification to member
       audit: {
         actorId: c.get("staffUser")?.id ?? null,
         action: "booking.confirm",
@@ -155,13 +156,14 @@ bookingRoutes.post(
   "/:id/reject",
   validateJson(bookingSchemas.statusChange),
   async (c) => {
-    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange._type;
+    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange;
     const db = getDb();
     const result = await setBookingStatusWithHistory(db, {
       bookingId: c.req.param("id"),
       nextStatus: "Not Available",
       changedByStaffId: c.get("staffUser")?.id ?? null,
       reason: payload.reason ?? null,
+      notifyMember: true, // Trigger WhatsApp notification to member
       audit: {
         actorId: c.get("staffUser")?.id ?? null,
         action: "booking.reject",
@@ -179,13 +181,14 @@ bookingRoutes.post(
   "/:id/request-info",
   validateJson(bookingSchemas.statusChange),
   async (c) => {
-    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange._type;
+    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange;
     const db = getDb();
     const result = await setBookingStatusWithHistory(db, {
       bookingId: c.req.param("id"),
       nextStatus: "Follow-up required",
       changedByStaffId: c.get("staffUser")?.id ?? null,
       reason: payload.reason ?? null,
+      notifyMember: true, // Trigger WhatsApp notification to member
       audit: {
         actorId: c.get("staffUser")?.id ?? null,
         action: "booking.request_info",

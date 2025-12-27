@@ -8,6 +8,7 @@ import { loggingMiddleware } from "./middleware/logging";
 import { sessionMiddleware } from "./middleware/auth";
 import { traceMiddleware } from "./middleware/trace";
 import type { ApiVariables } from "./middleware/types";
+import { getDb } from "@tee-time/database";
 import { staffRoutes } from "./routes/admin/staff";
 import { meRoutes } from "./routes/admin/me";
 import { clubRoutes } from "./routes/admin/clubs";
@@ -20,6 +21,8 @@ import { messageLogRoutes } from "./routes/admin/message-logs";
 import { bookingHistoryRoutes } from "./routes/admin/booking-history";
 import { bookingRoutes } from "./routes/admin/bookings";
 import { faqRoutes } from "./routes/admin/faqs";
+import { reportRoutes } from "./routes/admin/reports";
+import { whatsappWebhookRoutes } from "./routes/webhooks/whatsapp";
 
 const app = new Hono<{ Variables: ApiVariables }>();
 
@@ -60,6 +63,8 @@ app.route("/api/message-logs", messageLogRoutes);
 app.route("/api/bookings", bookingRoutes);
 app.route("/api/bookings", bookingHistoryRoutes);
 app.route("/api/faqs", faqRoutes);
+app.route("/api/reports", reportRoutes);
+app.route("/webhooks/whatsapp", whatsappWebhookRoutes);
 app.onError(errorHandler);
 
 const port = Number.parseInt(process.env.PORT ?? "8787", 10);
