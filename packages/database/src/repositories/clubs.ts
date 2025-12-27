@@ -32,6 +32,9 @@ export const createClubRepository = (db: Database) => ({
   listActive: async (): Promise<Club[]> => {
     return db.select().from(clubs).where(eq(clubs.isActive, true));
   },
+  listAll: async (): Promise<Club[]> => {
+    return db.select().from(clubs);
+  },
 });
 
 export const createClubLocationRepository = (db: Database) => ({
@@ -70,5 +73,12 @@ export const createClubLocationRepository = (db: Database) => ({
       .where(
         and(eq(clubLocations.clubId, clubId), eq(clubLocations.isActive, true))
       );
+  },
+  delete: async (id: string): Promise<ClubLocation | null> => {
+    const rows = await db
+      .delete(clubLocations)
+      .where(eq(clubLocations.id, id))
+      .returning();
+    return firstOrNull(rows);
   },
 });

@@ -32,6 +32,38 @@ export const createMessageLogRepository = (db: Database) => ({
       .where(eq(messageLogs.memberId, memberId))
       .orderBy(desc(messageLogs.createdAt));
   },
+  list: async (params?: {
+    memberId?: string;
+    direction?: MessageLog["direction"];
+    channel?: MessageLog["channel"];
+    limit?: number;
+    offset?: number;
+  }): Promise<MessageLog[]> => {
+    const query = db
+      .select()
+      .from(messageLogs)
+      .orderBy(desc(messageLogs.createdAt));
+    const conditions = [];
+    if (params?.memberId) {
+      conditions.push(eq(messageLogs.memberId, params.memberId));
+    }
+    if (params?.direction) {
+      conditions.push(eq(messageLogs.direction, params.direction));
+    }
+    if (params?.channel) {
+      conditions.push(eq(messageLogs.channel, params.channel));
+    }
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
 });
 
 export const createMessageDedupRepository = (db: Database) => ({

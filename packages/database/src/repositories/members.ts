@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, ilike, or } from "drizzle-orm";
 import { type Database } from "../client";
 import { memberProfiles } from "../schema";
 import { firstOrNull } from "./utils";
@@ -18,6 +18,14 @@ export const createMemberRepository = (db: Database) => ({
     const rows = await db
       .update(memberProfiles)
       .set(data)
+      .where(eq(memberProfiles.id, id))
+      .returning();
+    return firstOrNull(rows);
+  },
+  disable: async (id: string): Promise<MemberProfile | null> => {
+    const rows = await db
+      .update(memberProfiles)
+      .set({ isActive: false })
       .where(eq(memberProfiles.id, id))
       .returning();
     return firstOrNull(rows);
@@ -46,5 +54,29 @@ export const createMemberRepository = (db: Database) => ({
       .from(memberProfiles)
       .where(eq(memberProfiles.membershipId, membershipId));
     return firstOrNull(rows);
+  },
+  list: async (params?: {
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<MemberProfile[]> => {
+    const search = params?.search?.trim();
+    const query = db.select().from(memberProfiles);
+    if (search) {
+      const like = `%${search}%`;
+      query.where(
+        or(
+          ilike(memberProfiles.name, like),
+          ilike(memberProfiles.membershipId, like)
+        )
+      );
+    }
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
   },
 });

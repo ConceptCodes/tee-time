@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq, isNotNull, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { notifications } from "../schema";
 import { firstOrNull } from "./utils";
@@ -34,5 +34,20 @@ export const createNotificationRepository = (db: Database) => ({
       .select()
       .from(notifications)
       .where(eq(notifications.bookingId, bookingId));
+  },
+  listRecentErrors: async (limit = 10): Promise<Notification[]> => {
+    return db
+      .select()
+      .from(notifications)
+      .where(isNotNull(notifications.error))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  },
+  countErrors: async (): Promise<number> => {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(isNotNull(notifications.error));
+    return Number(rows[0]?.count ?? 0);
   },
 });

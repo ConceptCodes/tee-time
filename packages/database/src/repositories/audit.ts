@@ -42,4 +42,29 @@ export const createAuditLogRepository = (db: Database) => ({
       )
       .orderBy(desc(auditLogs.createdAt));
   },
+  list: async (params?: {
+    actorId?: string;
+    resourceType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AuditLog[]> => {
+    const query = db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt));
+    const conditions = [];
+    if (params?.actorId) {
+      conditions.push(eq(auditLogs.actorId, params.actorId));
+    }
+    if (params?.resourceType) {
+      conditions.push(eq(auditLogs.resourceType, params.resourceType));
+    }
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
 });

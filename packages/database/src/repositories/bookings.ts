@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { bookingStatusHistory, bookings } from "../schema";
 import { firstOrNull } from "./utils";
@@ -54,6 +54,55 @@ export const createBookingRepository = (db: Database) => ({
       .from(bookings)
       .where(eq(bookings.memberId, memberId))
       .orderBy(desc(bookings.createdAt));
+  },
+  listRecent: async (limit = 20): Promise<Booking[]> => {
+    return db.select().from(bookings).orderBy(desc(bookings.createdAt)).limit(limit);
+  },
+  countByStatus: async (params?: {
+    since?: Date;
+  }): Promise<Array<{ status: Booking["status"]; count: number }>> => {
+    const query = db
+      .select({
+        status: bookings.status,
+        count: sql<number>`count(*)`
+      })
+      .from(bookings);
+    if (params?.since) {
+      query.where(sql`${bookings.createdAt} >= ${params.since}`);
+    }
+    const rows = await query.groupBy(bookings.status);
+    return rows.map((row) => ({
+      status: row.status,
+      count: Number(row.count)
+    }));
+  },
+  countByStatusSet: async (
+    statuses: Booking["status"][],
+    params?: { since?: Date }
+  ) => {
+    const conditions = [inArray(bookings.status, statuses)];
+    if (params?.since) {
+      conditions.push(sql`${bookings.createdAt} >= ${params.since}`);
+    }
+    const rows = await db
+      .select({
+        count: sql<number>`count(*)`
+      })
+      .from(bookings)
+      .where(and(...conditions));
+    return Number(rows[0]?.count ?? 0);
+  },
+  countTotal: async (params?: { since?: Date }) => {
+    const query = db
+      .select({
+        count: sql<number>`count(*)`
+      })
+      .from(bookings);
+    if (params?.since) {
+      query.where(sql`${bookings.createdAt} >= ${params.since}`);
+    }
+    const rows = await query;
+    return Number(rows[0]?.count ?? 0);
   }
 });
 

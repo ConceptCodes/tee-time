@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { scheduledJobs } from "../schema";
 import { firstOrNull } from "./utils";
@@ -56,5 +56,20 @@ export const createScheduledJobRepository = (db: Database) => ({
         )
       )
       .orderBy(desc(scheduledJobs.runAt));
+  },
+  listRecentErrors: async (limit = 10): Promise<ScheduledJob[]> => {
+    return db
+      .select()
+      .from(scheduledJobs)
+      .where(isNotNull(scheduledJobs.lastError))
+      .orderBy(desc(scheduledJobs.updatedAt))
+      .limit(limit);
+  },
+  countErrors: async (): Promise<number> => {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scheduledJobs)
+      .where(isNotNull(scheduledJobs.lastError));
+    return Number(rows[0]?.count ?? 0);
   },
 });

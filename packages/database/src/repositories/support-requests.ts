@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { type Database } from "../client";
 import { supportRequests } from "../schema";
 import { firstOrNull } from "./utils";
@@ -27,6 +27,37 @@ export const createSupportRequestRepository = (db: Database) => ({
       .select()
       .from(supportRequests)
       .where(eq(supportRequests.id, id));
+    return firstOrNull(rows);
+  },
+  list: async (params?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<SupportRequest[]> => {
+    const query = db
+      .select()
+      .from(supportRequests)
+      .orderBy(desc(supportRequests.createdAt));
+    if (params?.status) {
+      query.where(eq(supportRequests.status, params.status));
+    }
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  resolve: async (
+    id: string,
+    resolvedAt = new Date()
+  ): Promise<SupportRequest | null> => {
+    const rows = await db
+      .update(supportRequests)
+      .set({ status: "resolved", resolvedAt })
+      .where(eq(supportRequests.id, id))
+      .returning();
     return firstOrNull(rows);
   },
 });

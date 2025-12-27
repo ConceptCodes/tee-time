@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { type Database } from "../client";
 import { staffUsers, teamMemberships, teams } from "../schema";
 import { firstOrNull } from "./utils";
@@ -46,6 +46,19 @@ export const createStaffRepository = (db: Database) => ({
       .from(staffUsers)
       .where(eq(staffUsers.authUserId, authUserId));
     return firstOrNull(rows);
+  },
+  list: async (params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<StaffUser[]> => {
+    const query = db.select().from(staffUsers).orderBy(desc(staffUsers.createdAt));
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
   },
 });
 

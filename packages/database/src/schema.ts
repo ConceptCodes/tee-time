@@ -65,6 +65,7 @@ export const memberProfiles = pgTable(
     favoriteLocationLabel: text("favorite_location_label").notNull(),
     favoriteLocationPoint: geometryPoint("favorite_location_point"),
     membershipId: text("membership_id").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
     onboardingCompletedAt: timestamp("onboarding_completed_at", {
       withTimezone: true
     }),
