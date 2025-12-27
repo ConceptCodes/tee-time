@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BrowserRouter, Route, Routes } from "react-router-dom"
 import DashboardLayout from "./components/layout/DashboardLayout"
+import { Toaster } from "@/components/ui/sonner"
 
 import LoginPage from "./pages/LoginPage"
 import BookingsPage from "./pages/BookingsPage"
@@ -37,6 +38,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      <Toaster richColors position="bottom-right" />
     </QueryClientProvider>
   )
 }

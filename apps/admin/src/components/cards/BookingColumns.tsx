@@ -2,6 +2,7 @@ import { Link } from "react-router-dom"
 import { MoreHorizontal, ArrowUpDown } from "lucide-react"
 import { ColumnDef } from "@tanstack/react-table"
 import { format } from "date-fns"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -96,7 +97,12 @@ export const columns: ColumnDef<Booking>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(booking.id)}
+              onClick={() => {
+                navigator.clipboard.writeText(booking.id)
+                toast.success("Booking ID copied", {
+                  description: booking.id,
+                })
+              }}
             >
               Copy Booking ID
             </DropdownMenuItem>
