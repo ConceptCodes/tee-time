@@ -15,6 +15,13 @@
       "when": 1766812389792,
       "tag": "0001_steep_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766817956178,
+      "tag": "0002_workable_nico_minoru",
+      "breakpoints": true
     }
   ]
 }
