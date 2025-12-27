@@ -3,6 +3,7 @@ import {
   auditLogs,
   bookingStatusHistory,
   bookings,
+  clubLocationBays,
   clubLocations,
   clubs,
   faqEntries,
@@ -34,8 +35,20 @@ export const clubLocationsRelations = relations(clubLocations, ({ one, many }) =
     fields: [clubLocations.clubId],
     references: [clubs.id]
   }),
-  bookings: many(bookings)
+  bookings: many(bookings),
+  bays: many(clubLocationBays)
 }));
+
+export const clubLocationBaysRelations = relations(
+  clubLocationBays,
+  ({ one, many }) => ({
+    location: one(clubLocations, {
+      fields: [clubLocationBays.clubLocationId],
+      references: [clubLocations.id]
+    }),
+    bookings: many(bookings)
+  })
+);
 
 export const staffUsersRelations = relations(staffUsers, ({ many }) => ({
   bookings: many(bookings),
@@ -56,6 +69,10 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   clubLocation: one(clubLocations, {
     fields: [bookings.clubLocationId],
     references: [clubLocations.id]
+  }),
+  bay: one(clubLocationBays, {
+    fields: [bookings.bayId],
+    references: [clubLocationBays.id]
   }),
   staffMember: one(staffUsers, {
     fields: [bookings.staffMemberId],

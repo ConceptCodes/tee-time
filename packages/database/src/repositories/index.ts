@@ -1,4 +1,5 @@
 export * from "./audit";
+export * from "./bays";
 export * from "./bookings";
 export * from "./clubs";
 export * from "./faqs";

@@ -55,6 +55,12 @@ export const jobTypeEnum = pgEnum("job_type", [
 
 export const staffRoleEnum = pgEnum("staff_role", ["admin", "staff", "member"]);
 
+export const bayStatusEnum = pgEnum("bay_status", [
+  "available",
+  "booked",
+  "maintenance"
+]);
+
 export const memberProfiles = pgTable(
   "member_profiles",
   {
@@ -64,6 +70,9 @@ export const memberProfiles = pgTable(
     timezone: text("timezone").notNull(),
     favoriteLocationLabel: text("favorite_location_label").notNull(),
     favoriteLocationPoint: geometryPoint("favorite_location_point"),
+    preferredLocationLabel: text("preferred_location_label"),
+    preferredTimeOfDay: text("preferred_time_of_day"),
+    preferredBayLabel: text("preferred_bay_label"),
     membershipId: text("membership_id").notNull().unique(),
     isActive: boolean("is_active").notNull().default(true),
     onboardingCompletedAt: timestamp("onboarding_completed_at", {
@@ -105,6 +114,29 @@ export const clubLocations = pgTable(
   })
 );
 
+export const clubLocationBays = pgTable(
+  "club_location_bays",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clubLocationId: uuid("club_location_id")
+      .notNull()
+      .references(() => clubLocations.id),
+    name: text("name").notNull(),
+    status: bayStatusEnum("status").notNull().default("available"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
+  },
+  (table) => ({
+    locationIdIdx: index("club_location_bays_location_id_idx").on(
+      table.clubLocationId
+    ),
+    locationStatusIdx: index("club_location_bays_location_status_idx").on(
+      table.clubLocationId,
+      table.status
+    )
+  })
+);
+
 export const staffUsers = pgTable("staff_users", {
   id: uuid("id").defaultRandom().primaryKey(),
   authUserId: text("auth_user_id").notNull().unique(),
@@ -130,6 +162,7 @@ export const bookings = pgTable(
     clubLocationId: uuid("club_location_id").references(
       () => clubLocations.id
     ),
+    bayId: uuid("bay_id").references(() => clubLocationBays.id),
     preferredDate: date("preferred_date").notNull(),
     preferredTimeStart: time("preferred_time_start").notNull(),
     preferredTimeEnd: time("preferred_time_end"),
@@ -316,6 +349,7 @@ export const schema = {
   auditLogs,
   bookingStatusHistory,
   bookings,
+  clubLocationBays,
   clubLocations,
   clubs,
   faqEntries,
