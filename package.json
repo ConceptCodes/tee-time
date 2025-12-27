@@ -6,7 +6,8 @@
     "db:migrate": "cd packages/database && bunx drizzle-kit migrate",
     "lint": "biome lint .",
     "format": "biome format --write .",
-    "check": "biome check ."
+    "check": "biome check .",
+    "admin:dev": "bun --filter @syndicate/admin dev"
   },
   "devDependencies": {},
   "workspaces": [
