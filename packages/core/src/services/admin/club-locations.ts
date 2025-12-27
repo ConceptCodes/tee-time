@@ -55,6 +55,28 @@ export const listClubLocations = async (
   };
 };
 
+export const listNearbyClubLocations = async (
+  db: Database,
+  params: {
+    lat: number;
+    lng: number;
+    radiusMiles?: number;
+    limit?: number;
+    offset?: number;
+    activeOnly?: boolean;
+  }
+) => {
+  const repo = createClubLocationRepository(db);
+  const result = await repo.listNearby(params);
+  logger.info("core.admin.clubLocations.nearby", {
+    count: result.length,
+    lat: params.lat,
+    lng: params.lng,
+    radiusMiles: params.radiusMiles ?? 50
+  });
+  return { data: result, total: result.length };
+};
+
 export const createClubLocation = async (
   db: Database,
   data: Parameters<ReturnType<typeof createClubLocationRepository>["create"]>[0]

@@ -7,6 +7,12 @@ export type Club = typeof clubs.$inferSelect;
 export type NewClub = typeof clubs.$inferInsert;
 export type ClubLocation = typeof clubLocations.$inferSelect;
 export type NewClubLocation = typeof clubLocations.$inferInsert;
+export type NearbyClubLocation = ClubLocation & {
+  clubName: string;
+  distanceMeters: number;
+};
+
+const METERS_PER_MILE = 1609.34;
 
 export const createClubRepository = (db: Database) => ({
   create: async (data: NewClub): Promise<Club> => {
@@ -122,6 +128,44 @@ export const createClubLocationRepository = (db: Database) => ({
       query.limit(params.limit);
     }
     if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  listNearby: async (params: {
+    lat: number;
+    lng: number;
+    radiusMiles?: number;
+    limit?: number;
+    offset?: number;
+    activeOnly?: boolean;
+  }): Promise<NearbyClubLocation[]> => {
+    const radiusMeters = (params.radiusMiles ?? 50) * METERS_PER_MILE;
+    const point = sql`ST_SetSRID(ST_MakePoint(${params.lng}, ${params.lat}), 4326)::geography`;
+    const locationGeography = sql`(${clubLocations.locationPoint})::geography`;
+    const distance = sql<number>`ST_Distance(${locationGeography}, ${point})`;
+    const withinRadius = sql<boolean>`ST_DWithin(${locationGeography}, ${point}, ${radiusMeters})`;
+    const conditions = [withinRadius];
+
+    if (params.activeOnly !== false) {
+      conditions.push(eq(clubLocations.isActive, true), eq(clubs.isActive, true));
+    }
+
+    const query = db
+      .select({
+        ...clubLocations,
+        clubName: clubs.name,
+        distanceMeters: distance,
+      })
+      .from(clubLocations)
+      .innerJoin(clubs, eq(clubLocations.clubId, clubs.id))
+      .where(and(...conditions))
+      .orderBy(distance);
+
+    if (params.limit) {
+      query.limit(params.limit);
+    }
+    if (params.offset) {
       query.offset(params.offset);
     }
     return query;

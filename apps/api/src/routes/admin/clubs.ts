@@ -16,6 +16,36 @@ export const clubRoutes = new Hono<{ Variables: ApiVariables }>();
 
 clubRoutes.use("*", requireAuth(), requireRole(["admin", "staff"]));
 
+clubRoutes.get("/nearby", async (c) => {
+  const latParam = c.req.query("lat");
+  const lngParam = c.req.query("lng");
+  if (!latParam || !lngParam) {
+    return c.json({ error: "lat and lng are required" }, 400);
+  }
+  const lat = Number(latParam);
+  const lng = Number(lngParam);
+  const radiusParam = c.req.query("radius");
+  const radiusMiles = radiusParam ? Number(radiusParam) : undefined;
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return c.json({ error: "Invalid lat/lng" }, 400);
+  }
+  if (radiusMiles !== undefined && Number.isNaN(radiusMiles)) {
+    return c.json({ error: "Invalid radius" }, 400);
+  }
+  const pagination = parsePagination(c);
+  if (!pagination) {
+    return c.json({ error: "Invalid pagination" }, 400);
+  }
+  const db = getDb();
+  const result = await listNearbyClubLocations(db, {
+    lat,
+    lng,
+    radiusMiles,
+    ...pagination
+  });
+  return c.json(paginatedResponse(result.data, pagination, result.total));
+});
+
 clubRoutes.get("/", async (c) => {
   const activeOnly = c.req.query("activeOnly") === "true";
   const pagination = parsePagination(c);
