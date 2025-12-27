@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light;
+  font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1d1f23;
+  background-color: #f6f5f1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 4rem 2rem;
+  display: grid;
+  gap: 1rem;
+  place-content: center;
+  text-align: center;
+}

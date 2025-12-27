@@ -1,0 +1,8 @@
+{
+  "name": "ai-tee-time-booking",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
