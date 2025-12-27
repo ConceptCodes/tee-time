@@ -5,7 +5,8 @@ import { validateJson } from "../../middleware/validate";
 import { getDb } from "@syndicate/database";
 import {
   createBookingRepository,
-  createBookingStatusHistoryRepository
+  createBookingStatusHistoryRepository,
+  createClubLocationBayRepository
 } from "@syndicate/database";
 import { bookingSchemas } from "../../schemas";
 import { setBookingStatusWithHistory } from "@syndicate/core";
@@ -52,26 +53,62 @@ bookingRoutes.post("/", validateJson(bookingSchemas.create), async (c) => {
   const payload = c.get("validatedBody") as typeof bookingSchemas.create._type;
   const db = getDb();
   const now = new Date();
-  const bookingRepo = createBookingRepository(db);
-  const historyRepo = createBookingStatusHistoryRepository(db);
-  const initialStatus = payload.status ?? "Pending";
-  const booking = await bookingRepo.create({
-    ...payload,
-    preferredDate: new Date(payload.preferredDate),
-    cancelledAt: payload.cancelledAt ? new Date(payload.cancelledAt) : null,
-    status: initialStatus,
-    createdAt: now,
-    updatedAt: now
-  });
-  await historyRepo.create({
-    bookingId: booking.id,
-    previousStatus: initialStatus,
-    nextStatus: initialStatus,
-    changedByStaffId: payload.staffMemberId ?? null,
-    reason: null,
-    createdAt: now
-  });
-  return c.json({ data: booking }, 201);
+  try {
+    const booking = await db.transaction(async (tx) => {
+      const bookingRepo = createBookingRepository(tx);
+      const historyRepo = createBookingStatusHistoryRepository(tx);
+      const bayRepo = createClubLocationBayRepository(tx);
+      const initialStatus = payload.status ?? "Pending";
+
+      let bayId = payload.bayId;
+      if (bayId) {
+        const reserved = await bayRepo.reserve(bayId, now);
+        if (!reserved) {
+          throw new Error("bay_unavailable");
+        }
+      } else if (payload.clubLocationId) {
+        const available = await bayRepo.listByLocationId(payload.clubLocationId, {
+          status: "available"
+        });
+        if (available.length === 0) {
+          throw new Error("bay_unavailable");
+        }
+        const reserved = await bayRepo.reserve(available[0].id, now);
+        if (!reserved) {
+          throw new Error("bay_unavailable");
+        }
+        bayId = reserved.id;
+      }
+
+      const booking = await bookingRepo.create({
+        ...payload,
+        bayId,
+        preferredDate: new Date(payload.preferredDate),
+        cancelledAt: payload.cancelledAt ? new Date(payload.cancelledAt) : null,
+        status: initialStatus,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      await historyRepo.create({
+        bookingId: booking.id,
+        previousStatus: initialStatus,
+        nextStatus: initialStatus,
+        changedByStaffId: payload.staffMemberId ?? null,
+        reason: null,
+        createdAt: now
+      });
+
+      return booking;
+    });
+
+    return c.json({ data: booking }, 201);
+  } catch (error) {
+    if (error instanceof Error && error.message === "bay_unavailable") {
+      return c.json({ error: "No bays available for that location." }, 409);
+    }
+    throw error;
+  }
 });
 
 bookingRoutes.put("/:id", validateJson(bookingSchemas.update), async (c) => {
