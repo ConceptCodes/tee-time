@@ -2,6 +2,8 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./auth";
+import { errorHandler } from "./middleware/error";
+import { contentTypeMiddleware } from "./middleware/content-type";
 import { loggingMiddleware } from "./middleware/logging";
 import { sessionMiddleware } from "./middleware/auth";
 import { traceMiddleware } from "./middleware/trace";
@@ -12,6 +14,7 @@ const app = new Hono<{ Variables: ApiVariables }>();
 app.use("*", traceMiddleware());
 app.use("*", loggingMiddleware());
 app.use("*", sessionMiddleware());
+app.use("*", contentTypeMiddleware());
 app.use(
   "/api/auth/*",
   cors({
@@ -21,6 +24,7 @@ app.use(
 );
 app.get("/health", (c) => c.json({ ok: true }));
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+app.onError(errorHandler);
 
 const port = Number.parseInt(process.env.PORT ?? "8787", 10);
 
