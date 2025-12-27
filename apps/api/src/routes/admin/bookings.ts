@@ -2,14 +2,14 @@ import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
-import { getDb } from "@syndicate/database";
+import { getDb } from "@tee-time/database";
 import {
   createBookingRepository,
   createBookingStatusHistoryRepository,
   createClubLocationBayRepository
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { bookingSchemas } from "../../schemas";
-import { setBookingStatusWithHistory } from "@syndicate/core";
+import { setBookingStatusWithHistory } from "@tee-time/core";
 import { paginatedResponse, parsePagination } from "../../pagination";
 
 export const bookingRoutes = new Hono<{ Variables: ApiVariables }>();

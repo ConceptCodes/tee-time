@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { Database } from "@syndicate/database";
-import { formatBookingStatus, lookupMemberBooking } from "@syndicate/core";
+import type { Database } from "@tee-time/database";
+import { formatBookingStatus, lookupMemberBooking } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 
 export type BookingStatusFlowInput = {

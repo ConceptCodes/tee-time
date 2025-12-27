@@ -1,9 +1,9 @@
-import type { Database } from "@syndicate/database";
+import type { Database } from "@tee-time/database";
 import {
   createBookingRepository,
   createNotificationRepository,
   createScheduledJobRepository
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { logger } from "../../logger";
 
 const DEFAULT_LOOKBACK_DAYS = 30;

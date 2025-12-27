@@ -2,9 +2,9 @@ import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
-import { getDb } from "@syndicate/database";
-import { createFaqRepository } from "@syndicate/database";
-import { generateFaqEmbedding } from "@syndicate/core";
+import { getDb } from "@tee-time/database";
+import { createFaqRepository } from "@tee-time/database";
+import { generateFaqEmbedding } from "@tee-time/core";
 import { faqSchemas } from "../../schemas";
 import { paginatedResponse, parsePagination } from "../../pagination";
 

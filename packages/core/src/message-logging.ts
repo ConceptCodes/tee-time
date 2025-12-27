@@ -2,7 +2,7 @@ import {
   createMessageLogRepository,
   messageLogs,
   type Database
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { logger } from "./logger";
 
 export type MessageLogParams = {

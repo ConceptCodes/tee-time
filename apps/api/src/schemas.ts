@@ -46,7 +46,7 @@ export const memberSchemas = {
     preferredLocationLabel: z.string().min(1).optional(),
     preferredTimeOfDay: z.string().min(1).optional(),
     preferredBayLabel: z.string().min(1).optional(),
-    membershipId: z.string().min(1),
+    membershipId: z.string().min(1).optional(),
     onboardingCompletedAt: z.string().datetime().optional(),
     isActive: z.boolean().optional()
   }),
@@ -59,7 +59,6 @@ export const memberSchemas = {
     preferredLocationLabel: z.string().min(1).optional(),
     preferredTimeOfDay: z.string().min(1).optional(),
     preferredBayLabel: z.string().min(1).optional(),
-    membershipId: z.string().min(1).optional(),
     onboardingCompletedAt: z.string().datetime().optional(),
     isActive: z.boolean().optional()
   })

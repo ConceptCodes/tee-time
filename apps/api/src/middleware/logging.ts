@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { logger } from "@syndicate/core";
+import { logger } from "@tee-time/core";
 
 export const loggingMiddleware = (): MiddlewareHandler => {
   return async (c, next) => {

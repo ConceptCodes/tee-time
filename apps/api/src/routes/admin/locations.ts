@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
-import { getDb } from "@syndicate/database";
-import { deleteClubLocation, updateClubLocation } from "@syndicate/core";
+import { getDb } from "@tee-time/database";
+import { deleteClubLocation, updateClubLocation } from "@tee-time/core";
 import { clubLocationSchemas } from "../../schemas";
 
 export const locationRoutes = new Hono<{ Variables: ApiVariables }>();

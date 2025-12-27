@@ -1,4 +1,4 @@
-import { createAuditLogRepository, type Database } from "@syndicate/database";
+import { createAuditLogRepository, type Database } from "@tee-time/database";
 import { logger } from "./logger";
 
 export type AuditEventParams = {

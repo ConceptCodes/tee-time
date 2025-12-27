@@ -1,7 +1,7 @@
 import {
   createClubLocationBayRepository,
   type Database,
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { logger } from "./logger";
 
 export const listBaysByLocation = async (

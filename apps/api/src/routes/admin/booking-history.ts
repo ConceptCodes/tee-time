@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
-import { getDb } from "@syndicate/database";
-import { listBookingStatusHistory } from "@syndicate/core";
+import { getDb } from "@tee-time/database";
+import { listBookingStatusHistory } from "@tee-time/core";
 import { paginatedResponse, parsePagination } from "../../pagination";
 
 export const bookingHistoryRoutes = new Hono<{ Variables: ApiVariables }>();

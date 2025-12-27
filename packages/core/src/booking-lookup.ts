@@ -1,4 +1,4 @@
-import { createBookingRepository, type Database } from "@syndicate/database";
+import { createBookingRepository, type Database } from "@tee-time/database";
 import { logger } from "./logger";
 
 export type BookingLookupCriteria = {

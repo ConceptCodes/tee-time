@@ -1,7 +1,7 @@
 import {
   createSupportRequestRepository,
   type Database,
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { logger } from "./logger";
 import { notifySupport } from "./notifications/slack";
 

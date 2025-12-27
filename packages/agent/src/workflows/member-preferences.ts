@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { Database } from "@syndicate/database";
-import { updateMemberPreferences } from "@syndicate/core";
+import type { Database } from "@tee-time/database";
+import { updateMemberPreferences } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 
 export type MemberPreferencesInput = {

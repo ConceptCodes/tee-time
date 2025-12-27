@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { Database } from "@syndicate/database";
-import { createBookingWithHistory, getBayAvailability } from "@syndicate/core";
+import type { Database } from "@tee-time/database";
+import { createBookingWithHistory, getBayAvailability } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { runClubSelectionFlow } from "./club-selection";
 

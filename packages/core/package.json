@@ -1,5 +1,5 @@
 {
-  "name": "@syndicate/core",
+  "name": "@tee-time/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@syndicate/database": "workspace:*",
+    "@tee-time/database": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "ai": "^5.0.112",
     "@openrouter/ai-sdk-provider": "^1.5.4",

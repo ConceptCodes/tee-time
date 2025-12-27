@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from "hono";
-import { getDb } from "@syndicate/database";
-import { createStaffRepository } from "@syndicate/database";
+import { getDb } from "@tee-time/database";
+import { createStaffRepository } from "@tee-time/database";
 import { auth } from "../auth";
 
 export const sessionMiddleware = (): MiddlewareHandler => {

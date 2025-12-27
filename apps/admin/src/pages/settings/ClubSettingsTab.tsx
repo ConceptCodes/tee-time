@@ -28,7 +28,7 @@ export default function ClubSettingsTab() {
                     </div>
                      <div className="grid gap-2">
                         <Label htmlFor="email">Context Email</Label>
-                        <Input id="email" defaultValue="contact@syndicate.com" />
+                        <Input id="email" defaultValue="contact@tee-time.com" />
                     </div>
                 </div>
             </CardContent>

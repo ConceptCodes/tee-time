@@ -3,12 +3,12 @@ import type {
   BookingStatusHistory,
   Database,
   NewBookingStatusHistory
-} from "@syndicate/database";
+} from "@tee-time/database";
 import {
   createAuditLogRepository,
   createBookingRepository,
   createBookingStatusHistoryRepository
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { logger } from "./logger";
 
 export type SetBookingStatusParams = {

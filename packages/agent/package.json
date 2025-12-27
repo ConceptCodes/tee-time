@@ -1,5 +1,5 @@
 {
-  "name": "@syndicate/agent",
+  "name": "@tee-time/agent",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "ai": "^5.0.112",
-    "@syndicate/core": "workspace:*",
-    "@syndicate/database": "workspace:*",
+    "@tee-time/core": "workspace:*",
+    "@tee-time/database": "workspace:*",
     "zod": "^4.2.1"
   }
 }

@@ -1,5 +1,5 @@
-import type { Database } from "@syndicate/database";
-import { createMemberRepository } from "@syndicate/database";
+import type { Database } from "@tee-time/database";
+import { createMemberRepository } from "@tee-time/database";
 import { logger } from "../../logger";
 
 export const createMemberProfile = async (

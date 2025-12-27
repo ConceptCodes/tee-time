@@ -1,5 +1,5 @@
 {
-  "name": "@syndicate/api",
+  "name": "@tee-time/api",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",
-    "@syndicate/core": "workspace:*",
-    "@syndicate/database": "workspace:*",
+    "@tee-time/core": "workspace:*",
+    "@tee-time/database": "workspace:*",
     "better-auth": "^1.4.0",
     "hono": "^4.6.8",
     "zod": "^4.2.1"

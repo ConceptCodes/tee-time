@@ -1,5 +1,5 @@
-import type { Database } from "@syndicate/database";
-import { createStaffRepository } from "@syndicate/database";
+import type { Database } from "@tee-time/database";
+import { createStaffRepository } from "@tee-time/database";
 import { logger } from "../../logger";
 
 export const getCurrentUserProfile = async (

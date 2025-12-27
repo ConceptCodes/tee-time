@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
-import { getDb } from "@syndicate/database";
-import { getAdminOverviewStats, listRecentActivity } from "@syndicate/core";
+import { getDb } from "@tee-time/database";
+import { getAdminOverviewStats, listRecentActivity } from "@tee-time/core";
 
 export const overviewRoutes = new Hono<{ Variables: ApiVariables }>();
 

@@ -2,13 +2,13 @@ import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
-import { getDb } from "@syndicate/database";
+import { getDb } from "@tee-time/database";
 import {
   createStaffUser,
   getStaffUserById,
   listStaffUsers,
   updateStaffUser
-} from "@syndicate/core";
+} from "@tee-time/core";
 import { staffSchemas } from "../../schemas";
 import { paginatedResponse, parsePagination } from "../../pagination";
 

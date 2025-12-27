@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { logger } from "@syndicate/core";
+import { logger } from "@tee-time/core";
 
 export const errorHandler = (err: unknown, c: Context) => {
   const requestId = c.get("requestId");

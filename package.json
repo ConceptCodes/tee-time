@@ -7,7 +7,8 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",
-    "admin:dev": "bun --filter @syndicate/admin dev"
+    "admin:dev": "bun --filter @tee-time/admin dev",
+    "worker:dev": "bun --filter @tee-time/worker dev"
   },
   "devDependencies": {},
   "workspaces": [

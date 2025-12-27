@@ -1,9 +1,9 @@
-import type { Database } from "@syndicate/database";
+import type { Database } from "@tee-time/database";
 import {
   createClubLocationRepository,
   createClubRepository,
   createClubLocationBayRepository
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { logger } from "../../logger";
 
 export const listClubs = async (

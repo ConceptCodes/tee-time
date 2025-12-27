@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
-import { getDb } from "@syndicate/database";
-import { getCurrentUserProfile, updateCurrentUserProfile } from "@syndicate/core";
+import { getDb } from "@tee-time/database";
+import { getCurrentUserProfile, updateCurrentUserProfile } from "@tee-time/core";
 import { meSchemas } from "../../schemas";
 
 export const meRoutes = new Hono<{ Variables: ApiVariables }>();

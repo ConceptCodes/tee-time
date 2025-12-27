@@ -1,5 +1,5 @@
-import type { Database } from "@syndicate/database";
-import { retrieveFaqAnswer } from "@syndicate/core";
+import type { Database } from "@tee-time/database";
+import { retrieveFaqAnswer } from "@tee-time/core";
 
 export type FaqFlowInput = {
   message: string;

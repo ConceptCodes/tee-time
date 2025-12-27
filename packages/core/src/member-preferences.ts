@@ -1,4 +1,4 @@
-import { createMemberRepository, type Database } from "@syndicate/database";
+import { createMemberRepository, type Database } from "@tee-time/database";
 import { logger } from "./logger";
 
 export type MemberPreferencesUpdate = {

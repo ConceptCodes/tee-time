@@ -4,7 +4,7 @@ import {
   createClubLocationBayRepository,
   type Booking,
   type Database,
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { notifyBooking } from "./notifications/slack";
 import { logger } from "./logger";
 

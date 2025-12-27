@@ -1,5 +1,5 @@
-import type { Database } from "@syndicate/database";
-import { createBookingStatusHistoryRepository } from "@syndicate/database";
+import type { Database } from "@tee-time/database";
+import { createBookingStatusHistoryRepository } from "@tee-time/database";
 import { logger } from "../../logger";
 
 export const listBookingStatusHistory = async (

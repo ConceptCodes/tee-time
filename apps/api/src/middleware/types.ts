@@ -1,5 +1,5 @@
 import type { auth } from "../auth";
-import type { StaffUser } from "@syndicate/database";
+import type { StaffUser } from "@tee-time/database";
 
 export type Session = typeof auth.$Infer.Session;
 

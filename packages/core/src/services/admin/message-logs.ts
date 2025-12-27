@@ -1,5 +1,5 @@
-import type { Database } from "@syndicate/database";
-import { createMessageLogRepository } from "@syndicate/database";
+import type { Database } from "@tee-time/database";
+import { createMessageLogRepository } from "@tee-time/database";
 import { logger } from "../../logger";
 
 export const listMessageLogs = async (

@@ -2,7 +2,7 @@ import {
   createFaqRepository,
   type Database,
   faqEntries
-} from "@syndicate/database";
+} from "@tee-time/database";
 import { logger } from "./logger";
 import { embed } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
