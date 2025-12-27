@@ -4,5 +4,8 @@ node_modules/
 dist/
 .DS_Store
 .vscode/
+*.tsbuildinfo
+*.d.ts
+!src/**/*.d.ts
 
 AGENTS.md
