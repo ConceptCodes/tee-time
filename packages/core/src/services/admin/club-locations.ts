@@ -1,7 +1,8 @@
 import type { Database } from "@syndicate/database";
 import {
   createClubLocationRepository,
-  createClubRepository
+  createClubRepository,
+  createClubLocationBayRepository
 } from "@syndicate/database";
 import { logger } from "../../logger";
 
@@ -27,15 +28,31 @@ export const listClubLocations = async (
   params?: { limit?: number; offset?: number }
 ) => {
   const repo = createClubLocationRepository(db);
+  const bayRepo = createClubLocationBayRepository(db);
   const [result, total] = await Promise.all([
     repo.listByClubId(clubId, params),
     repo.countByClubId(clubId)
   ]);
+  const baysByLocation = await Promise.all(
+    result.map(async (location) => ({
+      clubLocationId: location.id,
+      bays: await bayRepo.listByLocationId(location.id)
+    }))
+  );
+  const baysMap = new Map(
+    baysByLocation.map((entry) => [entry.clubLocationId, entry.bays])
+  );
   logger.info("core.admin.clubLocations.list", {
     clubId,
     count: result.length
   });
-  return { data: result, total };
+  return {
+    data: result.map((location) => ({
+      ...location,
+      bays: baysMap.get(location.id) ?? []
+    })),
+    total
+  };
 };
 
 export const createClubLocation = async (
