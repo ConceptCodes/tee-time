@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
-import { ArrowLeft, Check, X, MessageSquare, Clock } from "lucide-react"
+import { ArrowLeft, Check, X, MessageSquare, Clock, User } from "lucide-react"
+import { mockMembers } from "@/lib/mock-data"
 
 export default function BookingDetailPage() {
   const { id } = useParams()
@@ -12,6 +13,7 @@ export default function BookingDetailPage() {
   
   // In real app, useQuery hook here
   const booking = mockBookings.find(b => b.id === id)
+  const member = booking ? mockMembers.find(m => m.id === booking.memberId) : undefined
 
   if (!booking) {
     return (
@@ -37,8 +39,8 @@ export default function BookingDetailPage() {
         </div>
         <div className="ml-auto flex gap-2">
             <Badge variant={
-                booking.status === "confirmed" ? "default" :
-                booking.status === "rejected" ? "destructive" : "secondary"
+                booking.status === "Confirmed" ? "default" :
+                booking.status === "Not Available" ? "destructive" : "secondary"
             } className="text-base px-4 py-1">
                 {booking.status}
             </Badge>
@@ -53,19 +55,34 @@ export default function BookingDetailPage() {
             <CardContent className="grid gap-4">
                 <div className="flex justify-between py-2 border-b">
                      <span className="text-muted-foreground flex items-center gap-2"><Clock className="h-4 w-4"/> Date & Time</span>
-                     <span className="font-medium">{format(booking.date, "PPP")} at {booking.time}</span>
+                     <span className="font-medium">
+                      {format(new Date(booking.preferredDate), "PPP")} at {booking.preferredTimeStart}
+                      {booking.preferredTimeEnd ? ` - ${booking.preferredTimeEnd}` : ""}
+                    </span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
                      <span className="text-muted-foreground">Club</span>
-                     <span className="font-medium">{booking.club}</span>
+                     <span className="font-medium">{booking.clubName ?? booking.clubId}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
                      <span className="text-muted-foreground">Location</span>
-                     <span className="font-medium">{booking.location}</span>
+                     <span className="font-medium">{booking.clubLocationName ?? booking.clubLocationId ?? "-"}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                     <span className="text-muted-foreground">Bay</span>
+                     <span className="font-medium">{booking.bayLabel ?? booking.bayId ?? "-"}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
                      <span className="text-muted-foreground">Players</span>
-                     <span className="font-medium">{booking.players} Guests</span>
+                     <span className="font-medium">{booking.numberOfPlayers}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                     <span className="text-muted-foreground">Guests</span>
+                     <span className="font-medium">{booking.guestNames}</span>
+                </div>
+                <div className="flex justify-between py-2">
+                     <span className="text-muted-foreground">Notes</span>
+                     <span className="font-medium">{booking.notes}</span>
                 </div>
             </CardContent>
         </Card>
@@ -77,19 +94,25 @@ export default function BookingDetailPage() {
             <CardContent className="grid gap-4">
                  <div className="flex justify-between py-2 border-b">
                      <span className="text-muted-foreground">Name</span>
-                     <span className="font-medium">{booking.member.name}</span>
-                </div>
-                 <div className="flex justify-between py-2 border-b">
-                     <span className="text-muted-foreground">Email</span>
-                     <span className="font-medium">{booking.member.email}</span>
+                     <span className="font-medium">{member?.name ?? "Unknown"}</span>
                 </div>
                  <div className="flex justify-between py-2 border-b">
                      <span className="text-muted-foreground">Phone</span>
-                     <span className="font-medium">{booking.member.phone}</span>
+                     <span className="font-medium">{member?.phoneNumber ?? "-"}</span>
+                </div>
+                 <div className="flex justify-between py-2 border-b">
+                     <span className="text-muted-foreground">Membership</span>
+                     <span className="font-medium">{member?.membershipId ?? "-"}</span>
+                </div>
+                <div className="flex justify-between py-2">
+                     <span className="text-muted-foreground flex items-center gap-2"><User className="h-4 w-4" /> Member ID</span>
+                     <span className="font-medium">{booking.memberId}</span>
                 </div>
             </CardContent>
              <CardFooter className="flex-col gap-2 items-start opacity-70">
-                <p className="text-xs text-muted-foreground">Member since {format(new Date(), "yyyy")}</p>
+                <p className="text-xs text-muted-foreground">
+                  Member since {member ? format(member.createdAt, "yyyy") : "-"}
+                </p>
             </CardFooter>
         </Card>
       </div>
@@ -106,11 +129,11 @@ export default function BookingDetailPage() {
             </Button>
              <Button variant="destructive" className="flex-1">
                 <X className="mr-2 h-4 w-4" />
-                Reject Booking
+                Mark Not Available
             </Button>
              <Button variant="secondary" className="flex-1">
                 <MessageSquare className="mr-2 h-4 w-4" />
-                Request More Info
+                Request Info
             </Button>
         </CardContent>
       </Card>

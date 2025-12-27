@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { columns as bookingColumns } from "@/components/cards/BookingColumns"
 import { DataTable } from "@/components/cards/DataTable"
-import { ArrowLeft, Mail, Phone, Calendar } from "lucide-react"
+import { ArrowLeft, Phone, Calendar, Globe2, MapPin } from "lucide-react"
 import { format } from "date-fns"
 
 export default function MemberProfilePage() {
@@ -41,14 +41,12 @@ export default function MemberProfilePage() {
              <Badge
                 className="text-base px-4 py-1"
                 variant={
-                    member.status === "active"
+                    member.isActive
                     ? "default"
-                    : member.status === "suspended"
-                    ? "destructive"
                     : "secondary"
                 }
                 >
-                {member.status}
+                {member.isActive ? "active" : "inactive"}
             </Badge>
         </div>
       </div>
@@ -60,20 +58,45 @@ export default function MemberProfilePage() {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span>{member.email}</span>
-                </div>
-                 <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{member.phone}</span>
+                    <span>{member.phoneNumber}</span>
                 </div>
                  <div className="flex items-center gap-3">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>Joined {format(member.joinDate, "PPP")}</span>
+                    <Globe2 className="h-4 w-4 text-muted-foreground" />
+                    <span>{member.timezone}</span>
                 </div>
+                <div className="flex items-center gap-3">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span>{member.favoriteLocationLabel}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>Joined {format(member.createdAt, "PPP")}</span>
+                </div>
+                {member.onboardingCompletedAt && (
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>Onboarded {format(member.onboardingCompletedAt, "PPP")}</span>
+                  </div>
+                )}
                  <div className="pt-4 border-t">
                     <p className="text-sm font-medium mb-2">Membership</p>
-                    <Badge variant="outline" className="capitalize">{member.membershipType}</Badge>
+                    <Badge variant="outline">{member.membershipId}</Badge>
+                    {member.preferredLocationLabel && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Preferred location: {member.preferredLocationLabel}
+                      </p>
+                    )}
+                    {member.preferredTimeOfDay && (
+                      <p className="text-xs text-muted-foreground">
+                        Preferred time: {member.preferredTimeOfDay}
+                      </p>
+                    )}
+                    {member.preferredBayLabel && (
+                      <p className="text-xs text-muted-foreground">
+                        Preferred bay: {member.preferredBayLabel}
+                      </p>
+                    )}
                 </div>
             </CardContent>
         </Card>

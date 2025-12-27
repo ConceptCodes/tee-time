@@ -7,6 +7,7 @@ import {
   MessageSquare,
   FileText,
   ShieldCheck,
+  MapPinned,
 } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 
@@ -32,6 +33,7 @@ const items = [
   { icon: Calendar, title: "Bookings", url: "/bookings" },
   { icon: Users, title: "Members", url: "/members" },
   { icon: MessageSquare, title: "Messages", url: "/messages" },
+  { icon: MapPinned, title: "Clubs", url: "/clubs" },
   { icon: FileText, title: "Reports", url: "/reports" },
   { icon: ShieldCheck, title: "Audit Logs", url: "/audit-logs" },
   { icon: Settings, title: "Settings", url: "/settings" },

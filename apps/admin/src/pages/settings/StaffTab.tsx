@@ -10,7 +10,7 @@ export default function StaffTab() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-            <CardTitle>Staff Management</CardTitle>
+            <CardTitle className="font-display text-2xl">Staff Management</CardTitle>
             <CardDescription>Manage user access and roles.</CardDescription>
         </div>
         <Button>
@@ -35,7 +35,9 @@ export default function StaffTab() {
                 <TableCell>{staff.email}</TableCell>
                 <TableCell className="capitalize">{staff.role}</TableCell>
                 <TableCell>
-                     <Badge variant={staff.status === "active" ? "default" : "secondary"}>{staff.status}</Badge>
+                     <Badge variant={staff.isActive ? "default" : "secondary"}>
+                      {staff.isActive ? "active" : "inactive"}
+                    </Badge>
                 </TableCell>
               </TableRow>
             ))}

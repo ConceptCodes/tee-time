@@ -12,6 +12,7 @@ import ReportsPage from "./pages/ReportsPage"
 import OverviewPage from "./pages/OverviewPage"
 import MessagesPage from "./pages/MessagesPage"
 import AuditLogsPage from "./pages/AuditLogsPage"
+import ClubsPage from "./pages/ClubsPage"
 
 const queryClient = new QueryClient()
 
@@ -31,6 +32,7 @@ function App() {
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
+            <Route path="/clubs" element={<ClubsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>

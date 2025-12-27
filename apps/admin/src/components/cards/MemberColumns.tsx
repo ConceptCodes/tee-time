@@ -1,5 +1,5 @@
 import { ColumnDef } from "@tanstack/react-table"
-import { Member } from "@/lib/mock-data"
+import { MemberProfile } from "@/lib/mock-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal, ArrowUpDown } from "lucide-react"
@@ -13,7 +13,7 @@ import {
 import { format } from "date-fns"
 import { Link } from "react-router-dom"
 
-export const columns: ColumnDef<Member>[] = [
+export const columns: ColumnDef<MemberProfile>[] = [
   {
     accessorKey: "name",
     header: ({ column }) => {
@@ -29,38 +29,35 @@ export const columns: ColumnDef<Member>[] = [
     },
   },
   {
-    accessorKey: "email",
-    header: "Email",
+    accessorKey: "phoneNumber",
+    header: "Phone",
   },
   {
-    accessorKey: "status",
+    accessorKey: "timezone",
+    header: "Timezone",
+  },
+  {
+    accessorKey: "membershipId",
+    header: "Membership",
+  },
+  {
+    accessorKey: "isActive",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as string
+      const status = row.getValue("isActive") as boolean
       return (
         <Badge
-          variant={
-            status === "active"
-              ? "default"
-              : status === "suspended"
-              ? "destructive"
-              : "secondary"
-          }
+          variant={status ? "default" : "secondary"}
         >
-          {status}
+          {status ? "active" : "inactive"}
         </Badge>
       )
     },
   },
   {
-    accessorKey: "membershipType",
-    header: "Type",
-    cell: ({ row }) => <span className="capitalize">{row.getValue("membershipType")}</span>,
-  },
-  {
-    accessorKey: "joinDate",
+    accessorKey: "createdAt",
     header: "Joined",
-    cell: ({ row }) => format(row.getValue("joinDate"), "MMM d, yyyy"),
+    cell: ({ row }) => format(row.getValue("createdAt"), "MMM d, yyyy"),
   },
   {
     id: "actions",
@@ -80,8 +77,8 @@ export const columns: ColumnDef<Member>[] = [
             <DropdownMenuItem asChild>
                 <Link to={`/members/${member.id}`}>View Profile</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(member.email)}>
-              Copy Email
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(member.phoneNumber)}>
+              Copy Phone
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

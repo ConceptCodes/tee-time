@@ -24,8 +24,9 @@ export default function KnowledgeBaseTab() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[300px]">Question</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Last Updated</TableHead>
+              <TableHead>Tags</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Updated</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -34,9 +35,20 @@ export default function KnowledgeBaseTab() {
               <TableRow key={faq.id}>
                 <TableCell className="font-medium">{faq.question}</TableCell>
                 <TableCell>
-                    <Badge variant="outline" className="capitalize">{faq.category}</Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {faq.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="capitalize">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
                 </TableCell>
-                <TableCell>{format(faq.lastUpdated, "MMM d, yyyy")}</TableCell>
+                <TableCell>
+                  <Badge variant={faq.isActive ? "default" : "secondary"}>
+                    {faq.isActive ? "active" : "inactive"}
+                  </Badge>
+                </TableCell>
+                <TableCell>{format(faq.updatedAt, "MMM d, yyyy")}</TableCell>
                 <TableCell className="text-right">
                      <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon">

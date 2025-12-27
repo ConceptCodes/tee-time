@@ -14,7 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Booking } from "@/lib/mock-data"
+import { mockMembers, Booking } from "@/lib/mock-data"
+
+const memberById = new Map(mockMembers.map((member) => [member.id, member]))
 
 export const columns: ColumnDef<Booking>[] = [
   {
@@ -25,9 +27,9 @@ export const columns: ColumnDef<Booking>[] = [
       return (
         <Badge
           variant={
-            status === "confirmed"
+            status === "Confirmed"
               ? "default"
-              : status === "rejected"
+              : status === "Not Available"
               ? "destructive"
               : "secondary"
           }
@@ -38,15 +40,20 @@ export const columns: ColumnDef<Booking>[] = [
     },
   },
   {
-    accessorKey: "member.name",
+    accessorKey: "memberId",
     header: "Member",
+    cell: ({ row }) => {
+      const memberId = row.getValue("memberId") as string
+      return memberById.get(memberId)?.name ?? "Unknown"
+    },
   },
   {
-    accessorKey: "club",
+    accessorKey: "clubName",
     header: "Club",
+    cell: ({ row }) => row.getValue("clubName") ?? row.original.clubId,
   },
   {
-    accessorKey: "date",
+    accessorKey: "preferredDate",
     header: ({ column }) => {
         return (
           <Button
@@ -58,14 +65,19 @@ export const columns: ColumnDef<Booking>[] = [
           </Button>
         )
     },
-    cell: ({ row }) => format(row.getValue("date"), "PPP"),
+    cell: ({ row }) => format(new Date(row.getValue("preferredDate")), "PPP"),
   },
   {
-    accessorKey: "time",
+    accessorKey: "preferredTimeStart",
     header: "Time",
+    cell: ({ row }) => {
+      const start = row.getValue("preferredTimeStart") as string
+      const end = row.original.preferredTimeEnd
+      return end ? `${start} - ${end}` : start
+    },
   },
   {
-    accessorKey: "players",
+    accessorKey: "numberOfPlayers",
     header: "Players",
   },
   {
