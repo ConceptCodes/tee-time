@@ -1,7 +1,11 @@
+import type { Database } from "@syndicate/database";
+import { retrieveFaqAnswer } from "@syndicate/core";
+
 export type FaqFlowInput = {
   message: string;
   memberId?: string;
   locale?: string;
+  db?: Database;
 };
 
 export type FaqFlowDecision =
@@ -22,13 +26,39 @@ export type FaqFlowDecision =
 const DEFAULT_CLARIFY_PROMPT =
   "I can help with tee times, membership, or club info. What would you like to know?";
 
-export const runFaqFlow = (input: FaqFlowInput): FaqFlowDecision => {
+export type FaqFlowRuntime = {
+  getFaqAnswer?: (question: string) => Promise<{
+    answer: string;
+    confidence: number;
+  } | null>;
+};
+
+export const runFaqFlow = async (
+  input: FaqFlowInput,
+  runtime: FaqFlowRuntime = {}
+): Promise<FaqFlowDecision> => {
   const message = input.message?.trim();
   if (!message) {
     return { type: "clarify", prompt: DEFAULT_CLARIFY_PROMPT };
   }
 
-  // TODO: wire embeddings + FAQ retrieval with confidence scoring.
-  // For now, route to escalation so the workflow is deterministic and safe.
-  return { type: "escalate", reason: "faq_not_implemented" };
+  const getAnswer =
+    runtime.getFaqAnswer ??
+    (input.db
+      ? (question: string) => retrieveFaqAnswer(input.db as Database, question)
+      : undefined);
+  if (!getAnswer) {
+    return { type: "escalate", reason: "faq_unavailable" };
+  }
+
+  const result = await getAnswer(message);
+  if (!result || result.confidence < 0.6) {
+    return { type: "escalate", reason: "faq_low_confidence" };
+  }
+
+  return {
+    type: "answer",
+    answer: result.answer,
+    confidence: result.confidence,
+  };
 };

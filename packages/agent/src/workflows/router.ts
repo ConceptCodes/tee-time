@@ -82,7 +82,7 @@ export const routeAgentMessage = async (
     }
 
     if (result.object.flow === "faq") {
-      return { flow: "faq", decision: runFaqFlow(input as FaqFlowInput) };
+      return { flow: "faq", decision: await runFaqFlow(input as FaqFlowInput) };
     }
 
     if (result.object.flow === "support") {

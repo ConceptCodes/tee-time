@@ -31,6 +31,7 @@ Monorepo for the Syndicate Tee Booker: a WhatsApp-based tee-time booking bot plu
 - `LOG_REDACT`: Redact emails/phones/coordinates in logs (`true`/`false`). Default: `true`.
 - `OPENROUTER_API_KEY`: API key for the OpenRouter provider used by the agent package.
 - `OPENROUTER_MODEL_ID`: Default OpenRouter model ID for agent workflows.
+- `OPENROUTER_EMBEDDING_MODEL_ID`: OpenRouter embedding model ID used for FAQ vector search.
 - `SLACK_BOT_TOKEN`: Slack bot token used to post support notifications.
 - `SUPPORT_SLACK_UPDATES_CHANNEL`: Slack channel (name or ID) for support updates.
 - `SUPPORT_SLACK_USERNAMES`: Comma-separated Slack usernames to DM for support requests.

@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "@syndicate/database": "workspace:*",
-    "drizzle-orm": "^0.38.0"
+    "drizzle-orm": "^0.38.0",
+    "ai": "^5.0.112",
+    "@openrouter/ai-sdk-provider": "^1.5.4",
+    "zod": "^4.2.1"
   }
 }

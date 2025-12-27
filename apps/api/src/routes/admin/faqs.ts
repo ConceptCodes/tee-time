@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
 import { getDb } from "@syndicate/database";
 import { createFaqRepository } from "@syndicate/database";
+import { generateFaqEmbedding } from "@syndicate/core";
 import { faqSchemas } from "../../schemas";
 import { paginatedResponse, parsePagination } from "../../pagination";
 
@@ -30,9 +31,12 @@ faqRoutes.post("/", validateJson(faqSchemas.create), async (c) => {
   const now = new Date();
   const db = getDb();
   const repo = createFaqRepository(db);
+  const embedding = await generateFaqEmbedding(payload.question);
   const faq = await repo.create({
     ...payload,
     tags: payload.tags ?? [],
+    embedding,
+    embeddingUpdatedAt: now,
     isActive: payload.isActive ?? true,
     createdAt: now,
     updatedAt: now
@@ -44,8 +48,12 @@ faqRoutes.put("/:id", validateJson(faqSchemas.update), async (c) => {
   const payload = c.get("validatedBody") as typeof faqSchemas.update._type;
   const db = getDb();
   const repo = createFaqRepository(db);
+  const embedding =
+    payload.question ? await generateFaqEmbedding(payload.question) : undefined;
   const faq = await repo.update(c.req.param("id"), {
     ...payload,
+    embedding,
+    embeddingUpdatedAt: embedding ? new Date() : undefined,
     updatedAt: new Date()
   });
   if (!faq) {
