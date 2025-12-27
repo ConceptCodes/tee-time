@@ -2,5 +2,16 @@
   "name": "@syndicate/agent",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@openrouter/ai-sdk-provider": "^1.5.4",
+    "ai": "^5.0.112",
+    "@syndicate/core": "workspace:*",
+    "@syndicate/database": "workspace:*",
+    "zod": "^4.2.1"
+  }
 }
