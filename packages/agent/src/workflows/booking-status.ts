@@ -23,13 +23,13 @@ export type BookingStatusFlowInput = {
     timeframe?: "past" | "upcoming" | "any";
   }) => Promise<{
     status: string;
-    preferredDate: Date;
+    preferredDate: Date | string;
     preferredTimeStart: string;
     preferredTimeEnd?: string | null;
   } | null>;
   formatStatus?: (booking: {
     status: string;
-    preferredDate: Date;
+    preferredDate: Date | string;
     preferredTimeStart: string;
     preferredTimeEnd?: string | null;
   }) => string;
@@ -71,11 +71,32 @@ const BookingStatusParseSchema = z.object({
   timeframe: z.enum(["past", "upcoming", "any"]).nullable(),
 });
 
+const toIsoDate = (value: Date | string) => {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return null;
+    }
+    return value.toISOString().slice(0, 10);
+  }
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+};
+
 const isUpcoming = (booking: {
-  preferredDate: Date;
+  preferredDate: Date | string;
   preferredTimeStart: string;
 }) => {
-  const dateIso = booking.preferredDate.toISOString().slice(0, 10);
+  const dateIso = toIsoDate(booking.preferredDate);
+  if (!dateIso) {
+    return true;
+  }
   const timeToken =
     booking.preferredTimeStart.length === 5
       ? `${booking.preferredTimeStart}:00`
@@ -88,11 +109,11 @@ const isUpcoming = (booking: {
 };
 
 const formatBookingChoice = (booking: {
-  preferredDate: Date;
+  preferredDate: Date | string;
   preferredTimeStart: string;
   preferredTimeEnd?: string | null;
 }) => {
-  const date = booking.preferredDate.toISOString().slice(0, 10);
+  const date = toIsoDate(booking.preferredDate) ?? "Unknown date";
   const timeWindow = booking.preferredTimeEnd
     ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
     : booking.preferredTimeStart;
