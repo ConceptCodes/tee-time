@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   auditLogs,
   bookingStatusHistory,
+  bookingStates,
   bookings,
   clubLocationBays,
   clubLocations,
@@ -18,12 +19,19 @@ import {
   teams
 } from "./schema";
 
-export const memberProfilesRelations = relations(memberProfiles, ({ many }) => ({
-  bookings: many(bookings),
-  supportRequests: many(supportRequests),
-  messageLogs: many(messageLogs),
-  messageDedup: many(messageDedup)
-}));
+export const memberProfilesRelations = relations(
+  memberProfiles,
+  ({ many, one }) => ({
+    bookings: many(bookings),
+    supportRequests: many(supportRequests),
+    messageLogs: many(messageLogs),
+    messageDedup: many(messageDedup),
+    bookingState: one(bookingStates, {
+      fields: [memberProfiles.id],
+      references: [bookingStates.memberId]
+    })
+  })
+);
 
 export const clubsRelations = relations(clubs, ({ many }) => ({
   locations: many(clubLocations),
@@ -81,6 +89,13 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   statusHistory: many(bookingStatusHistory),
   notifications: many(notifications),
   scheduledJobs: many(scheduledJobs)
+}));
+
+export const bookingStatesRelations = relations(bookingStates, ({ one }) => ({
+  member: one(memberProfiles, {
+    fields: [bookingStates.memberId],
+    references: [memberProfiles.id]
+  })
 }));
 
 export const bookingStatusHistoryRelations = relations(

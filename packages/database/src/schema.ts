@@ -133,7 +133,10 @@ export const clubLocationBays = pgTable(
     locationStatusIdx: index("club_location_bays_location_status_idx").on(
       table.clubLocationId,
       table.status
-    )
+    ),
+    locationNameUnique: uniqueIndex(
+      "club_location_bays_location_name_idx"
+    ).on(table.clubLocationId, table.name)
   })
 );
 
@@ -183,6 +186,24 @@ export const bookings = pgTable(
     memberCreatedIdx: index("bookings_member_id_created_at_idx").on(
       table.memberId,
       table.createdAt
+    )
+  })
+);
+
+export const bookingStates = pgTable(
+  "booking_states",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => memberProfiles.id),
+    state: jsonb("state").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
+  },
+  (table) => ({
+    memberUnique: uniqueIndex("booking_states_member_id_idx").on(
+      table.memberId
     )
   })
 );
@@ -357,6 +378,7 @@ export const schema = {
   messageDedup,
   messageLogs,
   notifications,
+  bookingStates,
   scheduledJobs,
   staffUsers,
   supportRequests,

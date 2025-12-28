@@ -1,5 +1,6 @@
 export * from "./audit";
 export * from "./bays";
+export * from "./booking-states";
 export * from "./bookings";
 export * from "./clubs";
 export * from "./faqs";
