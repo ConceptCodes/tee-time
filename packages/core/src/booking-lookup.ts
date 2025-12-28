@@ -19,8 +19,29 @@ const normalizeDate = (value?: string) => value?.trim();
 const normalizeTime = (value?: string) =>
   value?.trim().toLowerCase().replace(/\s+/g, "");
 
-const getBookingTimestamp = (bookingDate: Date, bookingTime: string) => {
-  const dateIso = bookingDate.toISOString().slice(0, 10);
+const toIsoDate = (bookingDate: Date | string) => {
+  if (bookingDate instanceof Date) {
+    if (Number.isNaN(bookingDate.getTime())) {
+      return null;
+    }
+    return bookingDate.toISOString().slice(0, 10);
+  }
+  const trimmed = bookingDate.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+};
+
+const getBookingTimestamp = (bookingDate: Date | string, bookingTime: string) => {
+  const dateIso = toIsoDate(bookingDate);
+  if (!dateIso) {
+    return Number.NaN;
+  }
   const timeToken =
     bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime;
   const dateTime = new Date(`${dateIso}T${timeToken}`);
@@ -28,7 +49,7 @@ const getBookingTimestamp = (bookingDate: Date, bookingTime: string) => {
 };
 
 const matchesTimeframe = (
-  bookingDate: Date,
+  bookingDate: Date | string,
   bookingTime: string,
   timeframe: "past" | "upcoming" | "any",
   now: Date
@@ -46,7 +67,7 @@ const matchesTimeframe = (
   return timestamp >= now.getTime();
 };
 
-const matchesDate = (bookingDate: Date, desired?: string) => {
+const matchesDate = (bookingDate: Date | string, desired?: string) => {
   if (!desired) {
     return true;
   }
@@ -54,7 +75,10 @@ const matchesDate = (bookingDate: Date, desired?: string) => {
   if (!normalized) {
     return true;
   }
-  const bookingIso = bookingDate.toISOString().slice(0, 10);
+  const bookingIso = toIsoDate(bookingDate);
+  if (!bookingIso) {
+    return false;
+  }
   return bookingIso === normalized;
 };
 
@@ -150,11 +174,11 @@ export const lookupMemberBooking = async (
 
 export const formatBookingStatus = (booking: {
   status: string;
-  preferredDate: Date;
+  preferredDate: Date | string;
   preferredTimeStart: string;
   preferredTimeEnd?: string | null;
 }) => {
-  const date = booking.preferredDate.toISOString().slice(0, 10);
+  const date = toIsoDate(booking.preferredDate) ?? "Unknown date";
   const timeWindow = booking.preferredTimeEnd
     ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
     : booking.preferredTimeStart;
