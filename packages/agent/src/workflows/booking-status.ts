@@ -20,6 +20,7 @@ export type BookingStatusFlowInput = {
     bookingReference?: string;
     preferredDate?: string;
     preferredTime?: string;
+    timeframe?: "past" | "upcoming" | "any";
   }) => Promise<{
     status: string;
     preferredDate: Date;
@@ -68,6 +69,19 @@ const extractReference = (message: string) => {
   return match?.[1];
 };
 
+const detectTimeframe = (message: string) => {
+  const normalized = message.toLowerCase();
+  if (
+    /(past|previous|prior|history|last booking|earlier|before)/.test(normalized)
+  ) {
+    return "past" as const;
+  }
+  if (/(upcoming|next|future|scheduled|coming up)/.test(normalized)) {
+    return "upcoming" as const;
+  }
+  return undefined;
+};
+
 const BookingStatusParseSchema = z.object({
   preferredDate: z.string().nullable(),
   preferredTime: z.string().nullable(),
@@ -82,6 +96,7 @@ export const runBookingStatusFlow = async (
   }
 
   const reference = extractReference(message);
+  const timeframe = detectTimeframe(message);
   let preferredDate: string | undefined;
   let preferredTime: string | undefined;
 
@@ -129,13 +144,21 @@ export const runBookingStatusFlow = async (
       bookingReference: reference,
       preferredDate,
       preferredTime,
+      timeframe: timeframe ?? "any",
     });
     if (!booking) {
       if (!reference && !preferredDate && !preferredTime) {
+        if (timeframe === "past") {
+          return {
+            type: "respond",
+            message: "You don't have any past bookings.",
+          };
+        }
         return {
           type: "respond",
-          message: "You don't have any upcoming bookings. Would you like to book a tee time?",
-          offerBooking: true,
+          message:
+            "You don't have any upcoming bookings. Would you like to book a tee time?",
+          offerBooking: timeframe !== "past",
         };
       }
       return {

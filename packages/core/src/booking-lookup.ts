@@ -7,6 +7,8 @@ export type BookingLookupCriteria = {
   bookingReference?: string;
   preferredDate?: string;
   preferredTime?: string;
+  timeframe?: "past" | "upcoming" | "any";
+  now?: Date;
 };
 
 const isUuid = (value?: string) =>
@@ -16,6 +18,33 @@ const normalizeDate = (value?: string) => value?.trim();
 
 const normalizeTime = (value?: string) =>
   value?.trim().toLowerCase().replace(/\s+/g, "");
+
+const getBookingTimestamp = (bookingDate: Date, bookingTime: string) => {
+  const dateIso = bookingDate.toISOString().slice(0, 10);
+  const timeToken =
+    bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime;
+  const dateTime = new Date(`${dateIso}T${timeToken}`);
+  return dateTime.getTime();
+};
+
+const matchesTimeframe = (
+  bookingDate: Date,
+  bookingTime: string,
+  timeframe: "past" | "upcoming" | "any",
+  now: Date
+) => {
+  if (timeframe === "any") {
+    return true;
+  }
+  const timestamp = getBookingTimestamp(bookingDate, bookingTime);
+  if (Number.isNaN(timestamp)) {
+    return true;
+  }
+  if (timeframe === "past") {
+    return timestamp < now.getTime();
+  }
+  return timestamp >= now.getTime();
+};
 
 const matchesDate = (bookingDate: Date, desired?: string) => {
   if (!desired) {
@@ -62,10 +91,37 @@ export const lookupMemberBooking = async (
       booking.preferredTimeStart,
       criteria.preferredTime
     );
-    return dateMatch && timeMatch;
+    const timeframe = criteria.timeframe ?? "any";
+    const now = criteria.now ?? new Date();
+    const timeframeMatch = matchesTimeframe(
+      booking.preferredDate,
+      booking.preferredTimeStart,
+      timeframe,
+      now
+    );
+    return dateMatch && timeMatch && timeframeMatch;
   });
 
-  const booking = matches[0] ?? null;
+  const timeframe = criteria.timeframe ?? "any";
+  let booking = matches[0] ?? null;
+  if (matches.length > 0 && timeframe !== "any") {
+    const now = criteria.now ?? new Date();
+    const withTimestamp = matches
+      .map((match) => ({
+        booking: match,
+        timestamp: getBookingTimestamp(
+          match.preferredDate,
+          match.preferredTimeStart
+        ),
+      }))
+      .filter((entry) => !Number.isNaN(entry.timestamp));
+    withTimestamp.sort((a, b) =>
+      timeframe === "past"
+        ? b.timestamp - a.timestamp
+        : a.timestamp - b.timestamp
+    );
+    booking = withTimestamp[0]?.booking ?? booking;
+  }
   logger.info("core.booking.lookup", {
     memberId: criteria.memberId,
     found: Boolean(booking),
@@ -83,5 +139,14 @@ export const formatBookingStatus = (booking: {
   const timeWindow = booking.preferredTimeEnd
     ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
     : booking.preferredTimeStart;
-  return `Your booking for ${date} at ${timeWindow} is ${booking.status}.`;
+  const now = new Date();
+  const bookingTimestamp = getBookingTimestamp(
+    booking.preferredDate,
+    booking.preferredTimeStart
+  );
+  const verb =
+    Number.isNaN(bookingTimestamp) || bookingTimestamp >= now.getTime()
+      ? "is"
+      : "was";
+  return `Your booking for ${date} at ${timeWindow} ${verb} ${booking.status}.`;
 };
