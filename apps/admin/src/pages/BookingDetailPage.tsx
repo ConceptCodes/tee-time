@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom"
 import { mockBookings } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ArrowLeft, Check, X, MessageSquare, Clock, User } from "lucide-react"
@@ -29,15 +29,34 @@ export default function BookingDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate("/bookings")}>
-            <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-            <h1 className="text-2xl font-bold tracking-tight">Booking {booking.id}</h1>
-            <p className="text-muted-foreground">View and manage reservation details.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate("/bookings")}>
+              <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+              <h1 className="text-2xl font-bold tracking-tight">Booking {booking.id}</h1>
+              <p className="text-muted-foreground">View and manage reservation details.</p>
+          </div>
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="flex items-center gap-2">
+            {booking.status !== "Confirmed" && (
+                <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                    <Check className="mr-2 h-4 w-4" />
+                    Confirm Booking
+                </Button>
+            )}
+            {booking.status !== "Not Available" && (
+                <Button size="sm" variant="destructive">
+                    <X className="mr-2 h-4 w-4" />
+                    Mark Not Available
+                </Button>
+            )}
+            <Button size="sm" variant="secondary">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Request Info
+            </Button>
+            <div className="mx-2 h-6 w-px bg-border" />
             <Badge variant={
                 booking.status === "Confirmed" ? "default" :
                 booking.status === "Not Available" ? "destructive" : "secondary"
@@ -117,26 +136,6 @@ export default function BookingDetailPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-            <CardTitle>Actions</CardTitle>
-            <CardDescription>Perform actions on this booking request.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-4">
-            <Button className="flex-1 bg-green-600 hover:bg-green-700">
-                <Check className="mr-2 h-4 w-4" />
-                Confirm Booking
-            </Button>
-             <Button variant="destructive" className="flex-1">
-                <X className="mr-2 h-4 w-4" />
-                Mark Not Available
-            </Button>
-             <Button variant="secondary" className="flex-1">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Request Info
-            </Button>
-        </CardContent>
-      </Card>
     </div>
   )
 }
