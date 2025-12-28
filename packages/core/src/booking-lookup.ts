@@ -69,13 +69,28 @@ const matchesTime = (bookingTime: string, desired?: string) => {
   return normalizeTime(bookingTime).startsWith(normalized);
 };
 
+const matchesReference = (bookingReference: string | null, desired?: string) => {
+  if (!desired) {
+    return true;
+  }
+  const normalized = desired.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+  return bookingReference?.trim().toLowerCase() === normalized;
+};
+
 export const lookupMemberBooking = async (
   db: Database,
   criteria: BookingLookupCriteria
 ) => {
   const repo = createBookingRepository(db);
   const reference = criteria.bookingReference ?? criteria.bookingId;
-  const bookingId = isUuid(reference) ? reference : criteria.bookingId;
+  const bookingId = isUuid(reference)
+    ? reference
+    : criteria.bookingId && isUuid(criteria.bookingId)
+    ? criteria.bookingId
+    : undefined;
 
   if (bookingId) {
     const booking = await repo.getById(bookingId);
@@ -86,6 +101,10 @@ export const lookupMemberBooking = async (
 
   const bookings = await repo.listByMemberId(criteria.memberId);
   const matches = bookings.filter((booking) => {
+    const referenceMatch = matchesReference(
+      booking.bookingReference ?? null,
+      criteria.bookingReference
+    );
     const dateMatch = matchesDate(booking.preferredDate, criteria.preferredDate);
     const timeMatch = matchesTime(
       booking.preferredTimeStart,
@@ -99,7 +118,7 @@ export const lookupMemberBooking = async (
       timeframe,
       now
     );
-    return dateMatch && timeMatch && timeframeMatch;
+    return referenceMatch && dateMatch && timeMatch && timeframeMatch;
   });
 
   const timeframe = criteria.timeframe ?? "any";

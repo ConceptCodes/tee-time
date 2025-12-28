@@ -166,9 +166,15 @@ const parseTimeToken = (
 };
 
 export const parsePreferredTimeWindow = (value?: string): ParsedTimeWindow | null => {
-  const input = value?.trim().toLowerCase();
-  if (!input) {
+  const raw = value?.trim().toLowerCase();
+  if (!raw) {
     return null;
+  }
+
+  let input = raw;
+  const betweenMatch = input.match(/^between\s+(.+)\s+and\s+(.+)$/);
+  if (betweenMatch) {
+    input = `${betweenMatch[1]} - ${betweenMatch[2]}`;
   }
 
   const parts = input.split(/\s*(?:-|\u2013|to|until)\s*/);
@@ -193,7 +199,21 @@ export const parsePreferredTimeWindow = (value?: string): ParsedTimeWindow | nul
   return { start: parsed.time, end: null };
 };
 
-export const normalizePlayers = (value?: number | string) => {
+/**
+ * Get the configurable max players limit from environment or default to 4.
+ */
+export const getMaxPlayers = (): number => {
+  const envValue = process.env.BOOKING_MAX_PLAYERS;
+  if (envValue) {
+    const parsed = Number.parseInt(envValue, 10);
+    if (Number.isFinite(parsed) && parsed >= 1) {
+      return parsed;
+    }
+  }
+  return 4;
+};
+
+export const normalizePlayers = (value?: number | string, maxPlayers?: number) => {
   if (value === undefined || value === null) {
     return null;
   }
@@ -202,7 +222,8 @@ export const normalizePlayers = (value?: number | string) => {
     return null;
   }
   const rounded = Math.floor(parsed);
-  if (rounded < 1 || rounded > 4) {
+  const max = maxPlayers ?? getMaxPlayers();
+  if (rounded < 1 || rounded > max) {
     return null;
   }
   return rounded;

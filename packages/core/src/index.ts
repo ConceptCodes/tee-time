@@ -16,3 +16,5 @@ export * from "./jobs";
 export * from "./notification-queue";
 export * from "./notifications/twilio";
 export * from "./services/admin";
+export * from "./errors";
+

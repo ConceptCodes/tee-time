@@ -29,7 +29,7 @@ export const generateFaqEmbedding = async (question: string) => {
   return embedding;
 };
 
-export const retrieveFaqAnswer = async (
+export const retrieveFaqCandidates = async (
   db: Database,
   question: string,
   options?: { minConfidence?: number; limit?: number }
@@ -63,6 +63,15 @@ export const retrieveFaqAnswer = async (
     .orderBy(desc(similarity))
     .limit(limit);
 
+  return matches;
+};
+
+export const retrieveFaqAnswer = async (
+  db: Database,
+  question: string,
+  options?: { minConfidence?: number; limit?: number }
+) => {
+  const matches = await retrieveFaqCandidates(db, question, options);
   const match = matches[0];
   if (!match) {
     return null;
