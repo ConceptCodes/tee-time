@@ -54,10 +54,10 @@ export default function ClubLocationMap({ locations }: ClubLocationMapProps) {
           locations.reduce((sum, loc) => sum + loc.locationPoint.y, 0) / locations.length,
           locations.reduce((sum, loc) => sum + loc.locationPoint.x, 0) / locations.length,
         ]
-      : [40, -95]; // Default to center of US
+      : [54, -2];
 
     // Create the map
-    const map = L.map(mapContainerRef.current).setView(center, 6);
+    const map = L.map(mapContainerRef.current).setView(center, locations.length > 0 ? 6 : 5);
     mapRef.current = map;
 
     // Add tile layer
