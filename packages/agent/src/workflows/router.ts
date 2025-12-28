@@ -253,7 +253,10 @@ export const routeAgentMessage = async (
       model: openrouter.chat(modelId),
       schema: RouterSchema,
       system:
-        "You are a router for a tee-time booking assistant. Choose the best flow." + contextNote,
+        "You are a router for a tee-time booking assistant. Choose the best flow. " +
+        "If the assistant previously said a booking was not available and asked for alternate times, " +
+        "and the user replies with a specific time, choose 'booking-new'." +
+        contextNote,
       prompt:
         "Given the user message, select one flow:\n" +
         "- booking-new: user wants to book a new tee time.\n" +

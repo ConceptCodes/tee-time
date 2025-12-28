@@ -141,10 +141,16 @@ export const runCancelBookingFlow = async (
       model: openrouter.chat(modelId),
       schema: CancelBookingParseSchema,
       system:
-        "Extract cancellation details from the message. Use the user's wording when possible.",
+        "Extract cancellation details from the message. " +
+        "Capture bookingReference even if it's just an alphanumeric code (e.g., ABC123, TT-9F2KJQ). " +
+        "Capture preferredDate if the user mentions relative or weekday dates (today, tomorrow, Friday, next Friday). " +
+        "Capture preferredTime for times like 2pm, 14:00, 2:30 pm.",
       prompt:
         "Extract any of these fields if present: booking id, booking reference, club, club location, preferred date, preferred time, cancellation reason. " +
         "Return only JSON with those fields. If a field is not present, omit it.\n\n" +
+        "Examples:\n" +
+        '- "Cancel booking ABC123" -> {"bookingReference":"ABC123"}\n' +
+        '- "Cancel my Friday 2pm booking" -> {"preferredDate":"Friday","preferredTime":"2pm"}\n\n' +
         `User message: "${message}"`,
     });
 
