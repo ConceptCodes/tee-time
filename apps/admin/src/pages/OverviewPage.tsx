@@ -6,10 +6,10 @@ import {
   CalendarClock,
   ChevronRight,
   MessageSquareText,
-  Sparkles,
   ShieldCheck,
   Users,
 } from "lucide-react"
+import CreateBookingModal from "@/components/modals/CreateBookingModal"
 
 const stats = [
   {
@@ -34,17 +34,17 @@ const stats = [
 
 const upcoming = [
   {
-    title: "Sunset Course · 3:10 PM",
+    title: "Wentworth West · 3:10 PM",
     meta: "R. Kwon · 2 guests · Cart",
     status: "Confirmed",
   },
   {
-    title: "South Bay · 4:00 PM",
+    title: "Sunningdale Old · 4:00 PM",
     meta: "L. Ortega · Walking",
     status: "Pending",
   },
   {
-    title: "Cypress Ridge · 4:40 PM",
+    title: "Royal Birkdale · 4:40 PM",
     meta: "A. Patel · 3 guests",
     status: "Confirmed",
   },
@@ -57,10 +57,6 @@ export default function OverviewPage() {
         <div className="absolute -right-20 top-0 h-48 w-64 -translate-y-1/3 rounded-full bg-gradient-to-br from-emerald-400/40 via-sky-400/30 to-indigo-500/40 blur-3xl" />
         <div className="absolute bottom-0 left-0 h-40 w-56 -translate-x-1/3 translate-y-1/3 rounded-full bg-gradient-to-tr from-amber-300/30 via-rose-300/20 to-transparent blur-3xl" />
         <div className="relative space-y-4">
-          <Badge className="w-fit bg-primary/15 text-primary">
-            <Sparkles className="mr-1 h-3.5 w-3.5" />
-            Live operations
-          </Badge>
           <div className="space-y-2">
             <h1 className="font-display text-3xl font-semibold tracking-tight md:text-4xl">
               Keep tee times flowing with clarity and speed.
@@ -71,10 +67,14 @@ export default function OverviewPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button className="gap-2">
-              Create booking
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <CreateBookingModal
+              trigger={
+                <Button className="gap-2">
+                  Create booking
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              }
+            />
             <Button variant="outline" className="gap-2">
               View pipeline
               <ChevronRight className="h-4 w-4" />

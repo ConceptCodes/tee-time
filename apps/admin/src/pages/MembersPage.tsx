@@ -1,6 +1,8 @@
 import { columns } from "@/components/cards/MemberColumns"
 import { DataTable } from "@/components/cards/DataTable"
-import { mockMembers } from "@/lib/mock-data"
+import { ExportDropdown } from "@/components/ExportDropdown"
+import { mockMembers, type MemberProfile } from "@/lib/mock-data"
+import { exportData } from "@/lib/export"
 import {
   Card,
   CardContent,
@@ -9,10 +11,28 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { MailPlus, UserPlus } from "lucide-react"
 
+const memberExportColumns: { key: keyof MemberProfile; label: string }[] = [
+  { key: "id", label: "Member ID" },
+  { key: "name", label: "Name" },
+  { key: "phoneNumber", label: "Phone" },
+  { key: "membershipId", label: "Membership ID" },
+  { key: "timezone", label: "Timezone" },
+  { key: "favoriteLocationLabel", label: "Favorite Location" },
+  { key: "preferredLocationLabel", label: "Preferred Location" },
+  { key: "preferredTimeOfDay", label: "Preferred Time" },
+  { key: "preferredBayLabel", label: "Preferred Bay" },
+  { key: "isActive", label: "Active" },
+  { key: "onboardingCompletedAt", label: "Onboarding Completed" },
+  { key: "createdAt", label: "Created At" },
+]
+
 export default function MembersPage() {
+  const handleExport = (format: "csv" | "json") => {
+    exportData(mockMembers, "members", format, memberExportColumns)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -25,6 +45,12 @@ export default function MembersPage() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ExportDropdown
+            data={mockMembers}
+            filename="members"
+            columns={memberExportColumns}
+            onExport={handleExport}
+          />
           <Button variant="outline" className="gap-2">
             <MailPlus className="h-4 w-4" />
             Invite

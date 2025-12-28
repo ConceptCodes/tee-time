@@ -1,12 +1,25 @@
 import { auditColumns } from "@/components/cards/AuditColumns"
 import { DataTable } from "@/components/cards/DataTable"
+import { ExportDropdown } from "@/components/ExportDropdown"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { FileDown } from "lucide-react"
-import { mockAuditLogs } from "@/lib/mock-data"
+import { mockAuditLogs, type AuditLog } from "@/lib/mock-data"
+import { exportData } from "@/lib/export"
+
+const auditExportColumns: { key: keyof AuditLog; label: string }[] = [
+  { key: "id", label: "Log ID" },
+  { key: "user", label: "User" },
+  { key: "action", label: "Action" },
+  { key: "target", label: "Target" },
+  { key: "details", label: "Details" },
+  { key: "timestamp", label: "Timestamp" },
+]
 
 export default function AuditLogsPage() {
+  const handleExport = (format: "csv" | "json") => {
+    exportData(mockAuditLogs, "audit-logs", format, auditExportColumns)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -23,10 +36,12 @@ export default function AuditLogsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary">Synced just now</Badge>
-          <Button variant="outline" className="gap-2">
-            <FileDown className="h-4 w-4" />
-            Download CSV
-          </Button>
+          <ExportDropdown
+            data={mockAuditLogs}
+            filename="audit-logs"
+            columns={auditExportColumns}
+            onExport={handleExport}
+          />
         </div>
       </div>
       <Card className="border bg-card/80">
