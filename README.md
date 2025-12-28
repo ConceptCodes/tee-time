@@ -10,31 +10,37 @@ Monorepo for A Tee Time Booking WhatsApp Bot: a WhatsApp-based tee‑time bookin
 - `packages/agent`: Vite + AI SDK agent setup (OpenRouter provider).
 - `packages/core`: Business logic and services.
 - `packages/database`: Drizzle schema, migrations, and repositories.
+- `packages/evals`: Agent eval runner (booking, FAQ, fallback, updates).
 - `docs`: Product spec and feature tracking.
 
 ## Commands
 
 - `bun install`: install workspace dependencies.
 - `bun --filter @tee-time/admin dev`: run the admin app.
+- `bun --filter @tee-time/api dev`: run the API server.
 - `bun --filter @tee-time/worker dev`: run the worker service.
 - `bun db:generate`: generate Drizzle migrations.
 - `bun db:migrate`: apply migrations.
 - `bun run lint`: run Biome lint.
 - `bun run format`: run Biome format.
 - `bun run check`: run Biome check.
+- `bun run chat`: run the local CLI chat harness.
 - `bun run evals`: run agent evals (use `--help` for options).
 
 ## Environment Variables
 
 - `DATABASE_URL`: PostgreSQL connection string used by the API and Drizzle.
+- `ADMIN_DASHBOARD_URL`: Base URL for the admin UI used in staff notifications.
 - `FAQ_EMBEDDING_DIMENSIONS`: Vector size for FAQ embeddings (default: `1536`).
 - `BETTER_AUTH_SECRET`: Secret for Better Auth session signing.
 - `BETTER_AUTH_URL`: Base URL for Better Auth (e.g. `http://localhost:8787`).
 - `LOG_LEVEL`: Logging level (`debug`, `info`, `warn`, `error`). Default: `info`.
 - `LOG_REDACT`: Redact emails/phones/coordinates in logs (`true`/`false`). Default: `true`.
 - `BOOKING_STATE_TTL_MINUTES`: Minutes before booking flow state expires (`0` disables expiry). Default: `120`.
-- `BOOKING_MIN_LEAD_MINUTES`: Minimum minutes before a requested tee time (prevents past bookings). Default: `0`.
+- `BOOKING_MIN_LEAD_MINUTES`: Minimum minutes before a requested tee time. Default: `0`.
 - `BOOKING_BAY_PROMPT_LIMIT`: Max bays to list before skipping bay selection. Default: `8`.
+- `NOTIFICATION_REMINDER_HOURS`: Hours before a booking to send a reminder. Default: `24`.
+- `NOTIFICATION_FOLLOW_UP_HOURS`: Hours after a booking to send a follow-up. Default: `24`.
 - `WORKER_SCHEDULED_INTERVAL_MS`: Interval for scheduled job polling (ms). Default: `60000`.
 - `WORKER_REPORTS_INTERVAL_MS`: Interval for report generation (ms). Default: `3600000`.
 - `WORKER_JOB_BATCH_SIZE`: Max scheduled jobs claimed per poll. Default: `25`.
@@ -50,6 +56,9 @@ Monorepo for A Tee Time Booking WhatsApp Bot: a WhatsApp-based tee‑time bookin
 - `SUPPORT_SLACK_USERNAMES`: Comma‑separated Slack usernames to DM for support requests.
 - `BOOKING_SLACK_UPDATES_CHANNEL`: Slack channel (name or ID) for booking updates.
 - `BOOKING_SLACK_USERNAMES`: Comma‑separated Slack usernames to DM for new booking alerts.
+- `TWILIO_ACCOUNT_SID`: Twilio account SID for WhatsApp messaging.
+- `TWILIO_AUTH_TOKEN`: Twilio auth token for WhatsApp messaging.
+- `TWILIO_WHATSAPP_NUMBER`: WhatsApp-enabled Twilio number (E.164 format).
 
 ## Agent Routing Overview
 
@@ -77,7 +86,7 @@ flowchart TD
   subgraph Change_Cancel["Change/Cancel Flow"]
     B2A[Find Booking]
     B2B{Found?}
-    B2Q[Ask for Booking Info]
+    B2Q[Ask for Booking Info or Offer Booking]
     B2C[Update / Cancel + Notify Staff]
     B2O[Confirm to Member]
     B2A --> B2B
@@ -104,7 +113,7 @@ flowchart TD
     B3A[Find Booking]
     B3B{Found?}
     B3Q[Ask for Booking Info]
-    B3O[Return Status]
+    B3O[Return Status (Upcoming/Past)]
     B3A --> B3B
     B3B -->|No| B3Q
     B3B -->|Yes| B3O
@@ -129,6 +138,8 @@ flowchart TD
 - **Auth**: Better Auth endpoints mounted under `/api/auth/*`.
 - **Health**: `/health` and `/ready` (DB connectivity).
 - **Admin**: CRUD endpoints for staff, members, bookings, clubs/locations, support requests, audit logs, message logs, and FAQs.
+- **Reports**: `/api/reports/*` for booking and member analytics.
+- **WhatsApp Webhook**: `/webhooks/whatsapp` for inbound message handling.
 - **Current User**: `/api/me` (get/update profile).
 
 ## Admin Dashboard
@@ -137,6 +148,7 @@ The admin UI lives in `apps/admin` and is built with Vite + React. It provides:
 - Staff and member management screens.
 - Booking overview and manual adjustments.
 - FAQ management with vector‑based search.
+- Reports dashboard (conversion, response time, booking mix).
 - Real‑time Slack notifications for new bookings and support requests.
 
 ## Development Workflow
@@ -144,13 +156,19 @@ The admin UI lives in `apps/admin` and is built with Vite + React. It provides:
 1. Install dependencies: `bun install`
 2. Create a `.env` (copy from `.env.example`) and fill in required secrets.
 3. Run the admin UI: `bun --filter @tee-time/admin dev`
-4. Run database migrations when schema changes:
+4. Run the API server: `bun --filter @tee-time/api dev`
+5. Run database migrations when schema changes:
    - Generate: `bun db:generate`
    - Apply: `bun db:migrate`
-5. Lint / format: `bun run lint` / `bun run format`
-6. Run type‑checking: `bun run check`
+6. Lint / format: `bun run lint` / `bun run format`
+7. Run type‑checking: `bun run check`
 
 ## Testing
+
+Use the eval harness for system checks:
+```
+bun run evals --help
+```
 
 Unit and integration tests live alongside each package under `__tests__`. Run them with:
 ```
