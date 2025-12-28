@@ -47,11 +47,11 @@ export function AppSidebar() {
       <SidebarHeader className="border-b/60 px-4 py-3">
         <Link to="/" className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 via-sky-500 to-indigo-600 text-white shadow-sm">
-            S
+            T
           </span>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="font-display text-sm font-semibold tracking-tight">
-              Syndicate
+              Tee Time
             </span>
             <span className="text-xs text-sidebar-foreground/70">
               Tee Booker Ops

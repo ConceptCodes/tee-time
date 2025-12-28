@@ -3,7 +3,7 @@ import type { Database } from "@tee-time/database";
 import { getOpenRouterClient, resolveModelId } from "./provider";
 import { createAgentTools, type AgentTools } from "./tools";
 
-export const DEFAULT_AGENT_INSTRUCTIONS = `You are the Syndicate Tee Booker agent, a helpful WhatsApp assistant for The Syndicate golf club members.
+export const DEFAULT_AGENT_INSTRUCTIONS = `You are the Tee time Booking agent, a helpful WhatsApp assistant for The Tee Time golf club members.
 
 Your capabilities:
 - Book new tee times by collecting club, date, time, and player information
@@ -21,7 +21,7 @@ Guidelines:
 - If you're unsure about something, ask clarifying questions
 - Escalate to human support if the user requests it or if you cannot help`;
 
-export const FAQ_AGENT_INSTRUCTIONS = `You are a FAQ assistant for The Syndicate golf club. Your role is to answer common questions about:
+export const FAQ_AGENT_INSTRUCTIONS = `You are a FAQ assistant for The Tee Time golf club. Your role is to answer common questions about:
 - Membership and pricing
 - Club policies and rules
 - Operating hours and locations
@@ -75,10 +75,10 @@ const toModelMessages = (messages: AgentMessage[]): CoreMessage[] => {
 };
 
 /**
- * Creates the main Syndicate booking agent configuration.
+ * Creates the main booking agent configuration.
  * Returns a function that can be called with messages to generate responses.
  */
-export const createSyndicateAgent = (options: AgentOptions = {}) => {
+export const createBookingAgent = (options: AgentOptions = {}) => {
   const openrouter = getOpenRouterClient();
   const modelId = resolveModelId(options.model);
   const maxSteps = options.maxSteps ?? 10;

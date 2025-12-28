@@ -15,7 +15,7 @@ export default function ClubSettingsTab() {
             <CardContent className="space-y-4">
                 <div className="grid gap-2">
                     <Label htmlFor="clubName">Club Name</Label>
-                    <Input id="clubName" defaultValue="Syndicate Golf Club" />
+                    <Input id="clubName" defaultValue="Tee Time Golf Club" />
                 </div>
                  <div className="grid gap-2">
                     <Label htmlFor="address">Address</Label>

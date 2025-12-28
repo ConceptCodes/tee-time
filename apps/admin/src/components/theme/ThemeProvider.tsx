@@ -10,7 +10,7 @@ type ThemeContextValue = {
 
 const ThemeContext = React.createContext<ThemeContextValue | null>(null)
 
-const STORAGE_KEY = "syndicate-admin-theme"
+const STORAGE_KEY = "tee-time-admin-theme"
 
 function getStoredTheme(defaultTheme: Theme) {
   if (typeof window === "undefined") {

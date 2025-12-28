@@ -1,5 +1,5 @@
 {
-  "name": "syndicate",
+  "name": "tee-time",
   "private": true,
   "scripts": {
     "db:generate": "cd packages/database && bunx drizzle-kit generate",

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "syndicate",
+      "name": "tee-time",
       "dependencies": {
         "@dotenvx/dotenvx": "^1.31.0",
         "biome": "^0.3.3",

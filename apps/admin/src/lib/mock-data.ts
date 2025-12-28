@@ -250,7 +250,7 @@ export const mockFAQs: FAQ[] = [
 export const mockClubs: Club[] = [
   {
     id: "club_1",
-    name: "Syndicate National",
+    name: "Tee Time National",
     isActive: true,
     createdAt: subDays(new Date(), 240),
     updatedAt: subDays(new Date(), 10),

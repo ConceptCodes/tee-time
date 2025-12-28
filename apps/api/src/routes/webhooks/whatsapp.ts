@@ -61,6 +61,7 @@ const formatTwimlResponse = (message: string): string => {
 /**
  * Process the agent decision and convert to response message.
  */
+// NOTE: this needs to be refactored, wtf codex
 const processDecision = (decision: RouterDecision): string => {
   switch (decision.flow) {
     case "booking-new": {
@@ -111,7 +112,7 @@ const processDecision = (decision: RouterDecision): string => {
       return d.prompt;
     }
     case "onboarding":
-      return "Welcome to The Syndicate! Let's get you set up. What name should we use for your member profile?";
+      return "Welcome to Tee Time! Let's get you set up. What name should we use for your member profile?";
     case "support":
       return "I'll connect you with our staff. Someone will be with you shortly.";
     case "clarify":

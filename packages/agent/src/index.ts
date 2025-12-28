@@ -1,5 +1,5 @@
 export {
-  createSyndicateAgent,
+  createBookingAgent,
   createFaqAgent,
   createSupportAgent,
   DEFAULT_AGENT_INSTRUCTIONS,

@@ -1,17 +1,16 @@
 # Tee Time Booking WhatsApp Bots
 
-Monorepo for A Tee Time Booking WhatsApp Bot: a WhatsApp-based tee‑time booking bot plus a staff admin dashboard.
+An automated WhatsApp-based tee-time booking system featuring member onboarding, FAQ automation, and a dedicated staff administration dashboard.
 
 ## Project Structure
 
 - `apps/admin`: Vite + React admin UI.
 - `apps/api`: Hono + TypeScript API (admin endpoints + health + auth).
 - `apps/worker`: Scheduled job runner, data retention cleanup, and report generation.
-- `packages/agent`: Vite + AI SDK agent setup (OpenRouter provider).
+- `packages/agent`: AI SDK agent setup (OpenRouter provider).
 - `packages/core`: Business logic and services.
 - `packages/database`: Drizzle schema, migrations, and repositories.
 - `packages/evals`: Agent eval runner (booking, FAQ, fallback, updates).
-- `docs`: Product spec and feature tracking.
 
 ## Commands
 
@@ -26,39 +25,6 @@ Monorepo for A Tee Time Booking WhatsApp Bot: a WhatsApp-based tee‑time bookin
 - `bun run check`: run Biome check.
 - `bun run chat`: run the local CLI chat harness.
 - `bun run evals`: run agent evals (use `--help` for options).
-
-## Environment Variables
-
-- `DATABASE_URL`: PostgreSQL connection string used by the API and Drizzle.
-- `ADMIN_DASHBOARD_URL`: Base URL for the admin UI used in staff notifications.
-- `FAQ_EMBEDDING_DIMENSIONS`: Vector size for FAQ embeddings (default: `1536`).
-- `BETTER_AUTH_SECRET`: Secret for Better Auth session signing.
-- `BETTER_AUTH_URL`: Base URL for Better Auth (e.g. `http://localhost:8787`).
-- `LOG_LEVEL`: Logging level (`debug`, `info`, `warn`, `error`). Default: `info`.
-- `LOG_REDACT`: Redact emails/phones/coordinates in logs (`true`/`false`). Default: `true`.
-- `BOOKING_STATE_TTL_MINUTES`: Minutes before booking flow state expires (`0` disables expiry). Default: `120`.
-- `BOOKING_MIN_LEAD_MINUTES`: Minimum minutes before a requested tee time. Default: `0`.
-- `BOOKING_BAY_PROMPT_LIMIT`: Max bays to list before skipping bay selection. Default: `8`.
-- `NOTIFICATION_REMINDER_HOURS`: Hours before a booking to send a reminder. Default: `24`.
-- `NOTIFICATION_FOLLOW_UP_HOURS`: Hours after a booking to send a follow-up. Default: `24`.
-- `WORKER_SCHEDULED_INTERVAL_MS`: Interval for scheduled job polling (ms). Default: `60000`.
-- `WORKER_REPORTS_INTERVAL_MS`: Interval for report generation (ms). Default: `3600000`.
-- `WORKER_JOB_BATCH_SIZE`: Max scheduled jobs claimed per poll. Default: `25`.
-- `WORKER_MAX_ATTEMPTS`: Max attempts before failing a scheduled job. Default: `5`.
-- `WORKER_RETRY_BASE_DELAY_MS`: Base retry delay for scheduled jobs (ms). Default: `60000`.
-- `WORKER_RETRY_BACKOFF_MULTIPLIER`: Retry backoff multiplier. Default: `2`.
-- `WORKER_RETRY_MAX_DELAY_MS`: Max retry delay (ms). Default: `3600000`.
-- `OPENROUTER_API_KEY`: API key for the OpenRouter provider used by the agent package.
-- `OPENROUTER_MODEL_ID`: Default OpenRouter model ID for agent workflows.
-- `OPENROUTER_EMBEDDING_MODEL_ID`: OpenRouter embedding model ID used for FAQ vector search.
-- `SLACK_BOT_TOKEN`: Slack bot token used to post support notifications.
-- `SUPPORT_SLACK_UPDATES_CHANNEL`: Slack channel (name or ID) for support updates.
-- `SUPPORT_SLACK_USERNAMES`: Comma‑separated Slack usernames to DM for support requests.
-- `BOOKING_SLACK_UPDATES_CHANNEL`: Slack channel (name or ID) for booking updates.
-- `BOOKING_SLACK_USERNAMES`: Comma‑separated Slack usernames to DM for new booking alerts.
-- `TWILIO_ACCOUNT_SID`: Twilio account SID for WhatsApp messaging.
-- `TWILIO_AUTH_TOKEN`: Twilio auth token for WhatsApp messaging.
-- `TWILIO_WHATSAPP_NUMBER`: WhatsApp-enabled Twilio number (E.164 format).
 
 ## Agent Routing Overview
 
@@ -174,15 +140,6 @@ Unit and integration tests live alongside each package under `__tests__`. Run th
 ```
 bun test
 ```
-(Configure a test script in `package.json` as needed.)
-
-## Contributing
-
-Contributions are welcome! Please:
-- Fork the repo.
-- Create a feature branch.
-- Ensure linting and type‑checking pass.
-- Open a PR with a clear description of changes.
 
 ## License
 
