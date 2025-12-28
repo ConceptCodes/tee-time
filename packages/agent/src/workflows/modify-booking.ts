@@ -1,6 +1,15 @@
 import { generateObject } from "ai";
 import { z } from "zod";
+import type { Database } from "@tee-time/database";
+import {
+  clearBookingState,
+  getBookingState,
+  saveBookingState,
+  wrapFlowState,
+  unwrapFlowState,
+} from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
+import { isConfirmationMessage } from "../utils";
 
 export type ModifyBookingInput = {
   message: string;
@@ -8,6 +17,11 @@ export type ModifyBookingInput = {
   locale?: string;
   existingState?: Partial<ModifyBookingState>;
   confirmed?: boolean;
+  db?: Database;
+  conversationHistory?: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
 };
 
 export type ModifyBookingState = {
@@ -48,22 +62,6 @@ export type ModifyBookingDecision =
       prompt: string;
     };
 
-const isConfirmationMessage = (message: string) => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  if (/\d/.test(normalized)) {
-    return false;
-  }
-  if (/(change|edit|update|instead|actually|but)/.test(normalized)) {
-    return false;
-  }
-  return /^(yes|yep|yeah|y|ok|okay|confirm|confirmed|please do|do it|sounds good|looks good|correct|that's right|that works)$/.test(
-    normalized
-  );
-};
-
 const ModifyBookingParseSchema = z.object({
   bookingId: z.string().optional(),
   bookingReference: z.string().optional(),
@@ -78,15 +76,15 @@ const ModifyBookingParseSchema = z.object({
 
 const buildSummary = (state: ModifyBookingState) => {
   const parts = [
-    state.bookingId ? `Booking ID: ${state.bookingId}` : null,
-    state.bookingReference ? `Reference: ${state.bookingReference}` : null,
-    state.club ? `Club: ${state.club}` : null,
-    state.clubLocation ? `Location: ${state.clubLocation}` : null,
-    state.preferredDate ? `Date: ${state.preferredDate}` : null,
-    state.preferredTime ? `Time: ${state.preferredTime}` : null,
-    state.players ? `Players: ${state.players}` : null,
-    state.guestNames ? `Guests: ${state.guestNames}` : null,
-    state.notes ? `Notes: ${state.notes}` : null,
+    state.bookingId ? `🆔 Booking ID: ${state.bookingId}` : null,
+    state.bookingReference ? `🎫 Reference: ${state.bookingReference}` : null,
+    state.club ? `⛳ Club: ${state.club}` : null,
+    state.clubLocation ? `📍 Location: ${state.clubLocation}` : null,
+    state.preferredDate ? `📅 Date: ${state.preferredDate}` : null,
+    state.preferredTime ? `🕒 Time: ${state.preferredTime}` : null,
+    state.players ? `👥 Players: ${state.players}` : null,
+    state.guestNames ? `👤 Guests: ${state.guestNames}` : null,
+    state.notes ? `📝 Notes: ${state.notes}` : null,
   ].filter(Boolean);
 
   return parts.length
@@ -106,8 +104,32 @@ export const runModifyBookingFlow = async (
     };
   }
 
-  const state: ModifyBookingState = { ...(input.existingState ?? {}) };
+  // Load persisted state if available
+  const storedState =
+    input.db && input.memberId
+      ? await getBookingState<Record<string, unknown>>(input.db, input.memberId)
+      : null;
+  const persistedState = storedState
+    ? unwrapFlowState<ModifyBookingState>(storedState.state, "modify-booking")
+    : undefined;
+
+  const state: ModifyBookingState = {
+    ...(persistedState ?? {}),
+    ...(input.existingState ?? {}),
+  };
+
   const confirmed = input.confirmed ?? isConfirmationMessage(message);
+
+  // Helper to persist state
+  const persistState = async (nextState: ModifyBookingState) => {
+    if (input.db && input.memberId) {
+      await saveBookingState(
+        input.db,
+        input.memberId,
+        wrapFlowState("modify-booking", nextState)
+      );
+    }
+  };
 
   try {
     const openrouter = getOpenRouterClient();
@@ -118,9 +140,12 @@ export const runModifyBookingFlow = async (
       system:
         "Extract booking modification details from the message. Use the user's wording when possible.",
       prompt:
+        `Conversation context:\n${(input.conversationHistory ?? [])
+          .slice(-6)
+          .map((m) => `${m.role}: ${m.content}`)
+          .join("\n")}\n\n` +
         "Extract any of these fields if present: booking id, booking reference, club, club location, preferred date, preferred time, number of players, guest names, notes. " +
-        "If a field is not present, omit it.",
-      input: { message },
+        `If a field is not present, omit it.\n\nUser message: "${message}"`,
     });
 
     Object.assign(
@@ -142,6 +167,7 @@ export const runModifyBookingFlow = async (
     state.clubLocation;
 
   if (!hasLookupCriteria) {
+    await persistState(state);
     return {
       type: "need-booking-info",
       prompt:
@@ -151,6 +177,7 @@ export const runModifyBookingFlow = async (
   }
 
   if (!state.bookingId) {
+    await persistState(state);
     return {
       type: "lookup",
       criteria: state,
@@ -161,12 +188,17 @@ export const runModifyBookingFlow = async (
   }
 
   if (confirmed) {
+    // Clear state on successful update
+    if (input.db && input.memberId) {
+      await clearBookingState(input.db, input.memberId);
+    }
     return {
       type: "update",
       payload: state,
     };
   }
 
+  await persistState(state);
   return {
     type: "confirm-update",
     prompt: buildSummary(state),

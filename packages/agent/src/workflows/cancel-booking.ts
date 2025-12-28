@@ -5,9 +5,12 @@ import {
   cancelBookingWithHistory,
   lookupMemberBooking,
   parsePreferredDate,
-  parsePreferredTimeWindow
+  parsePreferredTimeWindow,
+  isCancellationWindowExceededError,
+  isBookingNotFoundError,
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
+import { isConfirmationMessage } from "../utils";
 
 export type CancelBookingInput = {
   message: string;
@@ -90,21 +93,7 @@ export type CancelBookingDecision =
       prompt: string;
     };
 
-const isConfirmationMessage = (message: string) => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  if (/\d/.test(normalized)) {
-    return false;
-  }
-  if (/(change|edit|update|instead|actually|but)/.test(normalized)) {
-    return false;
-  }
-  return /^(yes|yep|yeah|y|ok|okay|confirm|confirmed|please do|do it|cancel it|sounds good|looks good|correct|that's right|that works)$/.test(
-    normalized
-  );
-};
+
 
 const CancelBookingParseSchema = z.object({
   bookingId: z.string().optional(),
@@ -118,16 +107,16 @@ const CancelBookingParseSchema = z.object({
 
 const buildSummary = (state: CancelBookingState) => {
   const parts = [
-    state.bookingId ? `Booking ID: ${state.bookingId}` : null,
-    state.bookingReference ? `Reference: ${state.bookingReference}` : null,
-    state.club ? `Club: ${state.club}` : null,
-    state.clubLocation ? `Location: ${state.clubLocation}` : null,
-    state.preferredDate ? `Date: ${state.preferredDate}` : null,
-    state.preferredTime ? `Time: ${state.preferredTime}` : null,
+    state.bookingId ? `🆔 Booking ID: ${state.bookingId}` : null,
+    state.bookingReference ? `🎫 Reference: ${state.bookingReference}` : null,
+    state.club ? `⛳ Club: ${state.club}` : null,
+    state.clubLocation ? `📍 Location: ${state.clubLocation}` : null,
+    state.preferredDate ? `📅 Date: ${state.preferredDate}` : null,
+    state.preferredTime ? `🕒 Time: ${state.preferredTime}` : null,
   ].filter(Boolean);
 
   return parts.length
-    ? `Cancel the booking with ${parts.join(", ")}?`
+    ? `Cancel the booking with:\n${parts.join("\n")}`
     : "Cancel this booking?";
 };
 
@@ -155,8 +144,8 @@ export const runCancelBookingFlow = async (
         "Extract cancellation details from the message. Use the user's wording when possible.",
       prompt:
         "Extract any of these fields if present: booking id, booking reference, club, club location, preferred date, preferred time, cancellation reason. " +
-        "If a field is not present, omit it.",
-      input: { message },
+        "Return only JSON with those fields. If a field is not present, omit it.\n\n" +
+        `User message: "${message}"`,
     });
 
     Object.assign(
@@ -211,7 +200,9 @@ export const runCancelBookingFlow = async (
         };
       }
       state.bookingId = booking.id;
-      state.preferredDate = booking.preferredDate.toISOString().slice(0, 10);
+      state.preferredDate = booking.preferredDate instanceof Date
+        ? booking.preferredDate.toISOString().slice(0, 10)
+        : String(booking.preferredDate).slice(0, 10);
       state.preferredTime = booking.preferredTimeEnd
         ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
         : booking.preferredTimeStart;
@@ -250,7 +241,9 @@ export const runCancelBookingFlow = async (
       };
     }
     state.bookingId = booking.id;
-    state.preferredDate = booking.preferredDate.toISOString().slice(0, 10);
+    state.preferredDate = booking.preferredDate instanceof Date
+      ? booking.preferredDate.toISOString().slice(0, 10)
+      : String(booking.preferredDate).slice(0, 10);
     state.preferredTime = booking.preferredTimeEnd
       ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
       : booking.preferredTimeStart;
@@ -295,14 +288,14 @@ export const runCancelBookingFlow = async (
             message: "Your booking has been cancelled. I'll let the team know."
           };
         } catch (error) {
-          if ((error as Error)?.message === "cancellation_window_exceeded") {
+          if (isCancellationWindowExceededError(error)) {
             return {
               type: "not-allowed",
               prompt:
                 "That booking is too close to the tee time to cancel automatically. I can connect you with staff if needed."
             };
           }
-          if ((error as Error)?.message === "booking_not_found") {
+          if (isBookingNotFoundError(error)) {
             return {
               type: "not-found",
               prompt:

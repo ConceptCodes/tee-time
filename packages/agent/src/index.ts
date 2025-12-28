@@ -93,3 +93,12 @@ export type {
   MemberPreferencesInput,
   MemberPreferencesState,
 } from "./workflows/member-preferences";
+
+export {
+  isConfirmationMessage,
+  isNegativeReply,
+  looksLikeFollowup,
+  normalizeMatchValue,
+  debugLog,
+} from "./utils";
+

@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { Database } from "@tee-time/database";
+import { createBookingRepository, type Database } from "@tee-time/database";
 import {
   formatBookingStatus,
   lookupMemberBooking,
@@ -52,7 +52,7 @@ export type BookingStatusFlowDecision =
   | {
       type: "not-found";
       prompt: string;
-    }
+  }
   | {
       type: "clarify";
       prompt: string;
@@ -64,28 +64,40 @@ const DEFAULT_BOOKING_INFO_PROMPT =
 const DEFAULT_CLARIFY_PROMPT =
   "Are you asking about a booking status? If so, share date, time, or a reference.";
 
-const extractReference = (message: string) => {
-  const match = message.match(/\b(?:ref|reference|booking)\s*#?\s*([a-z0-9-]{6,})\b/i);
-  return match?.[1];
-};
-
-const detectTimeframe = (message: string) => {
-  const normalized = message.toLowerCase();
-  if (
-    /(past|previous|prior|history|last booking|earlier|before)/.test(normalized)
-  ) {
-    return "past" as const;
-  }
-  if (/(upcoming|next|future|scheduled|coming up)/.test(normalized)) {
-    return "upcoming" as const;
-  }
-  return undefined;
-};
-
 const BookingStatusParseSchema = z.object({
+  bookingReference: z.string().nullable(),
   preferredDate: z.string().nullable(),
   preferredTime: z.string().nullable(),
+  timeframe: z.enum(["past", "upcoming", "any"]).nullable(),
 });
+
+const isUpcoming = (booking: {
+  preferredDate: Date;
+  preferredTimeStart: string;
+}) => {
+  const dateIso = booking.preferredDate.toISOString().slice(0, 10);
+  const timeToken =
+    booking.preferredTimeStart.length === 5
+      ? `${booking.preferredTimeStart}:00`
+      : booking.preferredTimeStart;
+  const timestamp = new Date(`${dateIso}T${timeToken}`).getTime();
+  if (Number.isNaN(timestamp)) {
+    return true;
+  }
+  return timestamp >= Date.now();
+};
+
+const formatBookingChoice = (booking: {
+  preferredDate: Date;
+  preferredTimeStart: string;
+  preferredTimeEnd?: string | null;
+}) => {
+  const date = booking.preferredDate.toISOString().slice(0, 10);
+  const timeWindow = booking.preferredTimeEnd
+    ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
+    : booking.preferredTimeStart;
+  return `📅 ${date} at 🕒 ${timeWindow}`;
+};
 
 export const runBookingStatusFlow = async (
   input: BookingStatusFlowInput
@@ -95,8 +107,8 @@ export const runBookingStatusFlow = async (
     return { type: "clarify", prompt: DEFAULT_CLARIFY_PROMPT };
   }
 
-  const reference = extractReference(message);
-  const timeframe = detectTimeframe(message);
+  let reference: string | undefined;
+  let timeframe: "past" | "upcoming" | "any" | undefined;
   let preferredDate: string | undefined;
   let preferredTime: string | undefined;
 
@@ -107,14 +119,16 @@ export const runBookingStatusFlow = async (
       model: openrouter.chat(modelId),
       schema: BookingStatusParseSchema,
       system:
-        "Extract booking date or time from the message if the user is asking about status.",
+        "Extract booking status lookup details from the message. " +
+        "Return booking reference, preferred date, preferred time, and timeframe (past/upcoming/any) if mentioned. " +
+        "If a field is not present, return null.",
       prompt:
-        "Extract preferred date and preferred time if present in the message. " +
-        "If not present, return null.\n\n" +
         `User message: "${message}"`,
     });
+    reference = result.object.bookingReference ?? undefined;
     preferredDate = result.object.preferredDate ?? undefined;
     preferredTime = result.object.preferredTime ?? undefined;
+    timeframe = result.object.timeframe ?? undefined;
   } catch {
     // Parsing failure should not block lookup.
   }
@@ -138,6 +152,36 @@ export const runBookingStatusFlow = async (
       input.lookupBooking ??
       ((params: Parameters<typeof lookupMemberBooking>[1]) =>
         lookupMemberBooking(input.db as Database, params));
+    const hasActionableCriteria = Boolean(
+      reference || preferredDate || preferredTime
+    );
+    if (!hasActionableCriteria && input.db && timeframe !== "past") {
+      const repo = createBookingRepository(input.db);
+      const bookings = await repo.listByMemberId(input.memberId);
+      const upcoming = bookings.filter((booking) => isUpcoming(booking));
+      if (upcoming.length === 0) {
+        return {
+          type: "respond",
+          message:
+            "You don't have any upcoming bookings. Would you like to book a tee time?",
+          offerBooking: true,
+        };
+      }
+      if (upcoming.length > 1) {
+        const choices = upcoming
+          .slice(0, 5)
+          .map((booking) => `- ${formatBookingChoice(booking)}`)
+          .join("\n");
+        return {
+          type: "need-booking-info",
+          prompt:
+            "Which booking are you asking about? Reply with the date or time.\n" +
+            `Upcoming bookings:\n${choices}`,
+        };
+      }
+      const formatter = input.formatStatus ?? formatBookingStatus;
+      return { type: "respond", message: formatter(upcoming[0]) };
+    }
     const booking = await lookup({
       memberId: input.memberId,
       bookingId: reference,

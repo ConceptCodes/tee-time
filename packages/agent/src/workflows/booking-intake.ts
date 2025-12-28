@@ -10,15 +10,19 @@ import {
   createBookingWithHistory,
   getBayAvailability,
   getBookingState,
+  getMaxPlayers,
   normalizePlayers,
   parsePreferredDate,
   parsePreferredTimeWindow,
   unwrapFlowState,
   wrapFlowState,
   saveBookingState,
+  isBookingInPastError,
+  isBookingTooSoonError,
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { runClubSelectionFlow } from "./club-selection";
+import { isConfirmationMessage, normalizeMatchValue, debugLog } from "../utils";
 
 export type BookingIntakeInput = {
   message: string;
@@ -35,6 +39,7 @@ export type BookingIntakeInput = {
   submitBooking?: (payload: BookingIntakeState) => Promise<{
     bookingId: string;
     status: string;
+    bookingReference?: string | null;
   }>;
   db?: Database;
   getAvailability?: (params: {
@@ -52,7 +57,6 @@ export type BookingIntakeInput = {
     times?: string[];
     bays?: string[];
   };
-  /** Conversation history for multi-turn context */
   conversationHistory?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -121,34 +125,12 @@ export type BookingIntakeDecision =
       prompt: string;
     };
 
-const isConfirmationMessage = (message: string) => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  if (/\d/.test(normalized)) {
-    return false;
-  }
-  if (/(change|edit|update|instead|actually|but)/.test(normalized)) {
-    return false;
-  }
-  return /^(yes|yep|yeah|y|ok|okay|confirm|confirmed|sounds good|looks good|correct|that's right|that works)$/.test(
-    normalized
-  );
-};
-
 const formatTimeWindow = (state: BookingIntakeState) => {
   if (state.preferredTimeEnd) {
     return `${state.preferredTime ?? "-"} - ${state.preferredTimeEnd}`;
   }
   return state.preferredTime ?? "-";
 };
-
-const normalizeMatchValue = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
 
 const resolveClubByName = async (
   db: Database,
@@ -186,7 +168,7 @@ const missingFields = (state: BookingIntakeState) => {
   if (!state.club) missing.push(["club", "Which club would you like to book?"] as const);
   if (!state.preferredDate) missing.push(["preferredDate", "What date would you like to book? (e.g., Today, Tomorrow, or specific date)"] as const);
   if (!state.preferredTime) missing.push(["preferredTime", "What tee time would you prefer? (e.g., 2pm, or a window like 2-4pm)"] as const);
-  if (state.players === undefined) missing.push(["players", "How many players will be joining? (Max 4)"] as const);
+  if (state.players === undefined) missing.push(["players", `How many players will be joining? (Max ${getMaxPlayers()})`] as const);
 
   // Only ask for guest names if there are multiple players
   if (state.players && state.players > 1 && !state.guestNames) {
@@ -203,11 +185,11 @@ const missingFields = (state: BookingIntakeState) => {
 
 const formatSummary = (state: BookingIntakeState) => {
   const lines = [
-    `Club: ${state.club ?? "-"} ${state.clubLocation ? `(${state.clubLocation})` : ""}`,
-    state.bayLabel ? `Bay: ${state.bayLabel}` : null,
-    `Date: ${state.preferredDate ?? "-"}`,
-    `Time: ${formatTimeWindow(state)}`,
-    `Players: ${state.players ?? "-"}`,
+    `⛳ Club: ${state.club ?? "-"} ${state.clubLocation ? `(${state.clubLocation})` : ""}`,
+    state.bayLabel ? `🎯 Bay: ${state.bayLabel}` : null,
+    `📅 Date: ${state.preferredDate ?? "-"}`,
+    `🕒 Time: ${formatTimeWindow(state)}`,
+    `👥 Players: ${state.players ?? "-"}`,
   ];
 
   if (
@@ -216,11 +198,11 @@ const formatSummary = (state: BookingIntakeState) => {
     state.guestNames &&
     state.guestNames !== "None"
   ) {
-    lines.push(`Guests: ${state.guestNames}`);
+    lines.push(`👤 Guests: ${state.guestNames}`);
   }
 
   if (state.notes && state.notes !== "None") {
-    lines.push(`Notes: ${state.notes}`);
+    lines.push(`📝 Notes: ${state.notes}`);
   }
 
   const validLines = lines.filter((l): l is string => Boolean(l));
@@ -236,6 +218,16 @@ const BookingIntakeParseSchema = z.object({
   players: z.coerce.number().int().nullable(),
   guestNames: z.string().nullable(),
   notes: z.string().nullable(),
+});
+
+const BookingValidationSchema = z.object({
+  players: z.number().nullable(),
+  playersValid: z.boolean(),
+  date: z.string().nullable(),
+  dateValid: z.boolean(),
+  time: z.string().nullable(),
+  timeValid: z.boolean(),
+  issues: z.array(z.string()),
 });
 
 const buildDefaultPrompt = (field: BookingIntakeField, value: string) => {
@@ -312,6 +304,9 @@ const applyParsedFields = (
   ),
 });
 
+const hasGuestContext = (message: string) =>
+  /\bguest(s)?\b/i.test(message);
+
 export const runBookingIntakeFlow = async (
   input: BookingIntakeInput
 ): Promise<BookingIntakeDecision> => {
@@ -355,44 +350,66 @@ export const runBookingIntakeFlow = async (
   const activeClubs = clubRepo ? await clubRepo.listActive() : [];
   const activeClubNames = activeClubs.map((club) => club.name);
 
-  try {
-    const openrouter = getOpenRouterClient();
-    const modelId = resolveModelId();
+  // Check if this is a simple confirmation message and all required fields are already set.
+  // In that case, skip LLM extraction to avoid re-interpreting dates/times from context
+  // which can cause issues like "Tomorrow" being re-resolved incorrectly.
+  const hasAllRequiredFields =
+    state.club &&
+    state.preferredDate &&
+    state.preferredTime &&
+    state.players !== undefined &&
+    (state.players === 1 || state.guestNames) &&
+    state.notes !== undefined;
+  const isSimpleConfirmation = isConfirmationMessage(message);
 
-    // Build context from conversation history if available
-    const historyContext = input.conversationHistory?.length
-      ? `\nConversation context:\n${input.conversationHistory
-          .map((m) => `${m.role}: ${m.content}`)
-          .join("\n")}\n`
-      : "";
-    const clubContext = activeClubNames.length
-      ? `Known clubs: ${activeClubNames.join(
-          ", "
-        )}. If the user refers to a known club, return the exact name from the list.\n`
-      : "";
+  // Only run LLM extraction if we need more fields or the message isn't a simple confirmation
+  if (!hasAllRequiredFields || !isSimpleConfirmation) {
+    try {
+      const openrouter = getOpenRouterClient();
+      const modelId = resolveModelId();
 
-    const result = await generateObject({
-      model: openrouter.chat(modelId),
-      schema: BookingIntakeParseSchema,
-      system:
-        "Extract booking details from the message. Use the user's wording when possible. " +
-        "Use conversation context to infer fields (e.g. if the assistant just asked for a club, the user's response is likely the club name). " +
-        "For 'notes' or 'guest names', if the user says 'no', 'none', or 'skip', set the field to 'None'.",
-      prompt:
-        `${historyContext}${clubContext}Extract any of these fields if present from the user message: club, club location, bay, preferred date, preferred time or time window, number of players (1-4), guest names, notes. ` +
-        `If a field is not present, omit it.\n\nUser message: "${message}"`,
-    });
+      // Build context from conversation history if available
+      const historyContext = input.conversationHistory?.length
+        ? `\nConversation context:\n${input.conversationHistory
+            .map((m) => `${m.role}: ${m.content}`)
+            .join("\n")}\n`
+        : "";
+      const clubContext = activeClubNames.length
+        ? `Known clubs: ${activeClubNames.join(
+            ", "
+          )}. If the user refers to a known club, return the exact name from the list.\n`
+        : "";
 
-    console.log("DEBUG: Extracted intake fields:", JSON.stringify(result.object));
+      const result = await generateObject({
+        model: openrouter.chat(modelId),
+        schema: BookingIntakeParseSchema,
+        system:
+          "Extract booking details from the message. Use the user's wording when possible. " +
+          "Use conversation context to infer fields (e.g. if the assistant just asked for a club, the user's response is likely the club name). " +
+          "For 'notes' or 'guest names', if the user says 'no', 'none', or 'skip', set the field to 'None'.",
+        prompt:
+          `${historyContext}${clubContext}Extract any of these fields if present from the user message: club, club location, bay, preferred date, preferred time or time window, number of players (1-${getMaxPlayers()}), guest names, notes. ` +
+          `If a field is not present, omit it.\n\nUser message: "${message}"`,
+      });
 
-    const previousClub = state.club;
-    Object.assign(
-      state,
-      applyParsedFields(state, {
+      debugLog("Extracted intake fields:", JSON.stringify(result.object));
+
+      const parsedFields: Record<string, unknown> = {
         ...result.object,
         bayLabel: result.object.bay ?? undefined,
-      })
-    );
+      };
+      if (typeof parsedFields.guestNames === "string") {
+        const normalizedGuest = parsedFields.guestNames.trim().toLowerCase();
+        if (
+          ["none", "no", "n/a", "na", "nope", "skip"].includes(normalizedGuest) &&
+          !hasGuestContext(message)
+        ) {
+          delete parsedFields.guestNames;
+        }
+      }
+
+      const previousClub = state.club;
+      Object.assign(state, applyParsedFields(state, parsedFields));
     
     // Heuristic: Check if the new 'club' is actually a location or a different club
     if (input.db && state.club && state.clubId && state.club !== previousClub) {
@@ -421,6 +438,10 @@ export const runBookingIntakeFlow = async (
 
   } catch (error) {
     console.error("Booking Intake Extraction Error:", error);
+  }
+  }
+  else {
+    debugLog("Skipping LLM extraction for confirmation message, all fields already set");
   }
 
   if (state.pendingDefaultField) {
@@ -600,6 +621,75 @@ export const runBookingIntakeFlow = async (
     state.preferredTimeEnd = parsedTime.end ?? undefined;
   }
 
+  const shouldValidate =
+    !isConfirmationMessage(message) &&
+    (state.players !== undefined || state.preferredDate || state.preferredTime);
+  if (shouldValidate) {
+    try {
+      const openrouter = getOpenRouterClient();
+      const modelId = resolveModelId();
+      const todayIso = parsePreferredDate("today") ?? new Date().toISOString().slice(0, 10);
+      const result = await generateObject({
+        model: openrouter.chat(modelId),
+        schema: BookingValidationSchema,
+        system:
+          "Validate booking fields. " +
+          "playersValid is true only if players is between 1 and 4. " +
+          "dateValid is true only if the date is not in the past. " +
+          "timeValid is true only if the time is parseable. " +
+          "Return JSON with issues describing why fields are invalid.",
+        prompt:
+          `Today is ${todayIso}.\n` +
+          `User message: "${message}"\n` +
+          `Extracted players: ${state.players ?? "null"}\n` +
+          `Extracted date: ${state.preferredDate ?? "null"}\n` +
+          `Extracted time: ${state.preferredTime ?? "null"}`,
+      });
+
+      if (!result.object.playersValid && state.players !== undefined) {
+        state.players = undefined;
+        await persistState(state);
+        return {
+          type: "ask",
+          prompt: buildAskPrompt(
+            "players",
+            `How many players (1-${getMaxPlayers()})?`
+          ),
+          nextState: state,
+        };
+      }
+
+      if (!result.object.dateValid && state.preferredDate) {
+        state.preferredDate = undefined;
+        await persistState(state);
+        return {
+          type: "ask",
+          prompt: buildAskPrompt(
+            "preferredDate",
+            "That date is in the past. What date would you like instead?"
+          ),
+          nextState: state,
+        };
+      }
+
+      if (!result.object.timeValid && state.preferredTime) {
+        state.preferredTime = undefined;
+        state.preferredTimeEnd = undefined;
+        await persistState(state);
+        return {
+          type: "ask",
+          prompt: buildAskPrompt(
+            "preferredTime",
+            "What time (or time window) should we request?"
+          ),
+          nextState: state,
+        };
+      }
+    } catch (error) {
+      console.error("Booking validation error:", error);
+    }
+  }
+
   if (state.players !== undefined) {
     const normalized = normalizePlayers(state.players);
     if (!normalized) {
@@ -607,7 +697,7 @@ export const runBookingIntakeFlow = async (
       await persistState(state);
       return {
         type: "ask",
-        prompt: buildAskPrompt("players", "How many players (1-4)?"),
+        prompt: buildAskPrompt("players", `How many players (1-${getMaxPlayers()})?`),
         nextState: state,
       };
     }
@@ -813,7 +903,11 @@ export const runBookingIntakeFlow = async (
               notes: payload.notes ?? "",
               notify: true,
             });
-            return { bookingId: booking.id, status: booking.status };
+            return {
+              bookingId: booking.id,
+              status: booking.status,
+              bookingReference: booking.bookingReference ?? null,
+            };
           }
         : undefined);
     if (submit) {
@@ -822,13 +916,16 @@ export const runBookingIntakeFlow = async (
         if (input.db && state.memberId) {
           await clearBookingState(input.db, state.memberId);
         }
+        const referenceText = result.bookingReference
+          ? ` Reference: ${result.bookingReference}.`
+          : "";
         return {
           type: "submitted",
           bookingId: result.bookingId,
-          message: `Your booking request is ${result.status}.`,
+          message: `Your booking request is ${result.status}.${referenceText}`,
         };
       } catch (error) {
-        if ((error as Error)?.message === "booking_in_past") {
+        if (isBookingInPastError(error)) {
           state.preferredDate = undefined;
           state.preferredTime = undefined;
           state.preferredTimeEnd = undefined;
@@ -842,7 +939,7 @@ export const runBookingIntakeFlow = async (
             nextState: state,
           };
         }
-        if ((error as Error)?.message === "booking_too_soon") {
+        if (isBookingTooSoonError(error)) {
           state.preferredTime = undefined;
           state.preferredTimeEnd = undefined;
           await persistState(state);

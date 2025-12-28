@@ -4,6 +4,7 @@ import { getDb, createMemberRepository } from "@tee-time/database";
 import { routeAgentMessage, runOnboardingFlow, runSupportHandoffFlow } from "../src";
 import {
   clearBookingState,
+  createMemberProfile,
   createSupportRequest,
   getBookingState,
   isFlowStateEnvelope,
@@ -19,11 +20,35 @@ config({ path: path.join(__dirname, "../../../.env") });
 async function main() {
   const db = getDb();
   const memberRepo = createMemberRepository(db);
+  const args = new Set(process.argv.slice(2));
+  const isNewUser = args.has("--new");
+  const DEFAULT_TIMEZONE = "Etc/UTC";
 
   // Simulate a member for testing
   const TEST_PHONE = "+15550001111";
   let member = await memberRepo.getByPhoneNumber(TEST_PHONE);
-  if (!member) {
+  if (isNewUser) {
+    let newPhone = TEST_PHONE;
+    while (await memberRepo.getByPhoneNumber(newPhone)) {
+      const randomSuffix = Math.floor(1000000 + Math.random() * 9000000);
+      newPhone = `+1555${randomSuffix}`;
+    }
+    const now = new Date();
+    member = await createMemberProfile(db, {
+      phoneNumber: newPhone,
+      name: "Unknown",
+      timezone: DEFAULT_TIMEZONE,
+      favoriteLocationLabel: "Unknown",
+      preferredLocationLabel: undefined,
+      preferredTimeOfDay: undefined,
+      preferredBayLabel: undefined,
+      onboardingCompletedAt: null,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    console.log("Created new test member:", member.id);
+  } else if (!member) {
     member = await memberRepo.create({
       phoneNumber: TEST_PHONE,
       name: "Test User",
@@ -46,6 +71,9 @@ async function main() {
   console.log("--------------------------------");
   console.log("Type your message and press Enter.");
   console.log("Type 'quit' or 'exit' to end.");
+  if (isNewUser) {
+    console.log("New user mode enabled (--new).");
+  }
   console.log("--------------------------------\n");
 
   while (true) {
@@ -71,7 +99,7 @@ async function main() {
       const decision = await routeAgentMessage({
         message,
         memberId: member.id,
-        memberExists: true,
+        memberExists: isNewUser ? Boolean(member.onboardingCompletedAt) : true,
         db, // Pass DB for full functionality
         conversationHistory,
       });
@@ -91,6 +119,7 @@ async function main() {
         const result = await runOnboardingFlow({
           message,
           phoneNumber: member.phoneNumber,
+          existingMemberId: member.id,
           db,
           existingState:
             storedEnvelope?.flow === "onboarding"
@@ -101,11 +130,19 @@ async function main() {
         });
         if (result.type === "submitted") {
           await clearFlowState();
+          const updatedMember = await memberRepo.getById(result.memberId);
+          if (updatedMember) {
+            member = updatedMember;
+          }
           finalDecision = {
             flow: "clarify",
             prompt: `Welcome, ${result.payload.name}! You're all set up. How can I help you book a tee time?`,
           };
-        } else if (result.type === "ask" || result.type === "confirm-default") {
+        } else if (
+          result.type === "ask" ||
+          result.type === "confirm-default" ||
+          result.type === "confirm-skip"
+        ) {
           await saveFlowState("onboarding", result.nextState);
           finalDecision = { flow: "clarify", prompt: result.prompt };
         } else if (result.type === "clarify") {

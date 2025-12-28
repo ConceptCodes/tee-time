@@ -28,6 +28,7 @@ import {
   type ModifyBookingDecision,
   type ModifyBookingInput,
 } from "./modify-booking";
+import { isConfirmationMessage, isNegativeReply, looksLikeFollowup, debugLog } from "../utils";
 
 import type { Database } from "@tee-time/database";
 
@@ -85,55 +86,22 @@ const RouterSchema = z.object({
     "support",
     "clarify",
   ]),
+  confidence: z.number().min(0).max(1),
   reason: z.string().nullable(),
 });
 
-const isAffirmativeReply = (message: string) => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
+const isBookingStatusQuery = (message: string) => {
+  const normalized = message.toLowerCase();
+  if (/(cancel|reschedule|modify|change|update)/.test(normalized)) {
     return false;
   }
-  if (/\d/.test(normalized)) {
-    return false;
-  }
-  return /^(yes|yep|yeah|y|ok|okay|sure|please|yup|sounds good|that works|i do|i would|i want to|let's do it)$/.test(
-    normalized
-  );
-};
-
-const isNegativeReply = (message: string) => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  return /^(no|nope|nah|not now|not today|later|maybe later|don't|do not)$/.test(
-    normalized
-  );
-};
-
-const looksLikeFollowup = (message: string) => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  const intentKeywords = [
-    "book",
-    "tee time",
-    "cancel",
-    "reschedule",
-    "modify",
-    "change",
-    "status",
-    "support",
-    "help",
-    "human",
-    "faq",
-    "question",
-  ];
-  if (intentKeywords.some((keyword) => normalized.includes(keyword))) {
-    return false;
-  }
-  return true;
+  const hasStatusTerms =
+    /\bstatus\b|confirmed|confirmation|upcoming|next booking|next tee time|past booking|past bookings|upcoming bookings/.test(
+      normalized
+    );
+  const hasReference =
+    /\b(?:ref|reference|booking)\s*#?\s*[a-z0-9-]{6,}\b/.test(normalized);
+  return hasStatusTerms || hasReference;
 };
 
 export const routeAgentMessage = async (
@@ -181,7 +149,7 @@ export const routeAgentMessage = async (
       const shouldUseActiveFlow = !isOfferBookingState;
 
       if (activeFlow && isOfferBookingState) {
-        if (isAffirmativeReply(message)) {
+        if (isConfirmationMessage(message)) {
           return {
             flow: "booking-new",
             decision: await runBookingIntakeFlow(input as BookingIntakeInput),
@@ -215,13 +183,17 @@ export const routeAgentMessage = async (
       }
     }
 
-    console.log("DEBUG: Router Active State:", contextNote ? "FOUND" : "NONE");
+    debugLog("Router Active State:", contextNote ? "FOUND" : "NONE");
 
     if (
       activeFlow &&
       activeData &&
       Object.keys(activeData).length > 0 &&
-      looksLikeFollowup(message) &&
+      (looksLikeFollowup(message) ||
+        (activeFlow === "booking-new" &&
+          /(change|edit|update|actually|instead|make it|move it)/.test(
+            message.toLowerCase()
+          ))) &&
       !(
         typeof activeData === "object" &&
         "offerBooking" in activeData &&
@@ -263,10 +235,23 @@ export const routeAgentMessage = async (
       }
     }
 
+    if (isBookingStatusQuery(message)) {
+      return {
+        flow: "booking-status",
+        decision: await runBookingStatusFlow(input as BookingStatusFlowInput),
+      };
+    }
+
+    const historyContext = input.conversationHistory?.length
+      ? `\nConversation history:\n${input.conversationHistory
+          .slice(-6)
+          .map((m) => `${m.role}: ${m.content}`)
+          .join("\n")}\n`
+      : "";
+
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: RouterSchema,
-      mode: "json",
       system:
         "You are a router for a tee-time booking assistant. Choose the best flow." + contextNote,
       prompt:
@@ -278,11 +263,12 @@ export const routeAgentMessage = async (
         "- faq: general questions about membership, policies, hours, pricing, etc.\n" +
         "- support: user asks for human help, has issues, or wants to talk to staff.\n" +
         "- clarify: intent is unclear.\n" +
-        "Return a JSON object with the flow and a reason (string or null).\n\n" +
+        "Return a JSON object with the flow, confidence (0-1), and a reason (string or null).\n\n" +
+        `${historyContext}` +
         `Message: "${message}"`,
     });
 
-    console.log("DEBUG: Router Decision:", JSON.stringify(result.object));
+    debugLog("Router Decision:", JSON.stringify(result.object));
 
     if (result.object.flow === "booking-new") {
       return {

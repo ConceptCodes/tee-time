@@ -39,7 +39,7 @@ export const runStatusFollowup = (
       return {
         type: "message",
         message:
-          `Sorry${name}, we couldn’t secure ${when}. ` +
+          `Sorry${name}, we couldn't secure ${when}. ` +
           `Would any of these times work instead: ${input.alternateTimes.join(
             ", "
           )}?`,
@@ -48,7 +48,7 @@ export const runStatusFollowup = (
     return {
       type: "message",
       message:
-        `Sorry${name}, we couldn’t secure ${when}. ` +
+        `Sorry${name}, we couldn't secure ${when}. ` +
         "Can you share another time window that works?",
     };
   }

@@ -1,6 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getOpenRouterClient, resolveModelId } from "../provider";
+import { isConfirmationMessage } from "../utils";
 
 export type SupportHandoffInput = {
   message: string;
@@ -30,21 +31,7 @@ export type SupportHandoffDecision =
       prompt: string;
     };
 
-const isConfirmationMessage = (message: string) => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  if (/\d/.test(normalized)) {
-    return false;
-  }
-  if (/(change|edit|update|instead|actually|but)/.test(normalized)) {
-    return false;
-  }
-  return /^(yes|yep|yeah|y|ok|okay|confirm|confirmed|please do|do it|sounds good|looks good|correct|that's right|that works)$/.test(
-    normalized
-  );
-};
+
 
 const SupportParseSchema = z.object({
   summary: z.string().optional(),
@@ -80,8 +67,7 @@ export const runSupportHandoffFlow = async (
         system:
           "Summarize the support request in one sentence and capture a short reason.",
         prompt:
-          "Summarize the support request in plain language. If possible, extract a short reason.",
-        input: { message },
+          `Summarize the support request in plain language. If possible, extract a short reason.\n\nUser message: "${message}"`,
       });
 
       Object.assign(

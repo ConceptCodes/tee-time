@@ -7,6 +7,7 @@ import {
 } from "@tee-time/database";
 import {
   getBayAvailability,
+  getMaxPlayers,
   parsePreferredDate,
   parsePreferredTimeWindow,
   normalizePlayers,
@@ -173,21 +174,22 @@ export const parseTimeTool = tool({
 });
 
 /**
- * Tool to validate player count (1-4).
+ * Tool to validate player count.
  */
 export const validatePlayersTool = tool({
-  description: "Validate the number of players (must be 1-4)",
+  description: `Validate the number of players (must be 1-${getMaxPlayers()})`,
   inputSchema: z.object({
     players: z.number().describe("The number of players"),
   }),
   execute: async ({ players }: { players: number }) => {
-    const normalized = normalizePlayers(players);
+    const maxPlayers = getMaxPlayers();
+    const normalized = normalizePlayers(players, maxPlayers);
     return {
       valid: !!normalized,
       players: normalized,
       message:
         normalized === null
-          ? "Player count must be between 1 and 4"
+          ? `Player count must be between 1 and ${maxPlayers}`
           : `${normalized} players confirmed`,
     };
   },

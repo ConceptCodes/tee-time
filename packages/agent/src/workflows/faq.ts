@@ -1,5 +1,8 @@
+import { generateObject } from "ai";
+import { z } from "zod";
 import type { Database } from "@tee-time/database";
-import { retrieveFaqAnswer } from "@tee-time/core";
+import { retrieveFaqCandidates } from "@tee-time/core";
+import { getOpenRouterClient, resolveModelId } from "../provider";
 import { createFaqAgent, type AgentMessage } from "../agent";
 
 export type FaqFlowInput = {
@@ -37,6 +40,11 @@ export type FaqFlowRuntime = {
     answer: string;
     confidence: number;
   } | null>;
+  getFaqCandidates?: (question: string) => Promise<Array<{
+    question: string;
+    answer: string;
+    confidence: number;
+  }>>;
 };
 
 /**
@@ -50,6 +58,75 @@ export const runFaqFlow = async (
   const message = input.message?.trim();
   if (!message) {
     return { type: "clarify", prompt: DEFAULT_CLARIFY_PROMPT };
+  }
+
+  const getCandidates =
+    runtime.getFaqCandidates ??
+    (input.db
+      ? (question: string) =>
+          retrieveFaqCandidates(input.db as Database, question, { limit: 3 })
+      : undefined);
+
+  if (getCandidates) {
+    try {
+      const candidates = await getCandidates(message);
+      if (candidates.length > 0) {
+        const sorted = [...candidates].sort(
+          (a, b) => b.confidence - a.confidence
+        );
+        if (
+          sorted.length === 1 ||
+          sorted[0].confidence - sorted[1].confidence >= 0.08
+        ) {
+          return {
+            type: "answer",
+            answer: sorted[0].answer,
+            confidence: sorted[0].confidence,
+          };
+        }
+
+        const openrouter = getOpenRouterClient();
+        const modelId = resolveModelId();
+        const SelectionSchema = z.object({
+          decision: z.enum(["pick", "no_match"]),
+          index: z.number().int().min(1).max(10).nullable(),
+          reason: z.string().nullable(),
+        });
+        const promptLines = sorted
+          .map(
+            (item, index) =>
+              `${index + 1}. Q: ${item.question}\nA: ${item.answer}\nConfidence: ${item.confidence.toFixed(
+                3
+              )}`
+          )
+          .join("\n\n");
+        const selection = await generateObject({
+          model: openrouter.chat(modelId),
+          schema: SelectionSchema,
+          system:
+            "Pick the best FAQ answer for the user question. " +
+            "If none match, return decision no_match. " +
+            "If you pick, return decision pick and the 1-based index.",
+          prompt:
+            `User question: "${message}"\n\nFAQ entries:\n${promptLines}`,
+        });
+        if (
+          selection.object.decision === "pick" &&
+          selection.object.index !== null
+        ) {
+          const index = selection.object.index - 1;
+          if (sorted[index]) {
+            return {
+              type: "answer",
+              answer: sorted[index].answer,
+              confidence: sorted[index].confidence,
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error("FAQ retrieval error:", error);
+    }
   }
 
   // If we have a database, use the multi-step agent for richer interactions
@@ -93,32 +170,12 @@ export const runFaqFlow = async (
 
       return { type: "escalate", reason: "no_response" };
     } catch (error) {
-      // Fall through to simpler retrieval on agent errors
+      // Fall through to escalation on agent errors
       console.error("FAQ agent error:", error);
     }
   }
 
-  // Fallback: Use direct FAQ retrieval
-  const getAnswer =
-    runtime.getFaqAnswer ??
-    (input.db
-      ? (question: string) => retrieveFaqAnswer(input.db as Database, question)
-      : undefined);
-
-  if (!getAnswer) {
-    return { type: "escalate", reason: "faq_unavailable" };
-  }
-
-  const result = await getAnswer(message);
-  if (!result || result.confidence < 0.6) {
-    return { type: "escalate", reason: "faq_low_confidence" };
-  }
-
-  return {
-    type: "answer",
-    answer: result.answer,
-    confidence: result.confidence,
-  };
+  return { type: "escalate", reason: "faq_low_confidence" };
 };
 
 /**
