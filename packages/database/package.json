@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@tee-time/core": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "pg": "^8.11.5"
   },
