@@ -1,4 +1,4 @@
-# Tee Time Booking WhatsApp Bot
+# Tee Time Booking WhatsApp Bots
 
 Monorepo for A Tee Time Booking WhatsApp Bot: a WhatsApp-based tee‑time booking bot plus a staff admin dashboard.
 
@@ -22,6 +22,7 @@ Monorepo for A Tee Time Booking WhatsApp Bot: a WhatsApp-based tee‑time bookin
 - `bun run lint`: run Biome lint.
 - `bun run format`: run Biome format.
 - `bun run check`: run Biome check.
+- `bun run evals`: run agent evals (use `--help` for options).
 
 ## Environment Variables
 
@@ -31,6 +32,9 @@ Monorepo for A Tee Time Booking WhatsApp Bot: a WhatsApp-based tee‑time bookin
 - `BETTER_AUTH_URL`: Base URL for Better Auth (e.g. `http://localhost:8787`).
 - `LOG_LEVEL`: Logging level (`debug`, `info`, `warn`, `error`). Default: `info`.
 - `LOG_REDACT`: Redact emails/phones/coordinates in logs (`true`/`false`). Default: `true`.
+- `BOOKING_STATE_TTL_MINUTES`: Minutes before booking flow state expires (`0` disables expiry). Default: `120`.
+- `BOOKING_MIN_LEAD_MINUTES`: Minimum minutes before a requested tee time (prevents past bookings). Default: `0`.
+- `BOOKING_BAY_PROMPT_LIMIT`: Max bays to list before skipping bay selection. Default: `8`.
 - `WORKER_SCHEDULED_INTERVAL_MS`: Interval for scheduled job polling (ms). Default: `60000`.
 - `WORKER_REPORTS_INTERVAL_MS`: Interval for report generation (ms). Default: `3600000`.
 - `WORKER_JOB_BATCH_SIZE`: Max scheduled jobs claimed per poll. Default: `25`.
