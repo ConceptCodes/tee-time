@@ -1,3 +1,5 @@
+import { Twilio } from "twilio";
+import type { MessageListInstanceCreateOptions } from "twilio/lib/rest/api/v2010/account/message";
 import { logger } from "../logger";
 
 /**
@@ -15,6 +17,17 @@ const getTwilioConfig = () => {
   return { accountSid, authToken, whatsappNumber };
 };
 
+let cachedClient: Twilio | null = null;
+
+const getTwilioClient = () => {
+  if (cachedClient) {
+    return cachedClient;
+  }
+  const { accountSid, authToken } = getTwilioConfig();
+  cachedClient = new Twilio(accountSid, authToken);
+  return cachedClient;
+};
+
 /**
  * Send a WhatsApp message via Twilio API.
  */
@@ -24,48 +37,39 @@ export const sendWhatsAppMessage = async (params: {
   templateSid?: string;
   templateVariables?: Record<string, string>;
 }) => {
-  const { accountSid, authToken, whatsappNumber } = getTwilioConfig();
+  const { whatsappNumber } = getTwilioConfig();
+  const client = getTwilioClient();
   const from = `whatsapp:${whatsappNumber}`;
   const to = params.to.startsWith("whatsapp:")
     ? params.to
     : `whatsapp:${params.to}`;
 
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-
-  const formData = new URLSearchParams();
-  formData.append("From", from);
-  formData.append("To", to);
-
-  // If using a template, use ContentSid; otherwise use Body
+  const messagePayload: MessageListInstanceCreateOptions = {
+    from,
+    to,
+  };
   if (params.templateSid) {
-    formData.append("ContentSid", params.templateSid);
+    messagePayload.contentSid = params.templateSid;
     if (params.templateVariables) {
-      formData.append(
-        "ContentVariables",
-        JSON.stringify(params.templateVariables)
+      messagePayload.contentVariables = JSON.stringify(
+        params.templateVariables
       );
     }
   } else {
-    formData.append("Body", params.body);
+    messagePayload.body = params.body;
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: formData.toString(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
+  let result: { sid?: string; status?: string | null };
+  try {
+    result = await client.messages.create(messagePayload);
+  } catch (error) {
+    const message =
+      (error as Error)?.message ?? "twilio_send_failed";
     logger.error("core.twilio.sendFailed", {
       to: params.to,
-      error: result.message || result.code,
+      error: message,
     });
-    throw new Error(result.message || "twilio_send_failed");
+    throw new Error(message);
   }
 
   logger.info("core.twilio.messageSent", {
@@ -74,8 +78,8 @@ export const sendWhatsAppMessage = async (params: {
   });
 
   return {
-    messageSid: result.sid,
-    status: result.status,
+    messageSid: result.sid ?? "",
+    status: result.status ?? "queued",
   };
 };
 

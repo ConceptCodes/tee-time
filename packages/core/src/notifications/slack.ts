@@ -1,3 +1,4 @@
+import { WebClient } from "@slack/web-api";
 import { logger } from "../logger";
 
 type SlackUser = {
@@ -9,12 +10,6 @@ type SlackUser = {
   };
 };
 
-type SlackApiResponse<T> = {
-  ok: boolean;
-  error?: string;
-  [key: string]: unknown;
-} & T;
-
 const getSlackToken = () => {
   const token = process.env.SLACK_BOT_TOKEN;
   if (!token) {
@@ -23,24 +18,15 @@ const getSlackToken = () => {
   return token;
 };
 
-const slackFetch = async <T>(
-  method: string,
-  body?: Record<string, unknown>
-): Promise<SlackApiResponse<T>> => {
-  const token = getSlackToken();
-  const response = await fetch(`https://slack.com/api/${method}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const json = (await response.json()) as SlackApiResponse<T>;
-  if (!json.ok) {
-    throw new Error(json.error ?? "slack_api_error");
+let cachedClient: WebClient | null = null;
+
+const getSlackClient = () => {
+  if (cachedClient) {
+    return cachedClient;
   }
-  return json;
+  const token = getSlackToken();
+  cachedClient = new WebClient(token);
+  return cachedClient;
 };
 
 const normalize = (value: string) => value.trim().toLowerCase();
@@ -51,10 +37,12 @@ const loadSlackUsers = async (): Promise<SlackUser[]> => {
   if (cachedUsers) {
     return cachedUsers;
   }
-  const result = await slackFetch<{ members: SlackUser[] }>("users.list", {
-    limit: 200,
-  });
-  cachedUsers = result.members ?? [];
+  const client = getSlackClient();
+  const result = await client.users.list({ limit: 200 });
+  if (!result.ok) {
+    throw new Error(result.error ?? "slack_api_error");
+  }
+  cachedUsers = (result.members as SlackUser[]) ?? [];
   return cachedUsers;
 };
 
@@ -81,10 +69,14 @@ export const postSlackMessage = async (params: {
   channel: string;
   text: string;
 }) => {
-  const result = await slackFetch("chat.postMessage", {
+  const client = getSlackClient();
+  const result = await client.chat.postMessage({
     channel: params.channel,
     text: params.text,
   });
+  if (!result.ok) {
+    throw new Error(result.error ?? "slack_api_error");
+  }
   logger.info("core.slack.messageSent", {
     channel: params.channel,
   });
@@ -95,12 +87,13 @@ export const postSlackDm = async (params: {
   userId: string;
   text: string;
 }) => {
-  const convo = await slackFetch<{ channel: { id: string } }>(
-    "conversations.open",
-    {
-      users: params.userId,
-    }
-  );
+  const client = getSlackClient();
+  const convo = await client.conversations.open({
+    users: params.userId,
+  });
+  if (!convo.ok) {
+    throw new Error(convo.error ?? "slack_api_error");
+  }
   const channelId = convo.channel?.id;
   if (!channelId) {
     throw new Error("slack_dm_channel_missing");
