@@ -18,15 +18,7 @@ import {
 const geometryPoint = (name: string) =>
   geometry(name, { type: "point", mode: "xy", srid: 4326 });
 
-const parsedFaqEmbeddingDimensions = Number.parseInt(
-  process.env.FAQ_EMBEDDING_DIMENSIONS ?? "1536",
-  10
-);
-const FAQ_EMBEDDING_DIMENSIONS =
-  Number.isFinite(parsedFaqEmbeddingDimensions) &&
-  parsedFaqEmbeddingDimensions > 0
-    ? parsedFaqEmbeddingDimensions
-    : 1536;
+const FAQ_EMBEDDING_DIMENSIONS = Number.parseInt(process.env.FAQ_EMBEDDING_DIMENSIONS ?? "1536") || 1536;
 
 export const bookingStatusEnum = pgEnum("booking_status", [
   "Pending",
@@ -169,6 +161,7 @@ export const bookings = pgTable(
     preferredDate: date("preferred_date").notNull(),
     preferredTimeStart: time("preferred_time_start").notNull(),
     preferredTimeEnd: time("preferred_time_end"),
+    bookingReference: text("booking_reference").notNull(),
     numberOfPlayers: smallint("number_of_players").notNull(),
     guestNames: text("guest_names").notNull(),
     notes: text("notes").notNull(),
@@ -186,6 +179,9 @@ export const bookings = pgTable(
     memberCreatedIdx: index("bookings_member_id_created_at_idx").on(
       table.memberId,
       table.createdAt
+    ),
+    bookingReferenceIdx: uniqueIndex("bookings_booking_reference_idx").on(
+      table.bookingReference
     )
   })
 );

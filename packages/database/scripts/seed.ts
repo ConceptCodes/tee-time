@@ -7,7 +7,8 @@ import { createMemberRepository } from "../src/repositories/members";
 import { createBookingRepository } from "../src/repositories/bookings";
 import { config } from "@dotenvx/dotenvx";
 import path from "node:path";
-import { clubs, bookings, bookingStatusHistory } from "../src/schema";
+import { generateFaqEmbedding } from "@tee-time/core";
+import { clubs, bookings, bookingStatusHistory, faqEntries } from "../src/schema";
 import { eq } from "drizzle-orm";
 
 // Load environment variables
@@ -106,18 +107,32 @@ async function main() {
     { question: "How many people per bay?", answer: "Each bay can accommodate up to 6 players." },
   ];
 
-  // Check count to prevent duplicate seeding
-  const count = await faqRepo.countActive();
-  if (count < faqData.length) {
-     for (const f of faqData) {
-         await faqRepo.create({
-             ...f,
-             tags: ["general"],
-             isActive: true,
-             createdAt: new Date(),
-             updatedAt: new Date()
-         });
-         console.log(`  + ${f.question}`);
+  for (const f of faqData) {
+      const existing = await db.query.faqEntries.findFirst({
+          where: eq(faqEntries.question, f.question)
+      });
+      if (!existing) {
+          const embedding = await generateFaqEmbedding(f.question);
+          await faqRepo.create({
+              ...f,
+              tags: ["general"],
+              embedding,
+              embeddingUpdatedAt: new Date(),
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+          });
+          console.log(`  + ${f.question}`);
+      } else if (!existing.embedding) {
+          const embedding = await generateFaqEmbedding(f.question);
+          await faqRepo.update(existing.id, {
+              embedding,
+              embeddingUpdatedAt: new Date(),
+              updatedAt: new Date()
+          });
+          console.log(`  ~ ${f.question} (embedding updated)`);
+      } else {
+          console.log(`  . ${f.question} (exists)`);
       }
   }
 
@@ -139,6 +154,15 @@ async function main() {
   } else {
       console.log(`  . Seed User (exists)`);
   }
+
+  const generateBookingReference = () => {
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let token = "";
+      for (let i = 0; i < 6; i += 1) {
+          token += alphabet[Math.floor(Math.random() * alphabet.length)];
+      }
+      return `TT-${token}`;
+  };
 
   // -- 6. Bookings (Mock Report Data) --
   // Generate some random bookings for last month
@@ -165,6 +189,7 @@ async function main() {
                       bayId: null,
                       preferredDate: dateVal.toISOString().split("T")[0],
                       preferredTimeStart: "14:00",
+                      bookingReference: generateBookingReference(),
                       numberOfPlayers: 4,
                       guestNames: "",
                       notes: "",
@@ -185,7 +210,8 @@ async function main() {
                           bookingId: bookingFn.id,
                           previousStatus: "Pending",
                           nextStatus: status as any,
-                          changedBy: "system", // assuming simplified logging
+                          changedByStaffId: null,
+                          reason: "seed",
                           createdAt: new Date(dateVal.getTime() + 1000 * 60 * 30)
                       });
                   }
