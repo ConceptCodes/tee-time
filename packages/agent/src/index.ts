@@ -1,10 +1,36 @@
-export { createSyndicateAgent, DEFAULT_AGENT_INSTRUCTIONS } from "./agent";
-export type { AgentOptions } from "./agent";
+export {
+  createSyndicateAgent,
+  createFaqAgent,
+  createSupportAgent,
+  DEFAULT_AGENT_INSTRUCTIONS,
+  FAQ_AGENT_INSTRUCTIONS,
+} from "./agent";
+export type {
+  AgentOptions,
+  AgentMessage,
+  AgentResult,
+  AgentStep,
+  ToolCallInfo,
+  ToolResultInfo,
+} from "./agent";
+
+export {
+  createAgentTools,
+  createValidateClubTool,
+  createResolveClubLocationTool,
+  createCheckAvailabilityTool,
+  createSearchFaqsTool,
+  parseDateTool,
+  parseTimeTool,
+  validatePlayersTool,
+  escalateToHumanTool,
+} from "./tools";
+export type { AgentTools } from "./tools";
 
 export type { RouterDecision, RouterInput } from "./workflows/router";
 export { routeAgentMessage } from "./workflows/router";
 
-export { runFaqFlow } from "./workflows/faq";
+export { runFaqFlow, runFaqConversation } from "./workflows/faq";
 export type { FaqFlowDecision, FaqFlowInput } from "./workflows/faq";
 
 export { runBookingStatusFlow } from "./workflows/booking-status";
@@ -56,7 +82,10 @@ export type {
 } from "./workflows/support-handoff";
 
 export { runStatusFollowup } from "./workflows/status-followups";
-export type { StatusFollowupDecision, StatusFollowupInput } from "./workflows/status-followups";
+export type {
+  StatusFollowupDecision,
+  StatusFollowupInput,
+} from "./workflows/status-followups";
 
 export { runMemberPreferencesFlow } from "./workflows/member-preferences";
 export type {

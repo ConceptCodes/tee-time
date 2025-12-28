@@ -30,6 +30,22 @@ export type SupportHandoffDecision =
       prompt: string;
     };
 
+const isConfirmationMessage = (message: string) => {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 32) {
+    return false;
+  }
+  if (/\d/.test(normalized)) {
+    return false;
+  }
+  if (/(change|edit|update|instead|actually|but)/.test(normalized)) {
+    return false;
+  }
+  return /^(yes|yep|yeah|y|ok|okay|confirm|confirmed|please do|do it|sounds good|looks good|correct|that's right|that works)$/.test(
+    normalized
+  );
+};
+
 const SupportParseSchema = z.object({
   summary: z.string().optional(),
   reason: z.string().optional(),
@@ -52,31 +68,34 @@ export const runSupportHandoffFlow = async (
   }
 
   const state: SupportHandoffState = { ...(input.existingState ?? {}) };
+  const confirmed = input.confirmed ?? isConfirmationMessage(message);
 
-  try {
-    const openrouter = getOpenRouterClient();
-    const modelId = resolveModelId();
-    const result = await generateObject({
-      model: openrouter.chat(modelId),
-      schema: SupportParseSchema,
-      system:
-        "Summarize the support request in one sentence and capture a short reason.",
-      prompt:
-        "Summarize the support request in plain language. If possible, extract a short reason.",
-      input: { message },
-    });
+  if (!confirmed || !state.summary) {
+    try {
+      const openrouter = getOpenRouterClient();
+      const modelId = resolveModelId();
+      const result = await generateObject({
+        model: openrouter.chat(modelId),
+        schema: SupportParseSchema,
+        system:
+          "Summarize the support request in one sentence and capture a short reason.",
+        prompt:
+          "Summarize the support request in plain language. If possible, extract a short reason.",
+        input: { message },
+      });
 
-    Object.assign(
-      state,
-      Object.fromEntries(
-        Object.entries(result.object).filter(([, value]) => value !== undefined)
-      )
-    );
-  } catch {
-    // Parsing failure should not block support flow.
+      Object.assign(
+        state,
+        Object.fromEntries(
+          Object.entries(result.object).filter(([, value]) => value !== undefined)
+        )
+      );
+    } catch {
+      // Parsing failure should not block support flow.
+    }
   }
 
-  if (input.confirmed) {
+  if (confirmed) {
     return { type: "handoff", payload: state };
   }
 

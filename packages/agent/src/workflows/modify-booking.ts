@@ -48,6 +48,22 @@ export type ModifyBookingDecision =
       prompt: string;
     };
 
+const isConfirmationMessage = (message: string) => {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 32) {
+    return false;
+  }
+  if (/\d/.test(normalized)) {
+    return false;
+  }
+  if (/(change|edit|update|instead|actually|but)/.test(normalized)) {
+    return false;
+  }
+  return /^(yes|yep|yeah|y|ok|okay|confirm|confirmed|please do|do it|sounds good|looks good|correct|that's right|that works)$/.test(
+    normalized
+  );
+};
+
 const ModifyBookingParseSchema = z.object({
   bookingId: z.string().optional(),
   bookingReference: z.string().optional(),
@@ -91,6 +107,7 @@ export const runModifyBookingFlow = async (
   }
 
   const state: ModifyBookingState = { ...(input.existingState ?? {}) };
+  const confirmed = input.confirmed ?? isConfirmationMessage(message);
 
   try {
     const openrouter = getOpenRouterClient();
@@ -143,7 +160,7 @@ export const runModifyBookingFlow = async (
     };
   }
 
-  if (input.confirmed) {
+  if (confirmed) {
     return {
       type: "update",
       payload: state,

@@ -13,6 +13,11 @@ export type OnboardingInput = {
   submitMember?: (payload: Parameters<typeof createMemberProfile>[1]) => Promise<{
     memberId: string;
   }>;
+  /** Conversation history for multi-turn context */
+  conversationHistory?: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
   suggestions?: {
     timezones?: string[];
     clubs?: string[];
@@ -130,13 +135,18 @@ export const runOnboardingFlow = async (
   try {
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
+    const historyContext = input.conversationHistory?.length
+      ? `\nConversation context:\n${input.conversationHistory
+          .map((entry) => `${entry.role}: ${entry.content}`)
+          .join("\n")}\n`
+      : "";
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: OnboardingParseSchema,
       system:
         "Extract onboarding details from the message. Use the user's wording when possible.",
       prompt:
-        "Extract any of these fields if present: name, timezone, favorite club, favorite location. " +
+        `${historyContext}Extract any of these fields if present: name, timezone, favorite club, favorite location. ` +
         "If a field is not present, omit it.",
       input: { message },
     });

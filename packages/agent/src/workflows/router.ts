@@ -1,4 +1,10 @@
 import { generateObject } from "ai";
+import {
+  clearBookingState,
+  getBookingState,
+  getFlowFromState,
+  isFlowStateEnvelope,
+} from "@tee-time/core";
 import { z } from "zod";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { runFaqFlow, type FaqFlowDecision, type FaqFlowInput } from "./faq";
@@ -23,11 +29,18 @@ import {
   type ModifyBookingInput,
 } from "./modify-booking";
 
+import type { Database } from "@tee-time/database";
+
 export type RouterInput = {
   message: string;
   memberId?: string;
   locale?: string;
   memberExists?: boolean;
+  db?: Database;
+  conversationHistory?: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
 };
 
 export type RouterDecision =
@@ -72,8 +85,56 @@ const RouterSchema = z.object({
     "support",
     "clarify",
   ]),
-  reason: z.string().optional(),
+  reason: z.string().nullable(),
 });
+
+const isAffirmativeReply = (message: string) => {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 32) {
+    return false;
+  }
+  if (/\d/.test(normalized)) {
+    return false;
+  }
+  return /^(yes|yep|yeah|y|ok|okay|sure|please|yup|sounds good|that works|i do|i would|i want to|let's do it)$/.test(
+    normalized
+  );
+};
+
+const isNegativeReply = (message: string) => {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 32) {
+    return false;
+  }
+  return /^(no|nope|nah|not now|not today|later|maybe later|don't|do not)$/.test(
+    normalized
+  );
+};
+
+const looksLikeFollowup = (message: string) => {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 32) {
+    return false;
+  }
+  const intentKeywords = [
+    "book",
+    "tee time",
+    "cancel",
+    "reschedule",
+    "modify",
+    "change",
+    "status",
+    "support",
+    "help",
+    "human",
+    "faq",
+    "question",
+  ];
+  if (intentKeywords.some((keyword) => normalized.includes(keyword))) {
+    return false;
+  }
+  return true;
+};
 
 export const routeAgentMessage = async (
   input: RouterInput
@@ -94,11 +155,121 @@ export const routeAgentMessage = async (
 
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
+
+    let contextNote = "";
+    let activeFlow: string | null = null;
+    let activeData: Record<string, unknown> | null = null;
+    if (input.db && input.memberId) {
+      const activeState = await getBookingState<Record<string, unknown>>(
+        input.db,
+        input.memberId
+      );
+      if (activeState?.state) {
+        activeFlow = getFlowFromState(activeState.state);
+        if (isFlowStateEnvelope(activeState.state)) {
+          activeData = activeState.state.data;
+        } else {
+          activeData = activeState.state;
+        }
+      }
+      const isOfferBookingState =
+        activeFlow === "booking-status" &&
+        Boolean(
+          activeData &&
+            typeof activeData === "object" &&
+            "offerBooking" in activeData &&
+            activeData.offerBooking === true
+        );
+      const shouldUseActiveFlow = !isOfferBookingState;
+
+      if (activeFlow === "booking-status" && isOfferBookingState) {
+        if (isAffirmativeReply(message)) {
+          return {
+            flow: "booking-new",
+            decision: await runBookingIntakeFlow(input as BookingIntakeInput),
+          };
+        }
+        if (isNegativeReply(message)) {
+          if (input.db && input.memberId) {
+            await clearBookingState(input.db, input.memberId);
+          }
+          return {
+            flow: "clarify",
+            prompt:
+              "No problem. If you want to book a tee time later, just let me know.",
+          };
+        }
+      }
+
+      if (
+        shouldUseActiveFlow &&
+        activeFlow &&
+        activeData &&
+        Object.keys(activeData).length > 0
+      ) {
+        contextNote =
+          "\nIMPORTANT CONTEXT: User has an active flow in progress. ";
+        contextNote +=
+          "The user is likely answering a recent question (e.g. a club name, location, date, time, or confirmation). ";
+        contextNote += `If the message looks like an answer or confirmation, YOU MUST SELECT '${activeFlow}'. Do NOT choose 'clarify'.`;
+        contextNote += `\nActive flow: ${activeFlow}`;
+        contextNote += `\nPrevious state keys: ${Object.keys(activeData).join(", ")}`;
+      }
+    }
+
+    console.log("DEBUG: Router Active State:", contextNote ? "FOUND" : "NONE");
+
+    if (
+      activeFlow &&
+      activeData &&
+      Object.keys(activeData).length > 0 &&
+      looksLikeFollowup(message) &&
+      !(activeFlow === "booking-status" &&
+        typeof activeData === "object" &&
+        "offerBooking" in activeData &&
+        activeData.offerBooking === true)
+    ) {
+      if (activeFlow === "booking-new") {
+        return {
+          flow: "booking-new",
+          decision: await runBookingIntakeFlow(input as BookingIntakeInput),
+        };
+      }
+      if (activeFlow === "cancel-booking") {
+        return {
+          flow: "cancel-booking",
+          decision: await runCancelBookingFlow({
+            ...(input as CancelBookingInput),
+            existingState: activeData as CancelBookingInput["existingState"],
+          }),
+        };
+      }
+      if (activeFlow === "modify-booking") {
+        return {
+          flow: "modify-booking",
+          decision: await runModifyBookingFlow({
+            ...(input as ModifyBookingInput),
+            existingState: activeData as ModifyBookingInput["existingState"],
+          }),
+        };
+      }
+      if (activeFlow === "booking-status") {
+        return {
+          flow: "booking-status",
+          decision: await runBookingStatusFlow(input as BookingStatusFlowInput),
+        };
+      }
+      if (activeFlow === "support") {
+        return { flow: "support" };
+      }
+    }
+
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: RouterSchema,
+      mode: "json",
       system:
-        "You are a router for a tee-time booking assistant. Choose the best flow.",
+        "You are a router for a tee-time booking assistant. Choose the best flow." + contextNote,
       prompt:
         "Given the user message, select one flow:\n" +
         "- booking-new: user wants to book a new tee time.\n" +
@@ -108,9 +279,11 @@ export const routeAgentMessage = async (
         "- faq: general questions about membership, policies, hours, pricing, etc.\n" +
         "- support: user asks for human help, has issues, or wants to talk to staff.\n" +
         "- clarify: intent is unclear.\n" +
-        "Return only the flow and an optional reason.\n\n" +
+        "Return a JSON object with the flow and a reason (string or null).\n\n" +
         `Message: "${message}"`,
     });
+
+    console.log("DEBUG: Router Decision:", JSON.stringify(result.object));
 
     if (result.object.flow === "booking-new") {
       return {
@@ -129,14 +302,26 @@ export const routeAgentMessage = async (
     if (result.object.flow === "cancel-booking") {
       return {
         flow: "cancel-booking",
-        decision: await runCancelBookingFlow(input as CancelBookingInput),
+        decision: await runCancelBookingFlow({
+          ...(input as CancelBookingInput),
+          existingState:
+            activeFlow === "cancel-booking" && activeData
+              ? (activeData as CancelBookingInput["existingState"])
+              : undefined,
+        }),
       };
     }
 
     if (result.object.flow === "modify-booking") {
       return {
         flow: "modify-booking",
-        decision: await runModifyBookingFlow(input as ModifyBookingInput),
+        decision: await runModifyBookingFlow({
+          ...(input as ModifyBookingInput),
+          existingState:
+            activeFlow === "modify-booking" && activeData
+              ? (activeData as ModifyBookingInput["existingState"])
+              : undefined,
+        }),
       };
     }
 
@@ -153,7 +338,8 @@ export const routeAgentMessage = async (
       prompt:
         "I can help book a new tee time, update or cancel an existing booking, check booking status, and answer FAQs. If you need something else, I can connect you to staff.",
     };
-  } catch {
+  } catch (error) {
+    console.error("Router Error:", error);
     return {
       flow: "clarify",
       prompt:

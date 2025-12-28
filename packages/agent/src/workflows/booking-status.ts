@@ -1,7 +1,12 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import type { Database } from "@tee-time/database";
-import { formatBookingStatus, lookupMemberBooking } from "@tee-time/core";
+import {
+  formatBookingStatus,
+  lookupMemberBooking,
+  parsePreferredDate,
+  parsePreferredTimeWindow,
+} from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 
 export type BookingStatusFlowInput = {
@@ -41,6 +46,7 @@ export type BookingStatusFlowDecision =
   | {
       type: "respond";
       message: string;
+      offerBooking?: boolean;
     }
   | {
       type: "not-found";
@@ -63,8 +69,8 @@ const extractReference = (message: string) => {
 };
 
 const BookingStatusParseSchema = z.object({
-  preferredDate: z.string().optional(),
-  preferredTime: z.string().optional(),
+  preferredDate: z.string().nullable(),
+  preferredTime: z.string().nullable(),
 });
 
 export const runBookingStatusFlow = async (
@@ -89,13 +95,27 @@ export const runBookingStatusFlow = async (
         "Extract booking date or time from the message if the user is asking about status.",
       prompt:
         "Extract preferred date and preferred time if present in the message. " +
-        "If not present, omit the field.",
-      input: { message },
+        "If not present, return null.\n\n" +
+        `User message: "${message}"`,
     });
-    preferredDate = result.object.preferredDate;
-    preferredTime = result.object.preferredTime;
+    preferredDate = result.object.preferredDate ?? undefined;
+    preferredTime = result.object.preferredTime ?? undefined;
   } catch {
     // Parsing failure should not block lookup.
+  }
+
+  if (preferredDate) {
+    const parsedDate = parsePreferredDate(preferredDate);
+    if (parsedDate) {
+      preferredDate = parsedDate;
+    }
+  }
+
+  if (preferredTime) {
+    const parsedTime = parsePreferredTimeWindow(preferredTime);
+    if (parsedTime) {
+      preferredTime = parsedTime.start;
+    }
   }
 
   if ((input.lookupBooking || input.db) && input.memberId) {
@@ -111,6 +131,13 @@ export const runBookingStatusFlow = async (
       preferredTime,
     });
     if (!booking) {
+      if (!reference && !preferredDate && !preferredTime) {
+        return {
+          type: "respond",
+          message: "You don't have any upcoming bookings. Would you like to book a tee time?",
+          offerBooking: true,
+        };
+      }
       return {
         type: "not-found",
         prompt:
