@@ -11,6 +11,7 @@ import {
   getBookingState,
   isFlowStateEnvelope,
   logMessage,
+  createMemberProfile,
   saveBookingState,
   wrapFlowState,
 } from "@tee-time/core";
@@ -124,6 +125,8 @@ const processDecision = (decision: RouterDecision): string => {
 
 export const whatsappWebhookRoutes = new Hono();
 
+const DEFAULT_TIMEZONE = "Etc/UTC";
+
 /**
  * Twilio webhook verification endpoint.
  * Used for initial webhook setup validation.
@@ -160,8 +163,25 @@ whatsappWebhookRoutes.post("/", async (c) => {
 
     // Log inbound message
     let memberId: string | undefined;
-    const existingMember = await memberRepo.getByPhoneNumber(phoneNumber);
+    let existingMember = await memberRepo.getByPhoneNumber(phoneNumber);
+    if (!existingMember) {
+      const now = new Date();
+      existingMember = await createMemberProfile(db, {
+        phoneNumber,
+        name: "Unknown",
+        timezone: DEFAULT_TIMEZONE,
+        favoriteLocationLabel: "Unknown",
+        preferredLocationLabel: undefined,
+        preferredTimeOfDay: undefined,
+        preferredBayLabel: undefined,
+        onboardingCompletedAt: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
     memberId = existingMember?.id;
+    const memberIsOnboarded = Boolean(existingMember?.onboardingCompletedAt);
 
     const storedState = memberId
       ? await getBookingState<Record<string, unknown>>(db, memberId)
@@ -172,7 +192,7 @@ whatsappWebhookRoutes.post("/", async (c) => {
         : null;
 
     await logMessage(db, {
-      memberId: memberId ?? phoneNumber, // Use phone number if no member ID
+      memberId: memberId as string,
       direction: "inbound",
       channel: "whatsapp",
       providerMessageId: MessageSid,
@@ -205,7 +225,7 @@ whatsappWebhookRoutes.post("/", async (c) => {
     const routerInput = {
       message,
       memberId,
-      memberExists: !!existingMember,
+      memberExists: memberIsOnboarded,
       db,
       conversationHistory,
     };
@@ -229,6 +249,7 @@ whatsappWebhookRoutes.post("/", async (c) => {
       const result = await runOnboardingFlow({
         message,
         phoneNumber,
+        existingMemberId: memberId,
         db,
         existingState:
           storedEnvelope?.flow === "onboarding"
@@ -244,7 +265,11 @@ whatsappWebhookRoutes.post("/", async (c) => {
           flow: "clarify",
           prompt: `Welcome, ${result.payload.name}! You're all set up. How can I help you book a tee time?`,
         };
-      } else if (result.type === "ask" || result.type === "confirm-default") {
+      } else if (
+        result.type === "ask" ||
+        result.type === "confirm-default" ||
+        result.type === "confirm-skip"
+      ) {
         await saveFlowState("onboarding", result.nextState);
         finalDecision = { flow: "clarify", prompt: result.prompt };
       } else if (result.type === "clarify") {
@@ -352,7 +377,7 @@ whatsappWebhookRoutes.post("/", async (c) => {
 
     // Log outbound message
     await logMessage(db, {
-      memberId: memberId ?? phoneNumber,
+      memberId: memberId as string,
       direction: "outbound",
       channel: "whatsapp",
       bodyRedacted: responseMessage,
