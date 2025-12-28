@@ -10,6 +10,12 @@ import {
   createBookingStatusHistoryRepository
 } from "@tee-time/database";
 import { logger } from "./logger";
+import {
+  queueBookingNotification,
+  getTemplateForStatus,
+  scheduleBookingReminder,
+  scheduleBookingFollowUp,
+} from "./notification-queue";
 
 const DEFAULT_CANCELLATION_WINDOW_MINUTES = 60;
 
@@ -51,12 +57,15 @@ export type SetBookingStatusParams = {
   nextStatus: Booking["status"];
   changedByStaffId?: string | null;
   reason?: string | null;
+  cancelledAt?: Date | null;
   audit?: {
     actorId?: string | null;
     action: string;
     metadata?: Record<string, unknown> | null;
   };
   now?: Date;
+  /** If true, queue a WhatsApp notification to the member */
+  notifyMember?: boolean;
 };
 
 export const setBookingStatusWithHistory = async (
@@ -69,7 +78,7 @@ export const setBookingStatusWithHistory = async (
     nextStatus: params.nextStatus,
     actorId: params.changedByStaffId ?? null
   });
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const bookingRepo = createBookingRepository(tx);
     const historyRepo = createBookingStatusHistoryRepository(tx);
     const auditRepo = createAuditLogRepository(tx);
@@ -108,6 +117,10 @@ export const setBookingStatusWithHistory = async (
       id: params.bookingId,
       status: params.nextStatus,
       staffMemberId: params.changedByStaffId ?? current.staffMemberId,
+      cancelledAt:
+        params.nextStatus === "Cancelled"
+          ? params.cancelledAt ?? now
+          : null,
       updatedAt: now
     });
 
@@ -138,7 +151,28 @@ export const setBookingStatusWithHistory = async (
     });
     return {
       booking: updated as Booking | null,
-      history: history as BookingStatusHistory | null
+      history: history as BookingStatusHistory | null,
+      previousStatus: current.status,
     };
   });
+
+  // Queue notification to member if requested
+  if (params.notifyMember && result.booking) {
+    const template = getTemplateForStatus(params.nextStatus);
+    if (template) {
+      await queueBookingNotification(db, {
+        bookingId: params.bookingId,
+        template,
+        reason: params.reason ?? undefined,
+      });
+    }
+
+    // If confirmed, also schedule reminder and follow-up
+    if (params.nextStatus === "Confirmed") {
+      await scheduleBookingReminder(db, result.booking);
+      await scheduleBookingFollowUp(db, result.booking);
+    }
+  }
+
+  return result;
 };

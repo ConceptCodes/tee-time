@@ -5,5 +5,6 @@ export * from "./current-user";
 export * from "./members";
 export * from "./message-logs";
 export * from "./overview";
+export * from "./reports";
 export * from "./staff";
 export * from "./support-requests";

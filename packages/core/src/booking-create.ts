@@ -23,13 +23,30 @@ export type CreateBookingParams = {
   staffMemberId?: string | null;
   cancelledAt?: Date | null;
   notify?: boolean;
+  now?: Date;
 };
 
 export const createBookingWithHistory = async (
   db: Database,
   params: CreateBookingParams
 ) => {
-  const now = new Date();
+  const now = params.now ?? new Date();
+  const minLeadMinutes = Number.parseInt(
+    process.env.BOOKING_MIN_LEAD_MINUTES ?? "0",
+    10
+  );
+  const leadMinutes = Number.isFinite(minLeadMinutes) ? minLeadMinutes : 0;
+  const dateIso = params.preferredDate.toISOString().slice(0, 10);
+  const timeToken = params.preferredTimeStart.length === 5
+    ? `${params.preferredTimeStart}:00`
+    : params.preferredTimeStart;
+  const bookingDateTime = new Date(`${dateIso}T${timeToken}`);
+  if (!Number.isNaN(bookingDateTime.getTime())) {
+    const cutoff = now.getTime() + Math.max(leadMinutes, 0) * 60 * 1000;
+    if (bookingDateTime.getTime() < cutoff) {
+      throw new Error("booking_in_past");
+    }
+  }
   const booking = await db.transaction(async (tx) => {
     const bookingRepo = createBookingRepository(tx);
     const historyRepo = createBookingStatusHistoryRepository(tx);
@@ -92,11 +109,17 @@ export const createBookingWithHistory = async (
   });
 
   if (params.notify) {
+    const dashboardUrl =
+      process.env.ADMIN_DASHBOARD_URL ?? "http://localhost:5173";
+    const bookingLink = `${dashboardUrl}/bookings/${booking.id}`;
     const notificationText =
       `New booking request (${booking.status}).\n` +
       `Member: ${booking.memberId}\n` +
       `Date: ${booking.preferredDate.toISOString().slice(0, 10)}\n` +
-      `Time: ${booking.preferredTimeStart}`;
+      `Time: ${booking.preferredTimeStart}\n` +
+      `Players: ${params.numberOfPlayers}\n` +
+      `Notes: ${params.notes || "None"}\n` +
+      `Review: ${bookingLink}`;
     await notifyBooking({ text: notificationText });
   }
 

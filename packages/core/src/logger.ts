@@ -21,6 +21,11 @@ const redactEnabled = (process.env.LOG_REDACT ?? "true").toLowerCase() !== "fals
 const minLevel = parseLevel(process.env.LOG_LEVEL);
 
 const redactString = (value: string) => {
+  // Don't redact valid UUIDs (avoids false positives with phone regex)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    return value;
+  }
+
   let result = value;
   // Emails
   result = result.replace(
