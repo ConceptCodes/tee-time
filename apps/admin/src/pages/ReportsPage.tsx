@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import DashboardTab from "@/pages/reports/DashboardTab"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -10,30 +9,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart"
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-  Cell,
-} from "recharts"
 import { Download, RefreshCw } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+
+// Chart Components
+import { BookingTrendChart } from "@/components/charts/BookingTrendChart"
+import { BookingsByClubChart } from "@/components/charts/BookingsByClubChart"
+import { StatusDistributionChart } from "@/components/charts/StatusDistributionChart"
+import { ConversionResponseChart } from "@/components/charts/ConversionResponseChart"
+import { AutomationMixChart } from "@/components/charts/AutomationMixChart"
+import { RequestMixChart } from "@/components/charts/RequestMixChart"
 
 type BookingTrend = {
   period: string
@@ -71,90 +56,22 @@ const automationTrend = [
 ]
 
 const sourceMix = [
-  { name: "booking", value: 58, fill: "hsl(var(--chart-1))" },
-  { name: "faq", value: 28, fill: "hsl(var(--chart-2))" },
-  { name: "support", value: 14, fill: "hsl(var(--chart-3))" },
+  { name: "booking", value: 58, fill: "var(--chart-1)" },
+  { name: "faq", value: 28, fill: "var(--chart-2)" },
+  { name: "support", value: 14, fill: "var(--chart-3)" },
 ]
 
 const CHART_COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ]
-
-const bookingTrendConfig = {
-  total: {
-    label: "Total",
-    color: "var(--chart-1)",
-  },
-  confirmed: {
-    label: "Confirmed",
-    color: "var(--chart-2)",
-  },
-} satisfies ChartConfig
-
-const statusConfig = {
-  confirmed: {
-    label: "Confirmed",
-    color: "var(--chart-2)",
-  },
-  notAvailable: {
-    label: "Not Available",
-    color: "var(--chart-3)",
-  },
-  cancelled: {
-    label: "Cancelled",
-    color: "var(--chart-4)",
-  },
-  pending: {
-    label: "Pending",
-    color: "var(--chart-5)",
-  },
-} satisfies ChartConfig
-
-const automationConfig = {
-  automated: {
-    label: "Automated",
-    color: "var(--chart-4)",
-  },
-  handoff: {
-    label: "Handoff",
-    color: "var(--chart-5)",
-  },
-} satisfies ChartConfig
-
-const sourceConfig = {
-  booking: {
-    label: "Booking",
-    color: "var(--chart-1)",
-  },
-  faq: {
-    label: "FAQ",
-    color: "var(--chart-2)",
-  },
-  support: {
-    label: "Support",
-    color: "var(--chart-3)",
-  },
-} satisfies ChartConfig
-
-const conversionConfig = {
-  conversion: {
-    label: "Conversion rate",
-    color: "var(--chart-2)",
-  },
-  response: {
-    label: "Avg response (min)",
-    color: "var(--chart-3)",
-  },
-} satisfies ChartConfig
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState("month")
   const [loading, setLoading] = useState(true)
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   
   // Data state
   const [bookingTrend, setBookingTrend] = useState<BookingTrend[]>([])
@@ -188,7 +105,7 @@ export default function ReportsPage() {
         setConversionData(data.data)
       }
 
-      setLastUpdated(new Date())
+
     } catch (err) {
       console.error("Failed to fetch report data:", err)
       // Set demo data
@@ -242,12 +159,7 @@ export default function ReportsPage() {
     { week: "W5", conversion: 78, response: 36 },
   ]
 
-  const timeSinceUpdate = () => {
-    const mins = Math.floor((Date.now() - lastUpdated.getTime()) / 60000)
-    if (mins < 1) return "Just now"
-    if (mins === 1) return "1 min ago"
-    return `${mins} mins ago`
-  }
+
 
   return (
     <div className="space-y-6">
@@ -264,7 +176,6 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">{timeSinceUpdate()}</Badge>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
@@ -293,235 +204,6 @@ export default function ReportsPage() {
           <DashboardTab />
         </CardContent>
       </Card>
-
-      {/* Charts Grid - Row 1: New Charts */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Booking Trend */}
-        <Card className="border bg-card/80">
-          <CardHeader>
-            <CardTitle className="font-display text-xl">
-              Booking Trend
-            </CardTitle>
-            <CardDescription>Daily bookings over time.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-[260px] w-full" />
-            ) : (
-              <ChartContainer config={bookingTrendConfig} className="h-[260px] w-full">
-                <LineChart data={bookingTrend} margin={{ left: 8, right: 8 }}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="period"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={10}
-                    fontSize={12}
-                  />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={10} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Line
-                    dataKey="total"
-                    stroke="var(--color-total)"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    dataKey="confirmed"
-                    stroke="var(--color-confirmed)"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Bookings by Club */}
-        <Card className="border bg-card/80">
-          <CardHeader>
-            <CardTitle className="font-display text-xl">
-              Bookings by Club
-            </CardTitle>
-            <CardDescription>Performance by venue.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-[260px] w-full" />
-            ) : (
-              <ChartContainer config={bookingTrendConfig} className="h-[260px] w-full">
-                <BarChart data={clubBookings} layout="vertical" margin={{ left: 80, right: 8 }}>
-                  <CartesianGrid horizontal={false} />
-                  <XAxis type="number" tickLine={false} axisLine={false} />
-                  <YAxis
-                    type="category"
-                    dataKey="clubName"
-                    tickLine={false}
-                    axisLine={false}
-                    width={80}
-                    fontSize={12}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="confirmed" fill="var(--color-confirmed)" radius={4} stackId="a" name="Confirmed" />
-                  <Bar dataKey="pending" fill="hsl(var(--chart-5))" radius={4} stackId="a" name="Pending" />
-                  <Bar dataKey="notAvailable" fill="hsl(var(--chart-3))" radius={4} stackId="a" name="Not Available" />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Status Distribution */}
-        <Card className="border bg-card/80">
-          <CardHeader>
-            <CardTitle className="font-display text-xl">
-              Booking Status Distribution
-            </CardTitle>
-            <CardDescription>Breakdown by outcome.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-[260px] w-full" />
-            ) : (
-              <ChartContainer config={statusConfig} className="h-[260px] w-full">
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-                  <Pie
-                    data={statusPieData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={55}
-                    outerRadius={95}
-                    strokeWidth={0}
-                  >
-                    {statusPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Conversion & Response Time */}
-        <Card className="border bg-card/80">
-          <CardHeader>
-            <CardTitle className="font-display text-xl">
-              Conversion & Response Time
-            </CardTitle>
-            <CardDescription>Weekly conversion rate and staff SLA.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={conversionConfig}
-              className="h-[260px] w-full"
-            >
-              <BarChart data={conversionTrend} margin={{ left: 8, right: 8 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="week"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                />
-                <YAxis tickLine={false} axisLine={false} tickMargin={10} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar
-                  dataKey="conversion"
-                  fill="var(--color-conversion)"
-                  radius={6}
-                  name="Conversion %"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="response"
-                  stroke="var(--color-response)"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Response (min)"
-                />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Automation Mix */}
-        <Card className="border bg-card/80">
-          <CardHeader>
-            <CardTitle className="font-display text-xl">
-              Automation Mix
-            </CardTitle>
-            <CardDescription>Share of automated vs handoff work.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={automationConfig}
-              className="h-[260px] w-full"
-            >
-              <AreaChart data={automationTrend} margin={{ left: 8, right: 8 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="week"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                />
-                <YAxis tickLine={false} axisLine={false} tickMargin={10} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="automated"
-                  stackId="a"
-                  stroke="var(--color-automated)"
-                  fill="var(--color-automated)"
-                  fillOpacity={0.3}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="handoff"
-                  stackId="a"
-                  stroke="var(--color-handoff)"
-                  fill="var(--color-handoff)"
-                  fillOpacity={0.3}
-                />
-              </AreaChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Request Mix */}
-        <Card className="border bg-card/80">
-          <CardHeader>
-            <CardTitle className="font-display text-xl">
-              Request Mix
-            </CardTitle>
-            <CardDescription>What members ask for most.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={sourceConfig} className="h-[260px] w-full">
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-                <Pie
-                  data={sourceMix}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={55}
-                  outerRadius={95}
-                  strokeWidth={0}
-                />
-              </PieChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Club Performance Table */}
       <Card className="border bg-card/80">
@@ -579,6 +261,88 @@ export default function ReportsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Charts Grid - Row 1: New Charts */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Booking Trend */}
+        <Card className="border bg-card/80">
+          <CardHeader>
+            <CardTitle className="font-display text-xl">
+              Booking Trend
+            </CardTitle>
+            <CardDescription>Daily bookings over time.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BookingTrendChart data={bookingTrend} loading={loading} />
+          </CardContent>
+        </Card>
+
+        {/* Bookings by Club */}
+        <Card className="border bg-card/80">
+          <CardHeader>
+            <CardTitle className="font-display text-xl">
+              Bookings by Club
+            </CardTitle>
+            <CardDescription>Performance by venue.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BookingsByClubChart data={clubBookings} loading={loading} />
+          </CardContent>
+        </Card>
+
+        {/* Status Distribution */}
+        <Card className="border bg-card/80">
+          <CardHeader>
+            <CardTitle className="font-display text-xl">
+              Booking Status Distribution
+            </CardTitle>
+            <CardDescription>Breakdown by outcome.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StatusDistributionChart data={statusPieData} loading={loading} />
+          </CardContent>
+        </Card>
+
+        {/* Conversion & Response Time */}
+        <Card className="border bg-card/80">
+          <CardHeader>
+            <CardTitle className="font-display text-xl">
+              Conversion & Response Time
+            </CardTitle>
+            <CardDescription>Weekly conversion rate and staff SLA.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ConversionResponseChart data={conversionTrend} />
+          </CardContent>
+        </Card>
+
+        {/* Automation Mix */}
+        <Card className="border bg-card/80">
+          <CardHeader>
+            <CardTitle className="font-display text-xl">
+              Automation Mix
+            </CardTitle>
+            <CardDescription>Share of automated vs handoff work.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AutomationMixChart data={automationTrend} />
+          </CardContent>
+        </Card>
+
+        {/* Request Mix */}
+        <Card className="border bg-card/80">
+          <CardHeader>
+            <CardTitle className="font-display text-xl">
+              Request Mix
+            </CardTitle>
+            <CardDescription>What members ask for most.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RequestMixChart data={sourceMix} />
+          </CardContent>
+        </Card>
+      </div>
+
     </div>
   )
 }
