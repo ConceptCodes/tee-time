@@ -22,6 +22,7 @@ export type CancelBookingInput = {
     bookingReference?: string;
     preferredDate?: string;
     preferredTime?: string;
+    timeframe?: "past" | "upcoming" | "any";
   }) => Promise<{
     id: string;
     preferredDate: Date;
@@ -78,6 +79,10 @@ export type CancelBookingDecision =
     }
   | {
       type: "not-allowed";
+      prompt: string;
+    }
+  | {
+      type: "offer-booking";
       prompt: string;
     }
   | {
@@ -189,6 +194,33 @@ export const runCancelBookingFlow = async (
   const confirmed = input.confirmed ?? isConfirmationMessage(message);
 
   if (!hasLookupCriteria) {
+    if ((input.lookupBooking || input.db) && input.memberId) {
+      const lookup =
+        input.lookupBooking ??
+        ((params: Parameters<typeof lookupMemberBooking>[1]) =>
+          lookupMemberBooking(input.db as Database, params));
+      const booking = await lookup({
+        memberId: input.memberId,
+        timeframe: "upcoming",
+      });
+      if (!booking) {
+        return {
+          type: "offer-booking",
+          prompt:
+            "You don't have any upcoming bookings. Would you like to book a tee time?",
+        };
+      }
+      state.bookingId = booking.id;
+      state.preferredDate = booking.preferredDate.toISOString().slice(0, 10);
+      state.preferredTime = booking.preferredTimeEnd
+        ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
+        : booking.preferredTimeStart;
+      return {
+        type: "confirm-cancel",
+        prompt: buildSummary(state),
+        nextState: state,
+      };
+    }
     return {
       type: "need-booking-info",
       prompt:
@@ -208,6 +240,7 @@ export const runCancelBookingFlow = async (
       bookingReference: state.bookingReference,
       preferredDate: state.preferredDate,
       preferredTime: state.preferredTime,
+      timeframe: "upcoming",
     });
     if (!booking) {
       return {

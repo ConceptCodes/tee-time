@@ -172,17 +172,15 @@ export const routeAgentMessage = async (
           activeData = activeState.state;
         }
       }
-      const isOfferBookingState =
-        activeFlow === "booking-status" &&
-        Boolean(
-          activeData &&
-            typeof activeData === "object" &&
-            "offerBooking" in activeData &&
-            activeData.offerBooking === true
-        );
+      const isOfferBookingState = Boolean(
+        activeData &&
+          typeof activeData === "object" &&
+          "offerBooking" in activeData &&
+          activeData.offerBooking === true
+      );
       const shouldUseActiveFlow = !isOfferBookingState;
 
-      if (activeFlow === "booking-status" && isOfferBookingState) {
+      if (activeFlow && isOfferBookingState) {
         if (isAffirmativeReply(message)) {
           return {
             flow: "booking-new",
@@ -224,10 +222,11 @@ export const routeAgentMessage = async (
       activeData &&
       Object.keys(activeData).length > 0 &&
       looksLikeFollowup(message) &&
-      !(activeFlow === "booking-status" &&
+      !(
         typeof activeData === "object" &&
         "offerBooking" in activeData &&
-        activeData.offerBooking === true)
+        activeData.offerBooking === true
+      )
     ) {
       if (activeFlow === "booking-new") {
         return {

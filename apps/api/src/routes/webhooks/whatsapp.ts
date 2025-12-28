@@ -87,6 +87,7 @@ const processDecision = (decision: RouterDecision): string => {
       const d = decision.decision;
       if (d.type === "cancelled") return d.message;
       if (d.type === "confirm-cancel") return d.prompt;
+      if (d.type === "offer-booking") return d.prompt;
       if (d.type === "need-booking-info") return d.prompt;
       if (d.type === "lookup") return d.prompt ?? "Let me find that booking.";
       if (d.type === "not-allowed") return d.prompt;
@@ -284,6 +285,8 @@ whatsappWebhookRoutes.post("/", async (c) => {
       const d = decision.decision;
       if (d.type === "cancelled") {
         await clearFlowState();
+      } else if (d.type === "offer-booking") {
+        await saveFlowState("cancel-booking", { offerBooking: true });
       } else if (
         d.type === "lookup" ||
         d.type === "need-booking-info" ||

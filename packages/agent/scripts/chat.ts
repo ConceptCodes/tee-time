@@ -147,6 +147,8 @@ async function main() {
         const d = decision.decision;
         if (d.type === "cancelled") {
           await clearFlowState();
+        } else if (d.type === "offer-booking") {
+          await saveFlowState("cancel-booking", { offerBooking: true });
         } else if (
           d.type === "lookup" ||
           d.type === "need-booking-info" ||
@@ -231,6 +233,7 @@ async function main() {
             const d = finalDecision.decision;
             if (d.type === "cancelled") responseText = d.message;
             else if (d.type === "confirm-cancel") responseText = d.prompt;
+            else if (d.type === "offer-booking") responseText = d.prompt;
             else if (d.type === "need-booking-info") responseText = d.prompt;
             else if (d.type === "lookup") responseText = d.prompt ?? "Let me find that booking.";
             else if (d.type === "not-allowed") responseText = d.prompt;
