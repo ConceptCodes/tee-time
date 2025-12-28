@@ -10,7 +10,7 @@ import {
   saveBookingState,
   wrapFlowState,
 } from "@tee-time/core";
-import { config } from "dotenv";
+import { config } from "@dotenvx/dotenvx";
 import path from "node:path";
 
 // Load environment variables from the root .env

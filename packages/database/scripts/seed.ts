@@ -5,7 +5,7 @@ import { createClubLocationBayRepository } from "../src/repositories/bays";
 import { createFaqRepository } from "../src/repositories/faqs";
 import { createMemberRepository } from "../src/repositories/members";
 import { createBookingRepository } from "../src/repositories/bookings";
-import { config } from "dotenv";
+import { config } from "@dotenvx/dotenvx";
 import path from "node:path";
 import { clubs, bookings, bookingStatusHistory } from "../src/schema";
 import { eq } from "drizzle-orm";

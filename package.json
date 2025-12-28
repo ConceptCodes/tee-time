@@ -19,7 +19,7 @@
   ],
   "dependencies": {
     "biome": "^0.3.3",
-    "dotenv": "^17.2.3",
+    "@dotenvx/dotenvx": "^1.31.0",
     "drizzle-kit": "^0.31.8",
     "hono": "^4.11.3",
     "zod": "^4.2.1"
