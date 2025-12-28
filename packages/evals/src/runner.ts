@@ -23,14 +23,22 @@ export type EvalConfig = {
   suites: ScenarioSuite[];
   counts: {
     booking: number;
+    "booking-status": number;
+    cancel: number;
+    modify: number;
+    onboarding: number;
+    "multi-turn": number;
     faq: number;
     fallback: number;
+    "edge-cases": number;
     updates: number;
   };
   seed: number;
   verbose: boolean;
   allowFaqEscalation: boolean;
   notify: boolean;
+  captureTranscripts: boolean;
+  summaryOnly: boolean;
 };
 
 export type EvalScenarioReport = {
@@ -40,6 +48,7 @@ export type EvalScenarioReport = {
   status: "pass" | "fail" | "skip";
   durationMs: number;
   details?: string;
+  transcript?: Array<{ role: "user" | "assistant"; content: string }>;
 };
 
 export type EvalSuiteReport = {
@@ -260,16 +269,19 @@ const runAgentScenario = async (
   }
 
   const db = getDb();
-  const member = await createEvalMember(scenario.id);
-  await clearBookingState(db, member.id);
+  const isOnboarding = scenario.suite === "onboarding";
+  const member = isOnboarding ? null : await createEvalMember(scenario.id);
+  if (member) {
+    await clearBookingState(db, member.id);
+  }
   const conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
   let lastDecision: RouterDecision | null = null;
 
   for (const turn of scenario.turns) {
     lastDecision = await routeAgentMessage({
       message: turn,
-      memberId: member.id,
-      memberExists: true,
+      memberId: member?.id,
+      memberExists: isOnboarding ? false : true,
       db,
       conversationHistory,
     });
@@ -295,7 +307,9 @@ const runAgentScenario = async (
     config.allowFaqEscalation
   );
 
-  await clearBookingState(db, member.id);
+  if (member) {
+    await clearBookingState(db, member.id);
+  }
   return {
     id: scenario.id,
     name: scenario.name,
@@ -303,6 +317,7 @@ const runAgentScenario = async (
     status: evaluation.status,
     durationMs: Date.now() - start,
     details: evaluation.details,
+    transcript: config.captureTranscripts ? conversationHistory : undefined,
   };
 };
 
@@ -377,8 +392,14 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
 
   const allSuites: Array<{ suite: ScenarioSuite; scenarios: EvalScenario[] }> = [
     { suite: "booking", scenarios: scenariosBySuite.booking },
+    { suite: "booking-status", scenarios: scenariosBySuite["booking-status"] },
+    { suite: "cancel", scenarios: scenariosBySuite.cancel },
+    { suite: "modify", scenarios: scenariosBySuite.modify },
+    { suite: "onboarding", scenarios: scenariosBySuite.onboarding },
+    { suite: "multi-turn", scenarios: scenariosBySuite["multi-turn"] },
     { suite: "faq", scenarios: scenariosBySuite.faq },
     { suite: "fallback", scenarios: scenariosBySuite.fallback },
+    { suite: "edge-cases", scenarios: scenariosBySuite["edge-cases"] },
     { suite: "updates", scenarios: scenariosBySuite.updates },
   ];
 
@@ -395,7 +416,9 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
     for (const scenario of shuffled) {
       index += 1;
       const prefix = `TEST [${suite.suite} ${index}/${suiteTotal}]`;
-      console.log(`${prefix} ${scenario.name}`);
+      if (!config.summaryOnly) {
+        console.log(`${prefix} ${scenario.name}`);
+      }
       const result = await runScenario(scenario, config);
       const statusLabel =
         result.status === "pass"
@@ -404,7 +427,9 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
           ? "[SKIP]"
           : "[FAIL]";
       const detail = result.details ? ` - ${result.details}` : "";
-      console.log(`${statusLabel} ${scenario.id}${detail}`);
+      if (!config.summaryOnly) {
+        console.log(`${statusLabel} ${scenario.id}${detail}`);
+      }
       results.push(result);
     }
     reports.push(summarizeSuite(suite.suite, results));
