@@ -37,14 +37,19 @@ export const createBookingWithHistory = async (
   );
   const leadMinutes = Number.isFinite(minLeadMinutes) ? minLeadMinutes : 0;
   const dateIso = params.preferredDate.toISOString().slice(0, 10);
-  const timeToken = params.preferredTimeStart.length === 5
-    ? `${params.preferredTimeStart}:00`
-    : params.preferredTimeStart;
+  const timeToken =
+    params.preferredTimeStart.length === 5
+      ? `${params.preferredTimeStart}:00`
+      : params.preferredTimeStart;
   const bookingDateTime = new Date(`${dateIso}T${timeToken}`);
   if (!Number.isNaN(bookingDateTime.getTime())) {
-    const cutoff = now.getTime() + Math.max(leadMinutes, 0) * 60 * 1000;
-    if (bookingDateTime.getTime() < cutoff) {
+    const nowTime = now.getTime();
+    if (bookingDateTime.getTime() < nowTime) {
       throw new Error("booking_in_past");
+    }
+    const cutoff = nowTime + Math.max(leadMinutes, 0) * 60 * 1000;
+    if (leadMinutes > 0 && bookingDateTime.getTime() < cutoff) {
+      throw new Error("booking_too_soon");
     }
   }
   const booking = await db.transaction(async (tx) => {

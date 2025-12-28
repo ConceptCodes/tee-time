@@ -842,6 +842,19 @@ export const runBookingIntakeFlow = async (
             nextState: state,
           };
         }
+        if ((error as Error)?.message === "booking_too_soon") {
+          state.preferredTime = undefined;
+          state.preferredTimeEnd = undefined;
+          await persistState(state);
+          return {
+            type: "ask",
+            prompt: buildAskPrompt(
+              "preferredTime",
+              "That time is too soon. What time would you like instead?"
+            ),
+            nextState: state,
+          };
+        }
         throw error;
       }
     }
