@@ -49,7 +49,10 @@ Common development commands mapping to `package.json` scripts:
 ```mermaid
 flowchart TD
   Start[Inbound WhatsApp Message] --> Parse[Parse and Normalize Input]
-  Parse --> Route{Intent Router}
+  Parse --> CheckMember{Member Exists?}
+  CheckMember -->|No| Onboarding[Onboarding Workflow]
+  CheckMember -->|Yes| Route{Intent Router}
+  
   Route -->|Booking New| Intake[Booking Intake Workflow]
   Route -->|Change or Cancel| Cancel[Change or Cancel Workflow]
   Route -->|Modify Booking| Modify[Modify Booking Workflow]
@@ -57,6 +60,15 @@ flowchart TD
   Route -->|FAQ or General Question| FAQ[FAQ Retrieval]
   Route -->|Support or Human| Support[Create Support Request]
   Route -->|Unclear| Clarify[Clarify Question]
+
+  subgraph OnboardingFlow["Member Onboarding"]
+    UserStart[New User] --> AskName[Ask Name]
+    AskName --> AskTimezone[Ask Timezone]
+    AskTimezone --> AskPrefs[Ask Club Preferences]
+    AskPrefs --> CreateProfile[Create Member Profile]
+    CreateProfile --> OnboardingComplete[Send Welcome]
+  end
+  Onboarding --> UserStart
 
   subgraph BookingFields["Booking Intake Requirements"]
     IntakeCheck{"All Required Fields?"}
