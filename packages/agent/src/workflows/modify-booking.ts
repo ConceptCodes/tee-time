@@ -7,6 +7,7 @@ import {
   saveBookingState,
   wrapFlowState,
   unwrapFlowState,
+  lookupMemberBooking,
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { isConfirmationMessage } from "../utils";
@@ -18,6 +19,19 @@ export type ModifyBookingInput = {
   existingState?: Partial<ModifyBookingState>;
   confirmed?: boolean;
   db?: Database;
+  lookupBooking?: (params: {
+    memberId: string;
+    bookingId?: string;
+    bookingReference?: string;
+    preferredDate?: string;
+    preferredTime?: string;
+    timeframe?: "past" | "upcoming" | "any";
+  }) => Promise<{
+    id: string;
+    preferredDate: Date;
+    preferredTimeStart: string;
+    preferredTimeEnd?: string | null;
+  } | null>;
   conversationHistory?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -60,18 +74,26 @@ export type ModifyBookingDecision =
   | {
       type: "clarify";
       prompt: string;
+    }
+  | {
+      type: "not-found";
+      prompt: string;
+    }
+  | {
+      type: "offer-booking";
+      prompt: string;
     };
 
 const ModifyBookingParseSchema = z.object({
-  bookingId: z.string().optional(),
-  bookingReference: z.string().optional(),
-  club: z.string().optional(),
-  clubLocation: z.string().optional(),
-  preferredDate: z.string().optional(),
-  preferredTime: z.string().optional(),
-  players: z.number().int().optional(),
-  guestNames: z.string().optional(),
-  notes: z.string().optional(),
+  bookingId: z.string().nullable(),
+  bookingReference: z.string().nullable(),
+  club: z.string().nullable(),
+  clubLocation: z.string().nullable(),
+  preferredDate: z.string().nullable(),
+  preferredTime: z.string().nullable(),
+  players: z.number().int().nullable(),
+  guestNames: z.string().nullable(),
+  notes: z.string().nullable(),
 });
 
 const buildSummary = (state: ModifyBookingState) => {
@@ -151,7 +173,7 @@ export const runModifyBookingFlow = async (
     Object.assign(
       state,
       Object.fromEntries(
-        Object.entries(result.object).filter(([, value]) => value !== undefined)
+        Object.entries(result.object).filter(([, value]) => value !== undefined && value !== null)
       )
     );
   } catch {
@@ -174,6 +196,38 @@ export const runModifyBookingFlow = async (
         "Please share the booking date, time, or confirmation reference so I can find it.",
       nextState: state,
     };
+  }
+
+  // Perform actual booking lookup if we have criteria
+  if (!state.bookingId && (input.lookupBooking || input.db) && input.memberId) {
+    const lookup =
+      input.lookupBooking ??
+      ((params: Parameters<typeof lookupMemberBooking>[1]) =>
+        lookupMemberBooking(input.db as Database, params));
+    const booking = await lookup({
+      memberId: input.memberId,
+      bookingId: state.bookingId,
+      bookingReference: state.bookingReference,
+      preferredDate: state.preferredDate,
+      preferredTime: state.preferredTime,
+      timeframe: "upcoming",
+    });
+    if (!booking) {
+      // No booking found - offer to create a new one
+      return {
+        type: "offer-booking",
+        prompt:
+          "I couldn't find an upcoming booking matching that. Would you like to book a new tee time instead?",
+      };
+    }
+    // Found the booking - update state with booking info
+    state.bookingId = booking.id;
+    state.preferredDate = booking.preferredDate instanceof Date
+      ? booking.preferredDate.toISOString().slice(0, 10)
+      : String(booking.preferredDate).slice(0, 10);
+    state.preferredTime = booking.preferredTimeEnd
+      ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
+      : booking.preferredTimeStart;
   }
 
   if (!state.bookingId) {

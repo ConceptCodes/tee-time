@@ -90,19 +90,7 @@ const RouterSchema = z.object({
   reason: z.string().nullable(),
 });
 
-const isBookingStatusQuery = (message: string) => {
-  const normalized = message.toLowerCase();
-  if (/(cancel|reschedule|modify|change|update)/.test(normalized)) {
-    return false;
-  }
-  const hasStatusTerms =
-    /\bstatus\b|confirmed|confirmation|upcoming|next booking|next tee time|past booking|past bookings|upcoming bookings/.test(
-      normalized
-    );
-  const hasReference =
-    /\b(?:ref|reference|booking)\s*#?\s*[a-z0-9-]{6,}\b/.test(normalized);
-  return hasStatusTerms || hasReference;
-};
+// NOTE: Removed isBookingStatusQuery regex heuristic - let LLM handle intent detection
 
 export const routeAgentMessage = async (
   input: RouterInput
@@ -185,6 +173,26 @@ export const routeAgentMessage = async (
 
     debugLog("Router Active State:", contextNote ? "FOUND" : "NONE");
 
+    // Fast-path: If user sends a confirmation message during an active booking flow,
+    // route directly to booking-new without LLM to preserve state and avoid errors
+    if (
+      activeFlow === "booking-new" &&
+      activeData &&
+      Object.keys(activeData).length > 0 &&
+      isConfirmationMessage(message) &&
+      !(
+        typeof activeData === "object" &&
+        "offerBooking" in activeData &&
+        activeData.offerBooking === true
+      )
+    ) {
+      debugLog("Router: Confirmation fast-path for booking-new");
+      return {
+        flow: "booking-new",
+        decision: await runBookingIntakeFlow(input as BookingIntakeInput),
+      };
+    }
+
     if (
       activeFlow &&
       activeData &&
@@ -235,12 +243,7 @@ export const routeAgentMessage = async (
       }
     }
 
-    if (isBookingStatusQuery(message)) {
-      return {
-        flow: "booking-status",
-        decision: await runBookingStatusFlow(input as BookingStatusFlowInput),
-      };
-    }
+    // Removed regex-based status detection - LLM handles this via prompt
 
     const historyContext = input.conversationHistory?.length
       ? `\nConversation history:\n${input.conversationHistory
@@ -260,12 +263,13 @@ export const routeAgentMessage = async (
       prompt:
         "Given the user message, select one flow:\n" +
         "- booking-new: user wants to book a new tee time.\n" +
-        "- booking-status: user asks about an existing booking, confirmation, or status.\n" +
+        "- booking-status: user asks about existing booking(s), confirmation status, upcoming/past bookings, " +
+        "or uses phrases like 'any bookings', 'this week', 'next week', 'do I have'.\n" +
         "- cancel-booking: user wants to cancel an existing booking.\n" +
         "- modify-booking: user wants to reschedule or change details of an existing booking.\n" +
-        "- faq: general questions about membership, policies, hours, pricing, etc.\n" +
+        "- faq: general questions about membership, policies, hours, pricing, dress code, etc.\n" +
         "- support: user asks for human help, has issues, or wants to talk to staff.\n" +
-        "- clarify: intent is unclear.\n" +
+        "- clarify: intent is unclear and doesn't fit any other flow.\n" +
         "Return a JSON object with the flow, confidence (0-1), and a reason (string or null).\n\n" +
         `${historyContext}` +
         `Message: "${message}"`,
@@ -327,7 +331,24 @@ export const routeAgentMessage = async (
         "I can help book a new tee time, update or cancel an existing booking, check booking status, and answer FAQs. If you need something else, I can connect you to staff.",
     };
   } catch (error) {
+    // Log error but don't mask it - workflow-specific errors should be handled by the workflow
     console.error("Router Error:", error);
+    // Re-throw the error so workflow-specific error handling can occur
+    // Only catch truly unexpected errors
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (
+      errorMessage.includes("booking_in_past") ||
+      errorMessage.includes("booking_too_soon") ||
+      errorMessage.includes("bay_unavailable")
+    ) {
+      // These are handled by the booking flow, but if we got here the flow didn't handle it
+      // Return a helpful clarify response
+      return {
+        flow: "clarify",
+        prompt:
+          "There was an issue with the booking details. Please provide a valid date and time.",
+      };
+    }
     return {
       flow: "clarify",
       prompt:

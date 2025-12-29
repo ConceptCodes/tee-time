@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createClubLocationRepository,
   createClubRepository,
+  createMemberRepository,
   type Database,
 } from "@tee-time/database";
 import {
@@ -22,7 +23,7 @@ import {
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { runClubSelectionFlow } from "./club-selection";
-import { isConfirmationMessage, normalizeMatchValue, debugLog } from "../utils";
+import { isConfirmationMessage, isConfirmationMessageAsync, normalizeMatchValue, debugLog } from "../utils";
 
 export type BookingIntakeInput = {
   message: string;
@@ -233,9 +234,9 @@ const BookingValidationSchema = z.object({
 const buildDefaultPrompt = (field: BookingIntakeField, value: string) => {
   switch (field) {
     case "club":
-      return `I can default the club to "${value}". Would you like to use that?`;
+      return `Would you like to book at ${value}? (say yes, or tell me a different club)`;
     case "clubLocation":
-      return `I can default the location to "${value}". Want to use that?`;
+      return `Should we use the ${value} location? (say yes, or tell me a different location)`;
     case "preferredDate":
       return `I can use "${value}" as the date. Does that work?`;
     case "preferredTime":
@@ -297,12 +298,27 @@ const dedupeNames = (names: string[]) => {
 const applyParsedFields = (
   state: BookingIntakeState,
   parsed: Record<string, unknown>
-) => ({
-  ...state,
-  ...Object.fromEntries(
+) => {
+  const filtered = Object.fromEntries(
     Object.entries(parsed).filter(([, value]) => value !== undefined && value !== null)
-  ),
-});
+  );
+  
+  // If state already has a properly-resolved preferredDate (YYYY-MM-DD format),
+  // don't overwrite it with newly-extracted date from LLM (which may re-resolve "tomorrow")
+  // This prevents date corruption when LLM extracts from conversation history
+  if (
+    state.preferredDate &&
+    /^\d{4}-\d{2}-\d{2}$/.test(state.preferredDate) &&
+    filtered.preferredDate
+  ) {
+    delete filtered.preferredDate;
+  }
+  
+  return {
+    ...state,
+    ...filtered,
+  };
+};
 
 const hasGuestContext = (message: string) =>
   /\bguest(s)?\b/i.test(message);
@@ -347,23 +363,62 @@ export const runBookingIntakeFlow = async (
 
   const clubRepo = input.db ? createClubRepository(input.db) : null;
   const locationRepo = input.db ? createClubLocationRepository(input.db) : null;
+  const memberRepo = input.db ? createMemberRepository(input.db) : null;
   const activeClubs = clubRepo ? await clubRepo.listActive() : [];
   const activeClubNames = activeClubs.map((club) => club.name);
+
+  // Look up member preferences to offer their favorite club as default
+  let memberDefaults: { club?: string; clubLocation?: string } = {};
+  if (memberRepo && input.memberId && !state.club && !persistedState?.club) {
+    const member = await memberRepo.getById(input.memberId);
+    if (member?.favoriteLocationLabel) {
+      // favoriteLocationLabel is like "Topgolf Dallas" or "Topgolf (Dallas)"
+      // Try to extract club name from it
+      const favLabel = member.favoriteLocationLabel;
+      const matchedClub = activeClubs.find(
+        (c) => favLabel.toLowerCase().includes(c.name.toLowerCase())
+      );
+      if (matchedClub) {
+        memberDefaults.club = matchedClub.name;
+        // Also try to extract location if present
+        const locationPart = favLabel.replace(matchedClub.name, "").trim();
+        if (locationPart) {
+          // Remove parentheses and clean up
+          memberDefaults.clubLocation = locationPart.replace(/[()]/g, "").trim();
+        }
+      }
+    }
+  }
+
+  // Merge member defaults into input.defaults if not already set
+  if (!input.defaults) {
+    input.defaults = {};
+  }
+  if (memberDefaults.club && !input.defaults.club) {
+    input.defaults.club = memberDefaults.club;
+  }
+  if (memberDefaults.clubLocation && !input.defaults.clubLocation) {
+    input.defaults.clubLocation = memberDefaults.clubLocation;
+  }
 
   // Check if this is a simple confirmation message and all required fields are already set.
   // In that case, skip LLM extraction to avoid re-interpreting dates/times from context
   // which can cause issues like "Tomorrow" being re-resolved incorrectly.
-  const hasAllRequiredFields =
+  // Note: notes is NOT required for this check - we can confirm without notes
+  const hasAllRequiredFieldsForSubmit =
     state.club &&
+    state.clubId &&  // Must have resolved club ID
     state.preferredDate &&
     state.preferredTime &&
     state.players !== undefined &&
-    (state.players === 1 || state.guestNames) &&
-    state.notes !== undefined;
+    (state.players === 1 || state.guestNames);
   const isSimpleConfirmation = isConfirmationMessage(message);
-
-  // Only run LLM extraction if we need more fields or the message isn't a simple confirmation
-  if (!hasAllRequiredFields || !isSimpleConfirmation) {
+  
+  // Skip LLM extraction entirely for confirmation messages when we have complete booking info
+  // This prevents "tomorrow" from being re-resolved relative to current time
+  if (isSimpleConfirmation && hasAllRequiredFieldsForSubmit) {
+    debugLog("Skipping LLM extraction for confirmation - all fields present:", JSON.stringify(state));
+  } else if (!isSimpleConfirmation || !hasAllRequiredFieldsForSubmit) {
     try {
       const openrouter = getOpenRouterClient();
       const modelId = resolveModelId();
@@ -439,9 +494,6 @@ export const runBookingIntakeFlow = async (
   } catch (error) {
     console.error("Booking Intake Extraction Error:", error);
   }
-  }
-  else {
-    debugLog("Skipping LLM extraction for confirmation message, all fields already set");
   }
 
   if (state.pendingDefaultField) {
@@ -881,7 +933,8 @@ export const runBookingIntakeFlow = async (
     };
   }
 
-  const confirmed = input.confirmed ?? isConfirmationMessage(message);
+  // Use LLM-based confirmation for natural language understanding
+  const confirmed = input.confirmed ?? await isConfirmationMessageAsync(message);
   if (confirmed) {
     const submit =
       input.submitBooking ??
@@ -890,12 +943,17 @@ export const runBookingIntakeFlow = async (
             if (!payload.memberId || !payload.clubId) {
               throw new Error("booking_intake_missing_ids");
             }
+            // Parse ISO date string (YYYY-MM-DD) as local time, not UTC
+            // new Date("2025-12-29") creates UTC midnight which is wrong day in local time
+            const dateParts = (payload.preferredDate as string).split("-").map(Number);
+            const preferredDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+            
             const booking = await createBookingWithHistory(input.db as Database, {
               memberId: payload.memberId,
               clubId: payload.clubId,
               clubLocationId: payload.clubLocationId ?? null,
               bayId: payload.bayId ?? null,
-              preferredDate: new Date(payload.preferredDate as string),
+              preferredDate,
               preferredTimeStart: payload.preferredTime as string,
               preferredTimeEnd: payload.preferredTimeEnd ?? null,
               numberOfPlayers: payload.players as number,

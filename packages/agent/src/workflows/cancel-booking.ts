@@ -96,13 +96,13 @@ export type CancelBookingDecision =
 
 
 const CancelBookingParseSchema = z.object({
-  bookingId: z.string().optional(),
-  bookingReference: z.string().optional(),
-  club: z.string().optional(),
-  clubLocation: z.string().optional(),
-  preferredDate: z.string().optional(),
-  preferredTime: z.string().optional(),
-  reason: z.string().optional(),
+  bookingId: z.string().nullable(),
+  bookingReference: z.string().nullable(),
+  club: z.string().nullable(),
+  clubLocation: z.string().nullable(),
+  preferredDate: z.string().nullable(),
+  preferredTime: z.string().nullable(),
+  reason: z.string().nullable(),
 });
 
 const buildSummary = (state: CancelBookingState) => {
@@ -142,7 +142,8 @@ export const runCancelBookingFlow = async (
       schema: CancelBookingParseSchema,
       system:
         "Extract cancellation details from the message. " +
-        "Capture bookingReference even if it's just an alphanumeric code (e.g., ABC123, TT-9F2KJQ). " +
+        "IMPORTANT: A booking reference can be any alphanumeric code (e.g., ABC123, XYZ99999, TT-9F2KJQ). " +
+        "If the user says 'cancel booking X' or 'cancel X' where X is an alphanumeric code, extract X as bookingReference. " +
         "Capture preferredDate if the user mentions relative or weekday dates (today, tomorrow, Friday, next Friday). " +
         "Capture preferredTime for times like 2pm, 14:00, 2:30 pm.",
       prompt:
@@ -157,7 +158,7 @@ export const runCancelBookingFlow = async (
     Object.assign(
       state,
       Object.fromEntries(
-        Object.entries(result.object).filter(([, value]) => value !== undefined)
+        Object.entries(result.object).filter(([, value]) => value !== undefined && value !== null)
       )
     );
   } catch {
@@ -186,6 +187,10 @@ export const runCancelBookingFlow = async (
     state.club ||
     state.clubLocation;
 
+  // Fallback: detect booking reference in message if LLM failed to extract
+  // Pattern: alphanumeric codes like ABC123, XYZ99999, TT-9F2KJQ
+  const messageHasReference = /\b[A-Z]{2,3}[-]?[A-Z0-9]{4,8}\b/i.test(message);
+
   const confirmed = input.confirmed ?? isConfirmationMessage(message);
 
   if (!hasLookupCriteria) {
@@ -199,6 +204,15 @@ export const runCancelBookingFlow = async (
         timeframe: "upcoming",
       });
       if (!booking) {
+        // If message contained a reference pattern, user was looking for something specific
+        // Return not-found. Otherwise, return offer-booking.
+        if (messageHasReference) {
+          return {
+            type: "not-found",
+            prompt:
+              "I couldn't find that booking. Can you double-check the reference or share the booking date/time?",
+          };
+        }
         return {
           type: "offer-booking",
           prompt:

@@ -45,9 +45,9 @@ export type MemberPreferencesDecision =
     };
 
 const MemberPreferencesSchema = z.object({
-  preferredLocation: z.string().optional(),
-  preferredTimeOfDay: z.string().optional(),
-  preferredBay: z.string().optional(),
+  preferredLocation: z.string().nullable(),
+  preferredTimeOfDay: z.string().nullable(),
+  preferredBay: z.string().nullable(),
 });
 
 const buildAskPrompt = (
@@ -99,14 +99,13 @@ export const runMemberPreferencesFlow = async (
         "Extract preferred booking preferences from the message. Use the user's wording when possible.",
       prompt:
         "Extract any of these fields if present: preferred location, preferred time of day, preferred bay. " +
-        "If a field is not present, omit it.",
-      input: { message },
+        `If a field is not present, omit it.\n\nUser message: "${message}"`,
     });
 
     Object.assign(
       state,
       Object.fromEntries(
-        Object.entries(result.object).filter(([, value]) => value !== undefined)
+        Object.entries(result.object).filter(([, value]) => value !== undefined && value !== null)
       )
     );
   } catch {

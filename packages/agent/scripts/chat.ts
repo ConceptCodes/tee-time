@@ -11,11 +11,6 @@ import {
   saveBookingState,
   wrapFlowState,
 } from "@tee-time/core";
-import { config } from "@dotenvx/dotenvx";
-import path from "node:path";
-
-// Load environment variables from the root .env
-config({ path: path.join(__dirname, "../../../.env") });
 
 async function main() {
   const db = getDb();
@@ -234,6 +229,9 @@ async function main() {
                 : "Modify booking request",
           });
           await clearFlowState();
+        } else if (d.type === "offer-booking") {
+          // No booking found - offer to create a new one
+          await saveFlowState("modify-booking", { offerBooking: true });
         } else if (
           d.type === "lookup" ||
           d.type === "need-booking-info" ||
@@ -284,6 +282,7 @@ async function main() {
             else if (d.type === "need-booking-info") responseText = d.prompt;
             else if (d.type === "lookup") responseText = d.prompt ?? "Let me find that booking.";
             else if (d.type === "update") responseText = "Got it. I'll send that update request to staff.";
+            else if (d.type === "offer-booking") responseText = d.prompt;
             else if (d.type === "clarify") responseText = d.prompt;
             break;
         }

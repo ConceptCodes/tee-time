@@ -76,11 +76,11 @@ export type OnboardingDecision =
     };
 
 const OnboardingParseSchema = z.object({
-  name: z.string().optional(),
-  timezone: z.string().optional(),
-  favoriteClub: z.string().optional(),
-  favoriteLocation: z.string().optional(),
-  preferredBay: z.string().optional(),
+  name: z.string().nullable(),
+  timezone: z.string().nullable(),
+  favoriteClub: z.string().nullable(),
+  favoriteLocation: z.string().nullable(),
+  preferredBay: z.string().nullable(),
 });
 
 const REQUIRED_FIELDS: OnboardingField[] = ["name"];
@@ -226,18 +226,28 @@ export const runOnboardingFlow = async (
           .map((entry) => `${entry.role}: ${entry.content}`)
           .join("\n")}\n`
       : "";
+    
+    // Tell the LLM what field we just asked for so it knows the user is likely answering that
+    const lastFieldContext = state.lastPromptedField
+      ? `The assistant just asked for the user's ${state.lastPromptedField.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}. If the user's response looks like a ${state.lastPromptedField === 'name' ? 'name' : 'value'}, extract it as "${state.lastPromptedField}".\n\n`
+      : "";
+    
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: OnboardingParseSchema,
       system:
-        "Extract onboarding details from the message. Use the user's wording when possible.",
+        "Extract onboarding details from the message. Use the user's wording when possible. " +
+        "If the user provides a short response that looks like a name (e.g., 'John', 'Sarah Smith'), extract it as 'name'.",
       prompt:
-        `${historyContext}Extract any of these fields if present: name, timezone, favorite club, favorite location, preferred bay. ` +
-        "If a field is not present, omit it.",
-      input: { message },
+        `${historyContext}${lastFieldContext}Extract any of these fields if present: name, timezone, favorite club, favorite location, preferred bay. ` +
+        `If a field is not present, omit it.\n\nUser message: "${message}"`,
     });
 
-    Object.assign(state, applyParsedFields(state, result.object));
+    // Convert null to undefined for state compatibility
+    const cleaned = Object.fromEntries(
+      Object.entries(result.object).map(([k, v]) => [k, v ?? undefined])
+    ) as Partial<OnboardingState>;
+    Object.assign(state, applyParsedFields(state, cleaned));
   } catch {
     // Parsing failure should not block onboarding.
   }
@@ -267,14 +277,21 @@ export const runOnboardingFlow = async (
     !(state.skippedFields ?? []).includes(lastPromptedField) &&
     (isSkipReply(message) || isNegativeReply(message))
   ) {
-    return {
-      type: "confirm-skip",
-      prompt: buildSkipConfirmPrompt(lastPromptedField),
-      nextState: {
-        ...state,
-        pendingSkipField: lastPromptedField,
-      },
-    };
+    // Immediately apply skip and move to next question (no confirmation needed)
+    const skippedState = applySkip(state, lastPromptedField);
+    
+    // Check if there are more optional fields to ask
+    const nextOptional = nextOptionalField(skippedState);
+    if (nextOptional) {
+      return {
+        type: "ask",
+        prompt: `Got it! ${buildAskPrompt(nextOptional, PROMPTS[nextOptional], input.suggestions)}`,
+        nextState: { ...skippedState, lastPromptedField: nextOptional },
+      };
+    }
+    
+    // No more fields - complete onboarding
+    state = skippedState;
   }
 
   const optionalMissing = nextOptionalField(state);

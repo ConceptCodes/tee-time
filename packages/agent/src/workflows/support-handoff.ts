@@ -34,8 +34,8 @@ export type SupportHandoffDecision =
 
 
 const SupportParseSchema = z.object({
-  summary: z.string().optional(),
-  reason: z.string().optional(),
+  summary: z.string().nullable(),
+  reason: z.string().nullable(),
 });
 
 const buildPrompt = (state: SupportHandoffState) => {
@@ -73,7 +73,7 @@ export const runSupportHandoffFlow = async (
       Object.assign(
         state,
         Object.fromEntries(
-          Object.entries(result.object).filter(([, value]) => value !== undefined)
+          Object.entries(result.object).filter(([, value]) => value !== undefined && value !== null)
         )
       );
     } catch {
