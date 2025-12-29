@@ -1,24 +1,63 @@
+import { useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { mockMembers, mockBookings } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { columns as bookingColumns } from "@/components/cards/BookingColumns"
+import { getBookingColumns } from "@/components/cards/BookingColumns"
 import { DataTable } from "@/components/cards/DataTable"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { ArrowLeft, Phone, Calendar, Globe2, MapPin } from "lucide-react"
 import { format } from "date-fns"
+import { useBookings, useMember } from "@/hooks/use-api-queries"
 
 export default function MemberProfilePage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  
-  const member = mockMembers.find(m => m.id === id)
-  const memberBookings = mockBookings.filter(b => b.memberId === id)
 
-  if (!member) {
+  const memberQuery = useMember(id)
+  const bookingsQuery = useBookings()
+
+  const member = memberQuery.data ?? null
+  const bookings = useMemo(() => {
+    if (!member) return []
+    return (bookingsQuery.data ?? []).filter((booking) => booking.memberId === member.id)
+  }, [bookingsQuery.data, member])
+
+  const memberById = useMemo(() => {
+    return member ? new Map([[member.id, member]]) : new Map()
+  }, [member])
+  const bookingColumns = useMemo(
+    () => getBookingColumns(memberById),
+    [memberById]
+  )
+
+  if (memberQuery.isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        Loading member profile...
+      </div>
+    )
+  }
+
+  if (memberQuery.isError || !member) {
     return (
         <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-            <h2 className="text-xl font-semibold">Member not found</h2>
+            <h2 className="text-xl font-semibold">
+              {memberQuery.isError ? "Unable to load member" : "Member not found"}
+            </h2>
+            {memberQuery.isError && (
+              <p className="text-sm text-muted-foreground">
+                {memberQuery.error instanceof Error
+                  ? memberQuery.error.message
+                  : "Please try again."}
+              </p>
+            )}
             <Button variant="outline" onClick={() => navigate("/members")}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Members
@@ -107,7 +146,19 @@ export default function MemberProfilePage() {
                 <CardDescription>History of tee-time reservations.</CardDescription>
             </CardHeader>
             <CardContent>
-                <DataTable columns={bookingColumns} data={memberBookings} />
+                {bookings.length === 0 ? (
+                  <Empty className="min-h-[200px] border-none">
+                    <EmptyMedia variant="icon"><Calendar /></EmptyMedia>
+                    <EmptyHeader>
+                      <EmptyTitle>No bookings yet</EmptyTitle>
+                      <EmptyDescription>
+                        This member has not requested a tee time yet.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <DataTable columns={bookingColumns} data={bookings} />
+                )}
             </CardContent>
         </Card>
       </div>

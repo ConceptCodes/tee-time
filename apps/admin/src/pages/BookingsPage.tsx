@@ -1,9 +1,12 @@
-import { Plus } from "lucide-react"
+import { Calendar, Plus } from "lucide-react"
+import { useMemo } from "react"
 
-import { columns } from "@/components/cards/BookingColumns"
+import { getBookingColumns } from "@/components/cards/BookingColumns"
 import { DataTable } from "@/components/cards/DataTable"
 import { ExportDropdown } from "@/components/ExportDropdown"
-import { mockBookings, type Booking } from "@/lib/mock-data"
+import {
+  Booking,
+} from "@/lib/api-types"
 import {
   Card,
   CardContent,
@@ -12,8 +15,16 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyMedia,
+} from "@/components/ui/empty"
 import CreateBookingModal from "@/components/modals/CreateBookingModal"
 import { exportData } from "@/lib/export"
+import { useBookings, useClubLocations, useClubs, useMembers } from "@/hooks/use-api-queries"
 
 const bookingExportColumns: { key: keyof Booking; label: string }[] = [
   { key: "id", label: "Booking ID" },
@@ -30,8 +41,58 @@ const bookingExportColumns: { key: keyof Booking; label: string }[] = [
 ]
 
 export default function BookingsPage() {
+  const bookingsQuery = useBookings()
+  const membersQuery = useMembers()
+  const clubsQuery = useClubs()
+
+  const clubIds = useMemo(
+    () => (clubsQuery.data ?? []).map((club) => club.id),
+    [clubsQuery.data]
+  )
+  const locationsQuery = useClubLocations(clubIds)
+
+  const memberById = useMemo(
+    () => new Map((membersQuery.data ?? []).map((member) => [member.id, member])),
+    [membersQuery.data]
+  )
+  const clubsById = useMemo(
+    () => new Map((clubsQuery.data ?? []).map((club) => [club.id, club])),
+    [clubsQuery.data]
+  )
+  const locationsById = useMemo(
+    () =>
+      new Map(
+        (locationsQuery.data ?? []).map((location) => [location.id, location])
+      ),
+    [locationsQuery.data]
+  )
+
+  const bookings = useMemo(
+    () =>
+      (bookingsQuery.data ?? []).map((booking) => ({
+        ...booking,
+        clubName: clubsById.get(booking.clubId)?.name ?? booking.clubId,
+        clubLocationName: booking.clubLocationId
+          ? locationsById.get(booking.clubLocationId)?.name ?? booking.clubLocationId
+          : undefined,
+      })),
+    [bookingsQuery.data, clubsById, locationsById]
+  )
+
+  const columns = useMemo(() => getBookingColumns(memberById), [memberById])
+  const loading =
+    bookingsQuery.isLoading ||
+    membersQuery.isLoading ||
+    clubsQuery.isLoading ||
+    locationsQuery.isLoading
+  const error =
+    bookingsQuery.error ||
+    membersQuery.error ||
+    clubsQuery.error ||
+    locationsQuery.error
+
   const handleExport = (format: "csv" | "json") => {
-    exportData(mockBookings, "bookings", format, bookingExportColumns)
+    exportData(bookings, "bookings", format, bookingExportColumns)
   }
 
   return (
@@ -47,7 +108,7 @@ export default function BookingsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportDropdown
-            data={mockBookings}
+            data={bookings}
             filename="bookings"
             columns={bookingExportColumns}
             onExport={handleExport}
@@ -72,7 +133,25 @@ export default function BookingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={mockBookings} />
+          {error ? (
+            <div className="text-sm text-destructive">
+              {error instanceof Error ? error.message : "Failed to load bookings"}
+            </div>
+          ) : loading ? (
+            <div className="text-sm text-muted-foreground">Loading bookings...</div>
+          ) : bookings.length === 0 ? (
+            <Empty className="min-h-[240px] border-none">
+              <EmptyMedia variant="icon"><Calendar /></EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>No bookings yet</EmptyTitle>
+                <EmptyDescription>
+                  New tee-time requests will show up here as they come in.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <DataTable columns={columns} data={bookings} />
+          )}
         </CardContent>
       </Card>
     </div>

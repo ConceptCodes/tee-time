@@ -1,23 +1,45 @@
-import { auditColumns } from "@/components/cards/AuditColumns"
+import { useMemo } from "react"
+import { ScrollText } from "lucide-react"
+import { getAuditColumns } from "@/components/cards/AuditColumns"
 import { DataTable } from "@/components/cards/DataTable"
 import { ExportDropdown } from "@/components/ExportDropdown"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { mockAuditLogs, type AuditLog } from "@/lib/mock-data"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { exportData } from "@/lib/export"
+import {
+  AuditLog,
+} from "@/lib/api-types"
+import { useAuditLogs, useStaff } from "@/hooks/use-api-queries"
 
 const auditExportColumns: { key: keyof AuditLog; label: string }[] = [
   { key: "id", label: "Log ID" },
-  { key: "user", label: "User" },
   { key: "action", label: "Action" },
-  { key: "target", label: "Target" },
-  { key: "details", label: "Details" },
-  { key: "timestamp", label: "Timestamp" },
+  { key: "actorId", label: "Actor ID" },
+  { key: "resourceType", label: "Resource" },
+  { key: "resourceId", label: "Resource ID" },
+  { key: "metadata", label: "Metadata" },
+  { key: "createdAt", label: "Timestamp" },
 ]
 
 export default function AuditLogsPage() {
+  const logsQuery = useAuditLogs()
+  const staffQuery = useStaff()
+
+  const staffById = useMemo(
+    () => new Map((staffQuery.data ?? []).map((user) => [user.id, user])),
+    [staffQuery.data]
+  )
+  const auditColumns = useMemo(() => getAuditColumns(staffById), [staffById])
+
   const handleExport = (format: "csv" | "json") => {
-    exportData(mockAuditLogs, "audit-logs", format, auditExportColumns)
+    exportData(logsQuery.data ?? [], "audit-logs", format, auditExportColumns)
   }
 
   return (
@@ -37,7 +59,7 @@ export default function AuditLogsPage() {
         <div className="flex items-center gap-2">
           <Badge variant="secondary">Synced just now</Badge>
           <ExportDropdown
-            data={mockAuditLogs}
+            data={logsQuery.data ?? []}
             filename="audit-logs"
             columns={auditExportColumns}
             onExport={handleExport}
@@ -52,7 +74,29 @@ export default function AuditLogsPage() {
           <CardDescription>Latest system actions and changes.</CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable columns={auditColumns} data={mockAuditLogs} />
+          {logsQuery.isError ? (
+            <div className="text-sm text-destructive">
+              {logsQuery.error instanceof Error
+                ? logsQuery.error.message
+                : "Failed to load audit logs"}
+            </div>
+          ) : logsQuery.isLoading ? (
+            <div className="text-sm text-muted-foreground">
+              Loading audit logs...
+            </div>
+          ) : (logsQuery.data ?? []).length === 0 ? (
+            <Empty className="min-h-[240px] border-none">
+              <EmptyMedia variant="icon"><ScrollText /></EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>No audit activity yet</EmptyTitle>
+                <EmptyDescription>
+                  System actions and staff activity will appear here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <DataTable columns={auditColumns} data={logsQuery.data ?? []} />
+          )}
         </CardContent>
       </Card>
     </div>

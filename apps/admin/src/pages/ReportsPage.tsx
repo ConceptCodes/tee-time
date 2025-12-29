@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import DashboardTab from "@/pages/reports/DashboardTab"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,18 @@ import {
 } from "@/components/ui/select"
 import { Download, RefreshCw } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
+
+// Hooks
+import {
+  useBookingTrend,
+  useClubBookings,
+  useConversionRate,
+  useRequestMix,
+  useAutomationTrend,
+  useConversionTrend,
+} from "@/hooks/use-report-queries"
 
 // Chart Components
 import { BookingTrendChart } from "@/components/charts/BookingTrendChart"
@@ -19,47 +31,6 @@ import { StatusDistributionChart } from "@/components/charts/StatusDistributionC
 import { ConversionResponseChart } from "@/components/charts/ConversionResponseChart"
 import { AutomationMixChart } from "@/components/charts/AutomationMixChart"
 import { RequestMixChart } from "@/components/charts/RequestMixChart"
-
-type BookingTrend = {
-  period: string
-  total: number
-  confirmed: number
-  conversionRate: number
-}
-
-type ClubBooking = {
-  clubId: string
-  clubName: string
-  total: number
-  confirmed: number
-  pending: number
-  notAvailable: number
-  cancelled: number
-  conversionRate: number
-}
-
-type ConversionData = {
-  total: number
-  confirmed: number
-  notAvailable: number
-  cancelled: number
-  conversionRate: number
-}
-
-// Mock data for charts that don't have API yet
-const automationTrend = [
-  { week: "W1", automated: 78, handoff: 22 },
-  { week: "W2", automated: 81, handoff: 19 },
-  { week: "W3", automated: 84, handoff: 16 },
-  { week: "W4", automated: 82, handoff: 18 },
-  { week: "W5", automated: 86, handoff: 14 },
-]
-
-const sourceMix = [
-  { name: "booking", value: 58, fill: "var(--chart-1)" },
-  { name: "faq", value: 28, fill: "var(--chart-2)" },
-  { name: "support", value: 14, fill: "var(--chart-3)" },
-]
 
 const CHART_COLORS = [
   "var(--chart-1)",
@@ -71,93 +42,57 @@ const CHART_COLORS = [
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState("month")
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   
-  // Data state
-  const [bookingTrend, setBookingTrend] = useState<BookingTrend[]>([])
-  const [clubBookings, setClubBookings] = useState<ClubBooking[]>([])
-  const [conversionData, setConversionData] = useState<ConversionData | null>(null)
+  // Data hooks
+  const { data: rawBookingTrend = [], isLoading: trendLoading } = useBookingTrend(period)
+  const { data: clubBookings = [], isLoading: clubLoading } = useClubBookings(period)
+  const { data: conversionData, isLoading: conversionLoading } = useConversionRate(period)
+  const { data: requestMix = [], isLoading: mixLoading } = useRequestMix(period)
+  const { data: automationTrendTrend = [], isLoading: automationLoading } = useAutomationTrend(period)
+  const { data: conversionTrendRaw = [], isLoading: conversionTrendLoading } = useConversionTrend(period)
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      const [trendRes, clubRes, conversionRes] = await Promise.all([
-        fetch(`/api/reports/booking-trend?period=${period}&groupBy=day`, { credentials: "include" }),
-        fetch(`/api/reports/bookings-by-club?period=${period}`, { credentials: "include" }),
-        fetch(`/api/reports/conversion-rate?period=${period}`, { credentials: "include" }),
-      ])
+  const loading = trendLoading || clubLoading || conversionLoading || mixLoading || automationLoading || conversionTrendLoading
 
-      if (trendRes.ok) {
-        const data = await trendRes.json()
-        setBookingTrend(data.data.map((d: BookingTrend) => ({
-          ...d,
-          period: new Date(d.period).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        })))
-      }
-
-      if (clubRes.ok) {
-        const data = await clubRes.json()
-        setClubBookings(data.data)
-      }
-
-      if (conversionRes.ok) {
-        const data = await conversionRes.json()
-        setConversionData(data.data)
-      }
-
-
-    } catch (err) {
-      console.error("Failed to fetch report data:", err)
-      // Set demo data
-      setBookingTrend([
-        { period: "Dec 1", total: 12, confirmed: 9, conversionRate: 0.75 },
-        { period: "Dec 2", total: 15, confirmed: 12, conversionRate: 0.8 },
-        { period: "Dec 3", total: 8, confirmed: 6, conversionRate: 0.75 },
-        { period: "Dec 4", total: 20, confirmed: 17, conversionRate: 0.85 },
-        { period: "Dec 5", total: 18, confirmed: 14, conversionRate: 0.78 },
-        { period: "Dec 6", total: 22, confirmed: 19, conversionRate: 0.86 },
-      ])
-      setClubBookings([
-        { clubId: "1", clubName: "Topgolf", total: 85, confirmed: 68, pending: 5, notAvailable: 8, cancelled: 4, conversionRate: 0.8 },
-        { clubId: "2", clubName: "Drive Shack", total: 42, confirmed: 35, pending: 2, notAvailable: 3, cancelled: 2, conversionRate: 0.83 },
-        { clubId: "3", clubName: "BigShots", total: 29, confirmed: 22, pending: 3, notAvailable: 2, cancelled: 2, conversionRate: 0.76 },
-      ])
-      setConversionData({
-        total: 156,
-        confirmed: 118,
-        notAvailable: 15,
-        cancelled: 11,
-        conversionRate: 0.7564,
-      })
-    } finally {
-      setLoading(false)
-    }
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.reports(period) })
   }
-
-  useEffect(() => {
-    fetchData()
-  }, [period])
 
   const handleExport = async (type: "bookings" | "messages") => {
     const url = `/api/reports/export/${type}?format=csv`
     window.open(url, "_blank")
   }
 
+  // Format booking trend
+  const bookingTrend = rawBookingTrend.map((d) => ({
+    ...d,
+    period: new Date(d.period).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+  }))
+
   const statusPieData = conversionData ? [
-    { name: "Confirmed", value: conversionData.confirmed, fill: CHART_COLORS[1] },
-    { name: "Not Available", value: conversionData.notAvailable, fill: CHART_COLORS[2] },
-    { name: "Cancelled", value: conversionData.cancelled, fill: CHART_COLORS[3] },
-    { name: "Pending", value: conversionData.total - conversionData.confirmed - conversionData.notAvailable - conversionData.cancelled, fill: CHART_COLORS[4] },
+    { name: "confirmed", value: conversionData.confirmed, fill: CHART_COLORS[1] },
+    { name: "notAvailable", value: conversionData.notAvailable, fill: CHART_COLORS[2] },
+    { name: "cancelled", value: conversionData.cancelled, fill: CHART_COLORS[3] },
+    { name: "pending", value: conversionData.total - conversionData.confirmed - conversionData.notAvailable - conversionData.cancelled, fill: CHART_COLORS[4] },
   ].filter(d => d.value > 0) : []
 
-  // Conversion trend data for bar chart (mock for now)
-  const conversionTrend = [
-    { week: "W1", conversion: 68, response: 48 },
-    { week: "W2", conversion: 72, response: 44 },
-    { week: "W3", conversion: 70, response: 42 },
-    { week: "W4", conversion: 75, response: 39 },
-    { week: "W5", conversion: 78, response: 36 },
-  ]
+  // Format request mix for chart
+  const sourceMix = requestMix.map((item, index) => ({
+    ...item,
+    fill: CHART_COLORS[index % CHART_COLORS.length]
+  }))
+
+  // Format automation trend
+  const automationTrendFormatted = automationTrendTrend.map(d => ({
+    ...d,
+    week: d.period ? new Date(d.period).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "N/A"
+  }))
+
+  // Format conversion trend
+  const formattedConversionTrend = conversionTrendRaw.map(d => ({
+    ...d,
+    week: d.period ? new Date(d.period).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "N/A"
+  }))
 
 
 
@@ -176,7 +111,7 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -312,7 +247,7 @@ export default function ReportsPage() {
             <CardDescription>Weekly conversion rate and staff SLA.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ConversionResponseChart data={conversionTrend} />
+            <ConversionResponseChart data={formattedConversionTrend} />
           </CardContent>
         </Card>
 
@@ -325,7 +260,7 @@ export default function ReportsPage() {
             <CardDescription>Share of automated vs handoff work.</CardDescription>
           </CardHeader>
           <CardContent>
-            <AutomationMixChart data={automationTrend} />
+            <AutomationMixChart data={automationTrendFormatted} />
           </CardContent>
         </Card>
 

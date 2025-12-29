@@ -1,24 +1,39 @@
 import { useNavigate, useParams } from "react-router-dom"
-import { mockBookings } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ArrowLeft, Check, X, MessageSquare, Clock, User } from "lucide-react"
-import { mockMembers } from "@/lib/mock-data"
+import { useBooking, useMember } from "@/hooks/use-api-queries"
 
 export default function BookingDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  
-  // In real app, useQuery hook here
-  const booking = mockBookings.find(b => b.id === id)
-  const member = booking ? mockMembers.find(m => m.id === booking.memberId) : undefined
 
-  if (!booking) {
+  const bookingQuery = useBooking(id)
+  const memberQuery = useMember(bookingQuery.data?.memberId)
+
+  if (bookingQuery.isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        Loading booking...
+      </div>
+    )
+  }
+
+  if (bookingQuery.isError || !bookingQuery.data) {
     return (
         <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-            <h2 className="text-xl font-semibold">Booking not found</h2>
+            <h2 className="text-xl font-semibold">
+              {bookingQuery.isError ? "Unable to load booking" : "Booking not found"}
+            </h2>
+            {bookingQuery.isError && (
+              <p className="text-sm text-muted-foreground">
+                {bookingQuery.error instanceof Error
+                  ? bookingQuery.error.message
+                  : "Please try again."}
+              </p>
+            )}
             <Button variant="outline" onClick={() => navigate("/bookings")}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Bookings
@@ -26,6 +41,9 @@ export default function BookingDetailPage() {
         </div>
     )
   }
+
+  const booking = bookingQuery.data
+  const member = memberQuery.data ?? null
 
   return (
     <div className="space-y-6">

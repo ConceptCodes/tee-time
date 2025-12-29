@@ -1,56 +1,68 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
 import {
   CalendarClock,
   ChevronRight,
-  MessageSquareText,
+  Cpu,
   ShieldCheck,
   Users,
 } from "lucide-react"
 import CreateBookingModal from "@/components/modals/CreateBookingModal"
-
-const stats = [
-  {
-    label: "Bookings today",
-    value: "128",
-    change: "+12%",
-    icon: CalendarClock,
-  },
-  {
-    label: "Pending approvals",
-    value: "14",
-    change: "-3",
-    icon: ShieldCheck,
-  },
-  {
-    label: "Avg response time",
-    value: "4.2 min",
-    change: "-18%",
-    icon: MessageSquareText,
-  },
-]
-
-const upcoming = [
-  {
-    title: "Wentworth West · 3:10 PM",
-    meta: "R. Kwon · 2 guests · Cart",
-    status: "Confirmed",
-  },
-  {
-    title: "Sunningdale Old · 4:00 PM",
-    meta: "L. Ortega · Walking",
-    status: "Pending",
-  },
-  {
-    title: "Royal Birkdale · 4:40 PM",
-    meta: "A. Patel · 3 guests",
-    status: "Confirmed",
-  },
-]
+import { useOverviewUi } from "@/hooks/use-api-queries"
+import { format } from "date-fns"
+import { Link } from "react-router-dom"
 
 export default function OverviewPage() {
+  const overviewQuery = useOverviewUi({ upcomingLimit: 3 })
+  const overview = overviewQuery.data
+
+  const formatChange = (value: number) => {
+    const rounded = Number(value.toFixed(1))
+    if (rounded > 0) return `+${rounded}%`
+    return `${rounded}%`
+  }
+
+  const formatPercent = (value: number) => `${value.toFixed(1)}%`
+
+  const stats = [
+    {
+      label: "Bookings today",
+      value: overview?.stats.bookingsToday.value ?? 0,
+      change: formatChange(overview?.stats.bookingsToday.changePct ?? 0),
+      icon: CalendarClock,
+    },
+    {
+      label: "Pending approvals",
+      value: overview?.stats.pendingApprovals.value ?? 0,
+      change: formatChange(overview?.stats.pendingApprovals.changePct ?? 0),
+      icon: ShieldCheck,
+    },
+    {
+      label: "Active members",
+      value: overview?.stats.activeMembers?.value ?? 0,
+      change: formatChange(overview?.stats.activeMembers?.changePct ?? 0),
+      icon: Users,
+    },
+    {
+      label: "AI Automation",
+      value: formatPercent(overview?.stats.automationRate?.value ?? 0),
+      change: formatChange(overview?.stats.automationRate?.changePct ?? 0),
+      icon: Cpu,
+    },
+  ]
+
+  const upcoming = overview?.upcoming ?? []
+  const memberPulse = overview?.memberPulse
+
   return (
     <div className="space-y-8">
       <section className="relative overflow-hidden rounded-2xl border bg-card/70 p-6 shadow-sm backdrop-blur">
@@ -75,15 +87,11 @@ export default function OverviewPage() {
                 </Button>
               }
             />
-            <Button variant="outline" className="gap-2">
-              View pipeline
-              <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.label} className="border bg-card/80">
             <CardHeader className="space-y-3 pb-3">
@@ -110,24 +118,67 @@ export default function OverviewPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {upcoming.map((item, index) => (
-              <div key={item.title} className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">{item.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.meta}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={item.status === "Confirmed" ? "default" : "outline"}
-                  >
-                    {item.status}
-                  </Badge>
-                </div>
-                {index < upcoming.length - 1 && <Separator />}
+            {overviewQuery.isError ? (
+              <div className="text-sm text-destructive">
+                {overviewQuery.error instanceof Error
+                  ? overviewQuery.error.message
+                  : "Failed to load overview"}
               </div>
-            ))}
+            ) : overviewQuery.isLoading ? (
+              <div className="text-sm text-muted-foreground">
+                Loading upcoming bookings...
+              </div>
+            ) : upcoming.length === 0 ? (
+              <Empty className="min-h-[200px] border-none">
+                <EmptyMedia variant="icon"><CalendarClock /></EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>No upcoming bookings</EmptyTitle>
+                  <EmptyDescription>
+                    Bookings scheduled for today and beyond will show here.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              upcoming.map((item, index) => {
+                const label = item.locationName
+                  ? `${item.clubName ?? "Club"} ${item.locationName}`
+                  : item.clubName ?? "Club"
+                const dateLabel = item.preferredDate
+                  ? format(new Date(item.preferredDate), "MMM d")
+                  : "TBD"
+                const timeLabel = item.preferredTimeStart
+                  ? format(
+                      new Date(
+                        `${item.preferredDate}T${item.preferredTimeStart}`
+                      ),
+                      "h:mm a"
+                    )
+                  : "TBD"
+                const meta = `${item.memberName ?? "Member"} · ${
+                  item.numberOfPlayers
+                } players · ${dateLabel}`
+                return (
+                  <div key={item.id} className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          {label} · {timeLabel}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{meta}</p>
+                      </div>
+                      <Badge
+                        variant={
+                          item.status === "Confirmed" ? "default" : "outline"
+                        }
+                      >
+                        {item.status}
+                      </Badge>
+                    </div>
+                    {index < upcoming.length - 1 && <Separator />}
+                  </div>
+                )
+              })
+            )}
           </CardContent>
         </Card>
 
@@ -143,20 +194,26 @@ export default function OverviewPage() {
                 VIP Response
               </p>
               <p className="mt-2 text-2xl font-semibold text-primary">
-                94% delighted
+                {memberPulse
+                  ? `${Math.round(memberPulse.vipResponseRate * 100)}% delighted`
+                  : "0% delighted"}
               </p>
               <p className="text-xs text-muted-foreground">
-                High praise for speed and tone.
+                {memberPulse
+                  ? `${formatChange(memberPulse.vipResponseChangePct)} vs last period`
+                  : "Loading response rate"}
               </p>
             </div>
             <div className="flex items-center justify-between rounded-xl border bg-background/60 p-4">
               <div>
                 <p className="text-sm font-medium">New member invites</p>
                 <p className="text-xs text-muted-foreground">
-                  12 requests awaiting review
+                  {memberPulse?.newMemberInvites ?? 0} added recently
                 </p>
               </div>
-              <Badge variant="secondary">+4 today</Badge>
+              <Badge variant="secondary">
+                {memberPulse ? formatChange(memberPulse.inviteChangePct) : "0%"}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -164,37 +221,69 @@ export default function OverviewPage() {
         <Card className="border bg-card/80">
           <CardHeader>
             <CardTitle className="font-display text-xl">
-              Automations
+              Pending confirmations
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start gap-3 rounded-xl border bg-background/60 p-4">
-              <Users className="mt-0.5 h-4 w-4 text-primary" />
-              <div>
-                <p className="text-sm font-medium">Member onboarding</p>
-                <p className="text-xs text-muted-foreground">
-                  4 new members in progress
-                </p>
+            {overviewQuery.isError ? (
+              <div className="text-sm text-destructive">
+                {overviewQuery.error instanceof Error
+                  ? overviewQuery.error.message
+                  : "Failed to load pending confirmations"}
               </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-xl border bg-background/60 p-4">
-              <CalendarClock className="mt-0.5 h-4 w-4 text-primary" />
-              <div>
-                <p className="text-sm font-medium">Booking follow-ups</p>
-                <p className="text-xs text-muted-foreground">
-                  8 confirmations queued
-                </p>
+            ) : overviewQuery.isLoading ? (
+              <div className="text-sm text-muted-foreground">
+                Loading pending confirmations...
               </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-xl border bg-background/60 p-4">
-              <MessageSquareText className="mt-0.5 h-4 w-4 text-primary" />
-              <div>
-                <p className="text-sm font-medium">FAQ coverage</p>
-                <p className="text-xs text-muted-foreground">
-                  92% auto-resolved this week
-                </p>
-              </div>
-            </div>
+            ) : (overview?.pendingConfirmations ?? []).length === 0 ? (
+              <Empty className="min-h-[200px] border-none">
+                <EmptyMedia variant="icon"><ShieldCheck /></EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>No pending confirmations</EmptyTitle>
+                  <EmptyDescription>
+                    Pending tee-time confirmations will show here.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              (overview?.pendingConfirmations ?? []).map((item, index) => {
+                const label = item.locationName
+                  ? `${item.clubName ?? "Club"} ${item.locationName}`
+                  : item.clubName ?? "Club"
+                const dateLabel = item.preferredDate
+                  ? format(new Date(item.preferredDate), "MMM d")
+                  : "TBD"
+                const timeLabel = item.preferredTimeStart
+                  ? format(
+                      new Date(
+                        `${item.preferredDate}T${item.preferredTimeStart}`
+                      ),
+                      "h:mm a"
+                    )
+                  : "TBD"
+                const meta = `${item.memberName ?? "Member"} · ${
+                  item.numberOfPlayers
+                } players · ${dateLabel}`
+                return (
+                  <div key={item.id} className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          {label} · {timeLabel}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{meta}</p>
+                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/bookings/${item.id}`}>View</Link>
+                      </Button>
+                    </div>
+                    {index < (overview?.pendingConfirmations ?? []).length - 1 && (
+                      <Separator />
+                    )}
+                  </div>
+                )
+              })
+            )}
           </CardContent>
         </Card>
       </section>

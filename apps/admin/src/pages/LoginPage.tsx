@@ -1,4 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
+import { signIn } from "@/lib/auth-client"
+import { useAuth } from "@/context/AuthContext"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,15 +15,54 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { isAuthenticated, isLoading: isSessionLoading } = useAuth()
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = (location.state as any)?.from?.pathname || "/"
+      navigate(from, { replace: true })
+    }
+  }, [isAuthenticated, navigate, location])
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Login attempt", { email, password })
-    // TODO: Integrate real auth
+    setIsLoading(true)
+
+    try {
+      const { error } = await signIn.email({
+        email,
+        password,
+      })
+
+      if (error) {
+        toast.error(error.message || "Failed to sign in")
+        return
+      }
+
+      toast.success("Signed in successfully")
+      const from = (location.state as any)?.from?.pathname || "/"
+      navigate(from, { replace: true })
+    } catch (err: any) {
+      toast.error(err.message || "An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (isSessionLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -56,8 +99,15 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button className="w-full" type="submit">
-              Sign in
+            <Button className="w-full" type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign in"
+              )}
             </Button>
           </CardFooter>
         </form>

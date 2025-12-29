@@ -1,76 +1,29 @@
-import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar, Users, Clock, TrendingUp, CheckCircle, XCircle } from "lucide-react"
+import { Calendar, Users, Clock, TrendingUp } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-
-type OverviewStats = {
-  totalBookings: number
-  confirmedBookings: number
-  conversionRate: number
-  avgResponseTimeMinutes: number
-  activeMembers: number
-  pendingBookings: number
-}
+import {
+  useConversionRate,
+  useResponseTime,
+  useMemberActivity,
+} from "@/hooks/use-report-queries"
 
 export default function DashboardTab() {
-  const [stats, setStats] = useState<OverviewStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const period = "month"
+  
+  const { data: conversionData, isLoading: conversionLoading } = useConversionRate(period)
+  const { data: responseTimeData, isLoading: responseTimeLoading } = useResponseTime(period)
+  const { data: memberActivityData, isLoading: memberActivityLoading } = useMemberActivity(period)
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true)
-        
-        // Fetch conversion rate
-        const conversionRes = await fetch("/api/reports/conversion-rate?period=month", {
-          credentials: "include",
-        })
-        
-        // Fetch response time
-        const responseTimeRes = await fetch("/api/reports/response-time?period=month", {
-          credentials: "include",
-        })
-        
-        // Fetch member activity
-        const memberActivityRes = await fetch("/api/reports/member-activity?period=month", {
-          credentials: "include",
-        })
+  const loading = conversionLoading || responseTimeLoading || memberActivityLoading
 
-        if (!conversionRes.ok || !responseTimeRes.ok || !memberActivityRes.ok) {
-          throw new Error("Failed to fetch report data")
-        }
-
-        const conversionData = await conversionRes.json()
-        const responseTimeData = await responseTimeRes.json()
-        const memberActivityData = await memberActivityRes.json()
-
-        setStats({
-          totalBookings: conversionData.data.total,
-          confirmedBookings: conversionData.data.confirmed,
-          conversionRate: conversionData.data.conversionRate,
-          avgResponseTimeMinutes: responseTimeData.data.averageMinutes,
-          activeMembers: memberActivityData.data.totalMembers,
-          pendingBookings: conversionData.data.total - conversionData.data.confirmed - conversionData.data.notAvailable - conversionData.data.cancelled,
-        })
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load stats")
-        // Set mock data for demo
-        setStats({
-          totalBookings: 156,
-          confirmedBookings: 118,
-          conversionRate: 0.7564,
-          avgResponseTimeMinutes: 34.5,
-          activeMembers: 89,
-          pendingBookings: 12,
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchStats()
-  }, [])
+  const stats = conversionData && responseTimeData && memberActivityData ? {
+    totalBookings: conversionData.total,
+    confirmedBookings: conversionData.confirmed,
+    conversionRate: conversionData.conversionRate,
+    avgResponseTimeMinutes: responseTimeData.averageMinutes,
+    activeMembers: memberActivityData.totalMembers,
+    pendingBookings: conversionData.total - conversionData.confirmed - conversionData.notAvailable - conversionData.cancelled,
+  } : null
 
   const formatPercent = (rate: number) => `${(rate * 100).toFixed(1)}%`
   const formatMinutes = (mins: number) => {

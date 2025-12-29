@@ -1,7 +1,6 @@
 import { columns } from "@/components/cards/MemberColumns"
 import { DataTable } from "@/components/cards/DataTable"
 import { ExportDropdown } from "@/components/ExportDropdown"
-import { mockMembers, type MemberProfile } from "@/lib/mock-data"
 import { exportData } from "@/lib/export"
 import {
   Card,
@@ -11,7 +10,17 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { MailPlus, UserPlus } from "lucide-react"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
+import { MailPlus, Users } from "lucide-react"
+import { MemberProfile } from "@/lib/api-types"
+import { useMembers } from "@/hooks/use-api-queries"
+import InviteMemberModal from "@/components/modals/InviteMemberModal"
 
 const memberExportColumns: { key: keyof MemberProfile; label: string }[] = [
   { key: "id", label: "Member ID" },
@@ -29,8 +38,10 @@ const memberExportColumns: { key: keyof MemberProfile; label: string }[] = [
 ]
 
 export default function MembersPage() {
+  const membersQuery = useMembers()
+
   const handleExport = (format: "csv" | "json") => {
-    exportData(mockMembers, "members", format, memberExportColumns)
+    exportData(membersQuery.data ?? [], "members", format, memberExportColumns)
   }
 
   return (
@@ -46,19 +57,19 @@ export default function MembersPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportDropdown
-            data={mockMembers}
+            data={membersQuery.data ?? []}
             filename="members"
             columns={memberExportColumns}
             onExport={handleExport}
           />
-          <Button variant="outline" className="gap-2">
-            <MailPlus className="h-4 w-4" />
-            Invite
-          </Button>
-          <Button className="gap-2">
-            <UserPlus className="h-4 w-4" />
-            Add member
-          </Button>
+          <InviteMemberModal
+            trigger={
+              <Button variant="outline" className="gap-2">
+                <MailPlus className="h-4 w-4" />
+                Invite
+              </Button>
+            }
+          />
         </div>
       </div>
       <Card className="border bg-card/80">
@@ -71,7 +82,27 @@ export default function MembersPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={mockMembers} />
+          {membersQuery.isError ? (
+            <div className="text-sm text-destructive">
+              {membersQuery.error instanceof Error
+                ? membersQuery.error.message
+                : "Failed to load members"}
+            </div>
+          ) : membersQuery.isLoading ? (
+            <div className="text-sm text-muted-foreground">Loading members...</div>
+          ) : (membersQuery.data ?? []).length === 0 ? (
+            <Empty className="min-h-[240px] border-none">
+              <EmptyMedia variant="icon"><Users /></EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>No members yet</EmptyTitle>
+                <EmptyDescription>
+                  Invite members to start tracking tee-time activity.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <DataTable columns={columns} data={membersQuery.data ?? []} />
+          )}
         </CardContent>
       </Card>
     </div>

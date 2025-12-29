@@ -1,17 +1,41 @@
-import { Plus, Search } from "lucide-react"
+import { Flag, Plus, Search } from "lucide-react"
+import { useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import ClubLocationMap from "@/components/maps/ClubLocationMap"
-import { mockClubs, mockClubLocations } from "@/lib/mock-data"
+import { useClubLocations, useClubs } from "@/hooks/use-api-queries"
 
 export default function ClubsPage() {
-  const clubsById = new Map(mockClubs.map((club) => [club.id, club]))
-  const locations = mockClubLocations.map((location) => ({
-    ...location,
-    club: clubsById.get(location.clubId),
-  }))
+  const clubsQuery = useClubs()
+
+  const clubsById = useMemo(
+    () => new Map((clubsQuery.data ?? []).map((club) => [club.id, club])),
+    [clubsQuery.data]
+  )
+
+  const clubIds = useMemo(
+    () => (clubsQuery.data ?? []).map((club) => club.id),
+    [clubsQuery.data]
+  )
+  const locationsQuery = useClubLocations(clubIds)
+
+  const locationsWithClub = useMemo(
+    () =>
+      (locationsQuery.data ?? []).map((location) => ({
+        ...location,
+        club: clubsById.get(location.clubId),
+      })),
+    [locationsQuery.data, clubsById]
+  )
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-6">
@@ -42,7 +66,36 @@ export default function ClubsPage() {
         </div>
       </div>
       <Card className="min-h-0 flex-1 overflow-hidden border bg-card/80 p-0">
-        <ClubLocationMap locations={locations} />
+        <div className="relative h-full w-full">
+          <ClubLocationMap locations={locationsWithClub} />
+          {clubsQuery.isLoading || locationsQuery.isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+              <div className="text-sm text-muted-foreground">
+                Loading club locations...
+              </div>
+            </div>
+          ) : clubsQuery.isError || locationsQuery.isError ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+              <div className="text-sm text-destructive">
+                {(clubsQuery.error || locationsQuery.error) instanceof Error
+                  ? ((clubsQuery.error || locationsQuery.error) as Error).message
+                  : "Failed to load clubs"}
+              </div>
+            </div>
+          ) : locationsWithClub.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+              <Empty className="max-w-md border">
+                <EmptyMedia variant="icon"><Flag /></EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>No clubs visible</EmptyTitle>
+                  <EmptyDescription>
+                    Add a club to start managing locations and availability.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            </div>
+          ) : null}
+        </div>
       </Card>
     </div>
   )
