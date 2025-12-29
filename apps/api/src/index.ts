@@ -26,6 +26,10 @@ import { whatsappWebhookRoutes } from "./routes/webhooks/whatsapp";
 
 const app = new Hono<{ Variables: ApiVariables }>();
 
+app.get('/', (c) => {
+  return c.text("Hello World")
+})
+
 app.use("*", traceMiddleware());
 app.use("*", loggingMiddleware());
 app.use("*", sessionMiddleware());
@@ -76,12 +80,16 @@ app.onError(errorHandler);
 
 const port = Number.parseInt(process.env.PORT ?? "8787", 10);
 
-serve(
-  {
-    fetch: app.fetch,
-    port
-  },
-  () => {
-    console.log(`API server running on port ${port}`);
-  }
-);
+if (process.env.NODE_ENV === "development") {
+  serve(
+    {
+      fetch: app.fetch,
+      port
+    },
+    () => {
+      console.log(`API server running on port ${port}`);
+    }
+  );
+}
+
+export default app
