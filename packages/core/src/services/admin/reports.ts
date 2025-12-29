@@ -8,7 +8,7 @@ import {
   memberProfiles,
   messageLogs,
 } from "@tee-time/database";
-import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
+import { sql, eq, and, gte, lte, desc, isNotNull } from "drizzle-orm";
 import { logger } from "../../logger";
 
 export type ReportPeriod = "day" | "week" | "month" | "quarter" | "year";
@@ -219,11 +219,15 @@ export const getBookingTrend = async (
   dateRange: DateRange,
   groupBy: "day" | "week" | "month" = "day"
 ) => {
-  const dateTrunc = groupBy === "month" ? "month" : groupBy === "week" ? "week" : "day";
+  const periodSql = groupBy === "month" 
+    ? sql`date_trunc('month', ${bookings.createdAt})::date`
+    : groupBy === "week"
+    ? sql`date_trunc('week', ${bookings.createdAt})::date`
+    : sql`date_trunc('day', ${bookings.createdAt})::date`;
 
   const results = await db
     .select({
-      period: sql<string>`date_trunc(${dateTrunc}, ${bookings.createdAt})::date`,
+      period: periodSql,
       total: sql<number>`count(*)`,
       confirmed: sql<number>`count(*) filter (where ${bookings.status} = 'Confirmed')`,
       pending: sql<number>`count(*) filter (where ${bookings.status} = 'Pending')`,
@@ -235,8 +239,8 @@ export const getBookingTrend = async (
         lte(bookings.createdAt, dateRange.end)
       )
     )
-    .groupBy(sql`date_trunc(${dateTrunc}, ${bookings.createdAt})::date`)
-    .orderBy(sql`date_trunc(${dateTrunc}, ${bookings.createdAt})::date`);
+    .groupBy(periodSql)
+    .orderBy(periodSql);
 
   return results.map((row) => ({
     period: row.period,
@@ -399,4 +403,155 @@ export const exportMessageLogs = async (
     .orderBy(desc(messageLogs.createdAt));
 
   return results;
+};
+
+/**
+ * Get request mix breakdown based on message logs.
+ */
+export const getRequestMix = async (db: Database, dateRange: DateRange) => {
+  const results = await db
+    .select({
+      flow: sql<string>`metadata->>'agentFlow'`,
+      count: sql<number>`count(*)`,
+    })
+    .from(messageLogs)
+    .where(
+      and(
+        gte(messageLogs.createdAt, dateRange.start),
+        lte(messageLogs.createdAt, dateRange.end),
+        eq(messageLogs.direction, "outbound"),
+        isNotNull(sql`metadata->>'agentFlow'`)
+      )
+    )
+    .groupBy(sql`metadata->>'agentFlow'`);
+
+  const mix = {
+    booking: 0,
+    faq: 0,
+    support: 0,
+  };
+
+  results.forEach((r) => {
+    const flow = r.flow;
+    if (
+      flow.startsWith("booking") ||
+      flow === "cancel-booking" ||
+      flow === "modify-booking" ||
+      flow === "clarify"
+    ) {
+      mix.booking += Number(r.count);
+    } else if (flow === "faq") {
+      mix.faq += Number(r.count);
+    } else if (flow === "support") {
+      mix.support += Number(r.count);
+    }
+  });
+
+  return [
+    { name: "booking", value: mix.booking },
+    { name: "faq", value: mix.faq },
+    { name: "support", value: mix.support },
+  ];
+};
+
+/**
+ * Get automation trend (automated vs handoff).
+ */
+export const getAutomationTrend = async (
+  db: Database,
+  dateRange: DateRange,
+  groupBy: "day" | "week" = "week"
+) => {
+  const periodSql = groupBy === "week"
+    ? sql`date_trunc('week', ${messageLogs.createdAt})::date`
+    : sql`date_trunc('day', ${messageLogs.createdAt})::date`;
+  const results = await db
+    .select({
+      period: periodSql,
+      automated: sql<number>`count(*) filter (where metadata->>'agentFlow' != 'support')`,
+      handoff: sql<number>`count(*) filter (where metadata->>'agentFlow' = 'support')`,
+    })
+    .from(messageLogs)
+    .where(
+      and(
+        gte(messageLogs.createdAt, dateRange.start),
+        lte(messageLogs.createdAt, dateRange.end),
+        eq(messageLogs.direction, "outbound"),
+        isNotNull(sql`metadata->>'agentFlow'`)
+      )
+    )
+    .groupBy(periodSql)
+    .orderBy(periodSql);
+
+  return results.map((r) => ({
+    period: r.period,
+    automated: Number(r.automated),
+    handoff: Number(r.handoff),
+  }));
+};
+
+/**
+ * Get conversion and response time trend.
+ */
+export const getConversionResponseTrend = async (
+  db: Database,
+  dateRange: DateRange,
+  groupBy: "day" | "week" = "week"
+) => {
+  const conversionPeriodSql = groupBy === "week"
+    ? sql`date_trunc('week', ${bookings.createdAt})::date`
+    : sql`date_trunc('day', ${bookings.createdAt})::date`;
+
+  // Get conversion by period
+  const conversionResults = await db
+    .select({
+      period: conversionPeriodSql,
+      total: sql<number>`count(*)`,
+      confirmed: sql<number>`count(*) filter (where ${bookings.status} = 'Confirmed')`,
+    })
+    .from(bookings)
+    .where(
+      and(
+        gte(bookings.createdAt, dateRange.start),
+        lte(bookings.createdAt, dateRange.end)
+      )
+    )
+    .groupBy(conversionPeriodSql);
+
+  const responsePeriodSql = groupBy === "week"
+    ? sql`date_trunc('week', ${bookings.createdAt})::date`
+    : sql`date_trunc('day', ${bookings.createdAt})::date`;
+  // Get average response time by period
+  const responseResults = await db
+    .select({
+      period: responsePeriodSql,
+      avgResponse: sql<number>`avg(extract(epoch from (${bookingStatusHistory.createdAt} - ${bookings.createdAt})) / 60)`,
+    })
+    .from(bookingStatusHistory)
+    .innerJoin(bookings, eq(bookingStatusHistory.bookingId, bookings.id))
+    .where(
+      and(
+        gte(bookings.createdAt, dateRange.start),
+        lte(bookings.createdAt, dateRange.end),
+        eq(bookingStatusHistory.previousStatus, "Pending")
+      )
+    )
+    .groupBy(responsePeriodSql);
+
+  const responseMap = new Map(
+    responseResults.map((r) => [r.period, Number(r.avgResponse || 0)])
+  );
+
+  return conversionResults
+    .map((r) => ({
+      period: r.period,
+      conversion:
+        Number(r.total) > 0
+          ? Number(((Number(r.confirmed) / Number(r.total)) * 100).toFixed(1))
+          : 0,
+      response: Number((responseMap.get(r.period) || 0).toFixed(1)),
+    }))
+    .sort(
+      (a, b) => new Date(a.period).getTime() - new Date(b.period).getTime()
+    );
 };

@@ -5,8 +5,10 @@ export type ParsedTimeWindow = {
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
+// Use UTC methods because parseDateParts creates dates using Date.UTC()
+// This prevents timezone conversion issues (e.g., UTC midnight Dec 29 becoming Dec 28 in CST)
 const toIsoDate = (date: Date) =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 
 const parseDateParts = (year: number, month: number, day: number) => {
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -98,7 +100,9 @@ export const parsePreferredDate = (value?: string, now = new Date()) => {
 
   const parsed = new Date(input);
   if (!Number.isNaN(parsed.getTime())) {
-    return toIsoDate(parsed);
+    const hasTime =
+      /t/i.test(input) || /:\d{2}/.test(input) || /z$/i.test(input);
+    return hasTime ? parsed.toISOString().slice(0, 10) : toIsoDate(parsed);
   }
 
   return null;

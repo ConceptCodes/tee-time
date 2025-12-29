@@ -60,12 +60,21 @@ export const createBookingWithHistory = async (
     10
   );
   const leadMinutes = Number.isFinite(minLeadMinutes) ? minLeadMinutes : 0;
-  const dateIso = params.preferredDate.toISOString().slice(0, 10);
-  const timeToken =
-    params.preferredTimeStart.length === 5
-      ? `${params.preferredTimeStart}:00`
-      : params.preferredTimeStart;
-  const bookingDateTime = new Date(`${dateIso}T${timeToken}`);
+  
+  // Get date parts in local timezone to avoid UTC conversion issues
+  const year = params.preferredDate.getFullYear();
+  const month = params.preferredDate.getMonth();
+  const day = params.preferredDate.getDate();
+  
+  // Parse time (HH:MM or HH:MM:SS)
+  const timeParts = params.preferredTimeStart.split(":").map(Number);
+  const hours = timeParts[0] ?? 0;
+  const minutes = timeParts[1] ?? 0;
+  const seconds = timeParts[2] ?? 0;
+  
+  // Create booking datetime in local timezone
+  const bookingDateTime = new Date(year, month, day, hours, minutes, seconds);
+  
   if (!Number.isNaN(bookingDateTime.getTime())) {
     const nowTime = now.getTime();
     if (bookingDateTime.getTime() < nowTime) {
