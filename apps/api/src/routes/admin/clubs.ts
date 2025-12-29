@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
@@ -71,7 +72,7 @@ clubRoutes.post(
   "/:id/locations",
   validateJson(clubLocationSchemas.create),
   async (c) => {
-    const parsed = c.get("validatedBody") as typeof clubLocationSchemas.create._type;
+    const parsed = c.get("validatedBody") as z.infer<typeof clubLocationSchemas.create>;
   const db = getDb();
   const now = new Date();
   const location = await createClubLocation(db, {

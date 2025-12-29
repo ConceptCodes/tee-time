@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
@@ -28,7 +29,7 @@ meRoutes.put("/", validateJson(meSchemas.update), async (c) => {
   if (!session?.user?.id) {
     return c.json({ error: "Unauthorized" }, 401);
   }
-  const parsed = c.get("validatedBody") as typeof meSchemas.update._type;
+  const parsed = c.get("validatedBody") as z.infer<typeof meSchemas.update>;
   const db = getDb();
   const updated = await updateCurrentUserProfile(db, {
     authUserId: session.user.id,

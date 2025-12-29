@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
@@ -27,7 +28,7 @@ faqRoutes.get("/", async (c) => {
 });
 
 faqRoutes.post("/", validateJson(faqSchemas.create), async (c) => {
-  const payload = c.get("validatedBody") as typeof faqSchemas.create._type;
+  const payload = c.get("validatedBody") as z.infer<typeof faqSchemas.create>;
   const now = new Date();
   const db = getDb();
   const repo = createFaqRepository(db);
@@ -45,7 +46,7 @@ faqRoutes.post("/", validateJson(faqSchemas.create), async (c) => {
 });
 
 faqRoutes.put("/:id", validateJson(faqSchemas.update), async (c) => {
-  const payload = c.get("validatedBody") as typeof faqSchemas.update._type;
+  const payload = c.get("validatedBody") as z.infer<typeof faqSchemas.update>;
   const db = getDb();
   const repo = createFaqRepository(db);
   const embedding =

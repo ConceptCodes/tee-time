@@ -74,7 +74,7 @@ const processDecision = (decision: RouterDecision): string => {
         return `Your booking has been submitted! Reference: ${d.bookingId}. ${d.message}`;
       if (d.type === "submit")
         return "Processing your booking request...";
-      return d.prompt;
+      return (d as { prompt?: string }).prompt ?? "How can I help you book?";
     }
     case "booking-status": {
       const d = decision.decision;
@@ -83,7 +83,7 @@ const processDecision = (decision: RouterDecision): string => {
       if (d.type === "need-booking-info") return d.prompt;
       if (d.type === "lookup")
         return `Checking booking ref: ${d.bookingReference}...`;
-      return d.prompt;
+      return (d as { prompt?: string }).prompt ?? "Let me check that.";
     }
     case "cancel-booking": {
       const d = decision.decision;
@@ -94,7 +94,7 @@ const processDecision = (decision: RouterDecision): string => {
       if (d.type === "lookup") return d.prompt ?? "Let me find that booking.";
       if (d.type === "not-allowed") return d.prompt;
       if (d.type === "not-found") return d.prompt;
-      return d.prompt;
+      return (d as { prompt?: string }).prompt ?? "I can help with cancellations.";
     }
     case "modify-booking": {
       const d = decision.decision;
@@ -103,14 +103,14 @@ const processDecision = (decision: RouterDecision): string => {
       if (d.type === "lookup") return d.prompt ?? "Let me find that booking.";
       if (d.type === "update")
         return "Got it. I'll send that update request to staff.";
-      return d.prompt;
+      return (d as { prompt?: string }).prompt ?? "How would you like to modify it?";
     }
     case "faq": {
       const d = decision.decision;
       if (d.type === "answer") return d.answer;
       if (d.type === "escalate")
         return "I'll connect you with our staff for more help.";
-      return d.prompt;
+      return (d as { prompt?: string }).prompt ?? "I can check our FAQs for you.";
     }
     case "onboarding":
       return "Welcome to Tee Time! Let's get you set up. What name should we use for your member profile?";
@@ -217,7 +217,7 @@ whatsappWebhookRoutes.post("/", async (c) => {
     const conversationHistory = recentLogs
       .reverse()
       .map((entry) => ({
-        role: entry.direction === "inbound" ? "user" : "assistant",
+        role: (entry.direction === "inbound" ? "user" : "assistant") as "user" | "assistant",
         content: entry.bodyRedacted,
       }));
 

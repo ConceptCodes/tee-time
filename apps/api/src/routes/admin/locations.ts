@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
@@ -11,7 +12,7 @@ export const locationRoutes = new Hono<{ Variables: ApiVariables }>();
 locationRoutes.use("*", requireAuth(), requireRole(["admin", "staff"]));
 
 locationRoutes.put("/:id", validateJson(clubLocationSchemas.update), async (c) => {
-  const parsed = c.get("validatedBody") as typeof clubLocationSchemas.update._type;
+  const parsed = c.get("validatedBody") as z.infer<typeof clubLocationSchemas.update>;
   const db = getDb();
   const location = await updateClubLocation(db, c.req.param("id"), {
     ...parsed,

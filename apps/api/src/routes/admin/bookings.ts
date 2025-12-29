@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
@@ -50,7 +51,7 @@ bookingRoutes.get("/:id", async (c) => {
 });
 
 bookingRoutes.post("/", validateJson(bookingSchemas.create), async (c) => {
-  const payload = c.get("validatedBody") as typeof bookingSchemas.create;
+  const payload = c.get("validatedBody") as z.infer<typeof bookingSchemas.create>;
   const db = getDb();
   const now = new Date();
   try {
@@ -83,7 +84,8 @@ bookingRoutes.post("/", validateJson(bookingSchemas.create), async (c) => {
       const booking = await bookingRepo.create({
         ...payload,
         bayId,
-        preferredDate: new Date(payload.preferredDate),
+        bookingReference: crypto.randomUUID().slice(0, 8).toUpperCase(),
+        preferredDate: payload.preferredDate,
         cancelledAt: payload.cancelledAt ? new Date(payload.cancelledAt) : null,
         status: initialStatus,
         createdAt: now,
@@ -112,12 +114,12 @@ bookingRoutes.post("/", validateJson(bookingSchemas.create), async (c) => {
 });
 
 bookingRoutes.put("/:id", validateJson(bookingSchemas.update), async (c) => {
-  const payload = c.get("validatedBody") as typeof bookingSchemas.update._type;
+  const payload = c.get("validatedBody") as z.infer<typeof bookingSchemas.update>;
   const db = getDb();
   const bookingRepo = createBookingRepository(db);
   const booking = await bookingRepo.update(c.req.param("id"), {
     ...payload,
-    preferredDate: payload.preferredDate ? new Date(payload.preferredDate) : undefined,
+    preferredDate: payload.preferredDate,
     cancelledAt: payload.cancelledAt ? new Date(payload.cancelledAt) : undefined,
     updatedAt: new Date()
   });
@@ -131,7 +133,7 @@ bookingRoutes.post(
   "/:id/confirm",
   validateJson(bookingSchemas.statusChange),
   async (c) => {
-    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange;
+    const payload = c.get("validatedBody") as z.infer<typeof bookingSchemas.statusChange>;
     const db = getDb();
     const result = await setBookingStatusWithHistory(db, {
       bookingId: c.req.param("id"),
@@ -156,7 +158,7 @@ bookingRoutes.post(
   "/:id/reject",
   validateJson(bookingSchemas.statusChange),
   async (c) => {
-    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange;
+    const payload = c.get("validatedBody") as z.infer<typeof bookingSchemas.statusChange>;
     const db = getDb();
     const result = await setBookingStatusWithHistory(db, {
       bookingId: c.req.param("id"),
@@ -181,7 +183,7 @@ bookingRoutes.post(
   "/:id/request-info",
   validateJson(bookingSchemas.statusChange),
   async (c) => {
-    const payload = c.get("validatedBody") as typeof bookingSchemas.statusChange;
+    const payload = c.get("validatedBody") as z.infer<typeof bookingSchemas.statusChange>;
     const db = getDb();
     const result = await setBookingStatusWithHistory(db, {
       bookingId: c.req.param("id"),

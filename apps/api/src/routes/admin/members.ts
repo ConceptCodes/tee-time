@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
@@ -40,7 +41,7 @@ memberRoutes.get("/:id", async (c) => {
 });
 
 memberRoutes.post("/", validateJson(memberSchemas.create), async (c) => {
-  const parsed = c.get("validatedBody") as typeof memberSchemas.create._type;
+  const parsed = c.get("validatedBody") as z.infer<typeof memberSchemas.create>;
   const db = getDb();
   const now = new Date();
   const member = await createMemberProfile(db, {
@@ -56,7 +57,7 @@ memberRoutes.post("/", validateJson(memberSchemas.create), async (c) => {
 });
 
 memberRoutes.post("/invite", validateJson(memberSchemas.invite), async (c) => {
-  const parsed = c.get("validatedBody") as typeof memberSchemas.invite._type;
+  const parsed = c.get("validatedBody") as z.infer<typeof memberSchemas.invite>;
   const db = getDb();
   const repo = createMemberRepository(db);
   const existing = await repo.getByPhoneNumber(parsed.phoneNumber);
@@ -69,7 +70,7 @@ memberRoutes.post("/invite", validateJson(memberSchemas.invite), async (c) => {
 });
 
 memberRoutes.put("/:id", validateJson(memberSchemas.update), async (c) => {
-  const parsed = c.get("validatedBody") as typeof memberSchemas.update._type;
+  const parsed = c.get("validatedBody") as z.infer<typeof memberSchemas.update>;
   const db = getDb();
   const member = await updateMemberProfile(db, c.req.param("id"), {
     ...parsed,
