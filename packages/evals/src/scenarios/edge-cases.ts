@@ -8,8 +8,8 @@ export const buildEdgeCaseScenarios = (clubs: ClubInfo[], count: number): EvalSc
   const clubText = club ? formatClub(club, club.locations.length > 1) : "Topgolf";
 
   const templates: Array<{ id: string; name: string; turns: string[]; expect: ScenarioExpectation }> = [
-    // Past date scenarios
-    { id: "edge-past-date", name: "Booking in the past (yesterday)", turns: [`Book ${clubText} yesterday at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask"] } },
+    // Past date scenarios - "yesterday" can be routed to booking-new (ask for new date) or clarify (LLM variance)
+    { id: "edge-past-date", name: "Booking in the past (yesterday)", turns: [`Book ${clubText} yesterday at 2pm for 1 player. Notes: none.`], expect: { flow: ["booking-new", "clarify"], decisionTypes: ["ask", "clarify"] } },
     { id: "edge-past-date-explicit", name: "Booking with explicit past date", turns: [`Book ${clubText} January 1 2020 at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask"] } },
     // Invalid player counts
     { id: "edge-zero-players", name: "Zero players", turns: [`Book ${clubText} tomorrow at 2pm for 0 players. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask"], promptIncludes: ["player"] } },

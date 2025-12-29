@@ -2,15 +2,17 @@
   "name": "tee-time",
   "private": true,
   "scripts": {
-    "db:generate": "cd packages/database && bunx drizzle-kit generate",
-    "db:migrate": "cd packages/database && bunx drizzle-kit migrate",
+    "db:generate": "dotenvx run -- sh -c 'cd packages/database && bunx drizzle-kit generate'",
+    "db:migrate": "dotenvx run -- sh -c 'cd packages/database && bunx drizzle-kit migrate'",
+    "db:push": "dotenvx run -- sh -c 'cd packages/database && bunx drizzle-kit push --force'",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",
-    "admin:dev": "bun --filter @tee-time/admin dev",
-    "worker:dev": "bun --filter @tee-time/worker dev",
-    "chat": "bun packages/agent/scripts/chat.ts",
-    "evals": "bun --filter @tee-time/evals run"
+    "admin:dev": "dotenvx run -- bun --filter @tee-time/admin dev",
+    "api:dev": "dotenvx run -- bun --filter @tee-time/api dev",
+    "worker:dev": "dotenvx run -- bun --filter @tee-time/worker dev",
+    "chat": "dotenvx run -- bun packages/agent/scripts/chat.ts",
+    "evals": "dotenvx run -- bun --filter @tee-time/evals run"
   },
   "devDependencies": {},
   "workspaces": [

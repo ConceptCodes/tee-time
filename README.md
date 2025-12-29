@@ -1,6 +1,6 @@
-# Tee Time Booking WhatsApp Bots
+# WhatsApp Bot for Tee Time Booking
 
-An automated WhatsApp-based tee-time booking system featuring member onboarding, FAQ automation, and a dedicated staff administration dashboard.
+An automated WhatsApp-based booking system for golf tee times featuring member onboarding, FAQ automation, and a dedicated staff administration dashboard.
 
 ## Project Structure
 
@@ -11,6 +11,29 @@ An automated WhatsApp-based tee-time booking system featuring member onboarding,
 - `packages/core`: Business logic and services.
 - `packages/database`: Drizzle schema, migrations, and repositories.
 - `packages/evals`: Agent eval runner (booking, FAQ, fallback, updates).
+
+
+## Technology Stack
+
+- [`Bun`](https://bun.sh)
+- [`TypeScript`](https://www.typescriptlang.org)
+- [`Biome`](https://biomejs.dev)
+- [`@dotenvx/dotenvx`](https://github.com/dotenvx/dotenvx)
+- [`Vite`](https://vite.dev)
+- [`React`](https://react.dev)
+- [`Tailwind CSS`](https://tailwindcss.com)
+- [`shadcn/ui`](https://ui.shadcn.com)
+- [`TanStack Query/Form/Table`](https://tanstack.com)
+- [`Leaflet`](https://leafletjs.com)
+- [`Recharts`](https://recharts.github.io/)
+- [`Hono`](https://hono.dev) (with `@hono/node-server`)
+- [`Better Auth`](https://www.better-auth.com/)
+- [`twilio`](https://www.twilio.com)
+- [`@slack/web-api`](https://slack.dev/node-slack-sdk/web-api)
+- [`Vercel AI SDK`](https://ai-sdk.dev/docs/introduction) + [`OpenRouter`](https://openrouter.ai) provider
+- [`PostgreSQL`](https://www.postgresql.org), [`PostGIS`](https://postgis.net), [`drizzle-orm`](https://orm.drizzle.team/) and [`pg`](https://node-postgres.com) for DB access, migrations, and geo queries.
+- [`Twilio WhatsApp`](https://www.twilio.com/en-us/messaging/channels/whatsapp) for member flows, [`Slack`](https://slack.com) + email for staff alerts
+
 
 ## Commands
 
@@ -103,6 +126,66 @@ flowchart TD
   end
   Support --> SupportNotify
   Clarify --> Route
+```
+
+## Example Booking Flow
+
+```text
+You: I would like to book some tee time
+Agent: What name should we use for your member profile?
+
+You: George Michael
+Agent: What timezone are you in? (e.g., Europe/London) You can say "skip".
+
+You: Dallas, TX
+Agent: Do you have a favorite club? You can say "skip".
+
+You: TopGolf
+Agent: Do you have a preferred club location? You can say "skip".
+
+You: skip
+Agent: No problem. Skip preferred location for now?
+
+You: yes
+Agent: Do you have a preferred bay? You can say "skip".
+
+You: no
+Agent: Welcome, George Michael! You're all set up. How can I help you book some tee time?
+
+You: i would like book a 2hr slot tommorow at 5pm
+Agent: Which location should we use for that club?
+Available locations:
+- Dallas
+- Austin
+- The Colony
+
+You: Dallas
+Agent: What are the names of the other guests?
+
+You: Sarah, Devin
+Agent: Which bay should we use?
+Available bays:
+- Bay 3
+- Bay 4
+- Bay 5
+- Bay 1
+- Bay 2
+
+You: 5
+Agent: Please confirm these booking details:
+
+⛳ Club: Topgolf (Dallas)
+🎯 Bay: Bay 5
+📅 Date: 2025-12-30
+🕒 Time: 17:00
+👥 Players: 3
+👤 Guests: Sarah, Devin
+
+You: looks good to me
+
+<send slack message to staff>
+
+Agent: I can help book a new tee time, update or cancel an existing booking, check booking status, and answer FAQs. If you need something else, I can connect you to staff.
 ```
 
 ## API Highlights

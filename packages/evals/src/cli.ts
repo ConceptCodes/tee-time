@@ -1,9 +1,5 @@
 #!/usr/bin/env bun
-import { config } from "@dotenvx/dotenvx";
 import type { EvalConfig, EvalReport } from "./runner";
-
-// Load .env from repo root
-config({ path: "../../.env" });
 
 const DEFAULT_COUNTS = {
   booking: 15,
