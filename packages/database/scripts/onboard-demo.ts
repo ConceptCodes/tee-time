@@ -7,13 +7,13 @@ async function onboard() {
   const demoUsers = [
     {
       email: "admin@tee-time.com",
-      password: "password123",
+      password: process.env.DEMO_PASSWORD,
       name: "Admin User",
       role: "admin" as const,
     },
     {
       email: "staff@tee-time.com",
-      password: "password123",
+      password: process.env.DEMO_PASSWORD,
       name: "Staff User",
       role: "staff" as const,
     },
