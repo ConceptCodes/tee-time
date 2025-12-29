@@ -11,32 +11,10 @@ import {
   ScheduledJobStatus,
   type JobRunnerContext
 } from "@tee-time/core";
+import { config } from "../config";
 
-type RetryPolicy = {
-  maxAttempts: number;
-  baseDelayMs: number;
-  backoffMultiplier: number;
-  maxDelayMs: number;
-};
 
-const parseInteger = (value: string | undefined, fallback: number) => {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const parseFloatValue = (value: string | undefined, fallback: number) => {
-  const parsed = Number.parseFloat(value ?? "");
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const getRetryPolicy = (): RetryPolicy => ({
-  maxAttempts: parseInteger(process.env.WORKER_MAX_ATTEMPTS, 5),
-  baseDelayMs: parseInteger(process.env.WORKER_RETRY_BASE_DELAY_MS, 60000),
-  backoffMultiplier: parseFloatValue(process.env.WORKER_RETRY_BACKOFF_MULTIPLIER, 2),
-  maxDelayMs: parseInteger(process.env.WORKER_RETRY_MAX_DELAY_MS, 3600000)
-});
-
-const computeRetryDelay = (attempts: number, policy: RetryPolicy) => {
+const computeRetryDelay = (attempts: number, policy: typeof config.retry) => {
   const exponent = Math.max(attempts - 1, 0);
   const delay = policy.baseDelayMs * Math.pow(policy.backoffMultiplier, exponent);
   return Math.min(delay, policy.maxDelayMs);
@@ -64,12 +42,12 @@ const claimDueScheduledJobs = async (db: Database, limit: number) => {
 };
 
 export const runScheduledJobs = async ({ db }: JobRunnerContext) => {
-  const batchSize = parseInteger(process.env.WORKER_JOB_BATCH_SIZE, 25);
+  const batchSize = config.worker.jobBatchSize;
   const jobs = await claimDueScheduledJobs(db, batchSize);
   if (jobs.length === 0) return;
 
   const repository = createScheduledJobRepository(db);
-  const retryPolicy = getRetryPolicy();
+  const retryPolicy = config.retry;
 
   for (const job of jobs) {
     try {

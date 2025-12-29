@@ -1,6 +1,7 @@
 import { createDb } from "@tee-time/database";
 import { logger, type JobRunnerContext } from "@tee-time/core";
 import { runReports, runScheduledJobs } from "./jobs";
+import { config } from "./config";
 
 type WorkerTask = {
   name: string;
@@ -44,15 +45,17 @@ const main = async () => {
   const db = createDb();
   const context: JobRunnerContext = { db };
 
+
+
   const tasks: WorkerTask[] = [
     {
       name: "scheduled-jobs",
-      everyMs: Number.parseInt(process.env.WORKER_SCHEDULED_INTERVAL_MS ?? "60000", 10),
+      everyMs: config.worker.scheduledIntervalMs,
       run: runScheduledJobs
     },
     {
       name: "report-generation",
-      everyMs: Number.parseInt(process.env.WORKER_REPORTS_INTERVAL_MS ?? "3600000", 10),
+      everyMs: config.worker.reportsIntervalMs,
       run: runReports
     }
   ];
