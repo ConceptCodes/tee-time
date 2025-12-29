@@ -94,13 +94,15 @@ export const createBookingAgent = (options: AgentOptions = {}) => {
       prompt?: string;
       messages?: AgentMessage[];
     }): Promise<AgentResult> => {
+      const modelMessages = params.messages ? toModelMessages(params.messages) : [];
+      if (params.prompt) {
+        modelMessages.push({ role: "user", content: params.prompt });
+      }
+
       const result = await generateText({
         model: openrouter.chat(modelId),
         system: instructions,
-        ...(params.prompt ? { prompt: params.prompt } : {}),
-        ...(params.messages
-          ? { messages: toModelMessages(params.messages) }
-          : {}),
+        messages: modelMessages,
         tools,
         stopWhen: stepCountIs(maxSteps),
       });
@@ -129,13 +131,15 @@ export const createBookingAgent = (options: AgentOptions = {}) => {
       prompt?: string;
       messages?: AgentMessage[];
     }) => {
+      const modelMessages = params.messages ? toModelMessages(params.messages) : [];
+      if (params.prompt) {
+        modelMessages.push({ role: "user", content: params.prompt });
+      }
+
       return streamText({
         model: openrouter.chat(modelId),
         system: instructions,
-        ...(params.prompt ? { prompt: params.prompt } : {}),
-        ...(params.messages
-          ? { messages: toModelMessages(params.messages) }
-          : {}),
+        messages: modelMessages,
         tools,
         stopWhen: stepCountIs(maxSteps),
       });
@@ -172,13 +176,15 @@ export const createFaqAgent = (options: AgentOptions = {}) => {
       prompt?: string;
       messages?: AgentMessage[];
     }): Promise<AgentResult> => {
+      const modelMessages = params.messages ? toModelMessages(params.messages) : [];
+      if (params.prompt) {
+        modelMessages.push({ role: "user", content: params.prompt });
+      }
+
       const result = await generateText({
         model: openrouter.chat(modelId),
         system: instructions,
-        ...(params.prompt ? { prompt: params.prompt } : {}),
-        ...(params.messages
-          ? { messages: toModelMessages(params.messages) }
-          : {}),
+        messages: modelMessages,
         tools: faqTools,
         stopWhen: stepCountIs(maxSteps),
       });
@@ -204,13 +210,15 @@ export const createFaqAgent = (options: AgentOptions = {}) => {
       prompt?: string;
       messages?: AgentMessage[];
     }) => {
+      const modelMessages = params.messages ? toModelMessages(params.messages) : [];
+      if (params.prompt) {
+        modelMessages.push({ role: "user", content: params.prompt });
+      }
+
       return streamText({
         model: openrouter.chat(modelId),
         system: instructions,
-        ...(params.prompt ? { prompt: params.prompt } : {}),
-        ...(params.messages
-          ? { messages: toModelMessages(params.messages) }
-          : {}),
+        messages: modelMessages,
         tools: faqTools,
         stopWhen: stepCountIs(maxSteps),
       });
@@ -237,13 +245,15 @@ Use the escalateToHuman tool to complete the handoff. Be empathetic and assure t
       prompt?: string;
       messages?: AgentMessage[];
     }): Promise<AgentResult> => {
+      const modelMessages = params.messages ? toModelMessages(params.messages) : [];
+      if (params.prompt) {
+        modelMessages.push({ role: "user", content: params.prompt });
+      }
+
       const result = await generateText({
         model: openrouter.chat(modelId),
         system: instructions,
-        ...(params.prompt ? { prompt: params.prompt } : {}),
-        ...(params.messages
-          ? { messages: toModelMessages(params.messages) }
-          : {}),
+        messages: modelMessages,
         tools,
         stopWhen: stepCountIs(3),
       });
