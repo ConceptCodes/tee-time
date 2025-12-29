@@ -10,6 +10,8 @@ import {
   listMembers,
   updateMemberProfile
 } from "@tee-time/core";
+import { logger } from "@tee-time/core";
+import { createMemberRepository } from "@tee-time/database";
 import { memberSchemas } from "../../schemas";
 import { paginatedResponse, parsePagination } from "../../pagination";
 
@@ -51,6 +53,19 @@ memberRoutes.post("/", validateJson(memberSchemas.create), async (c) => {
     updatedAt: now
   });
   return c.json({ data: member }, 201);
+});
+
+memberRoutes.post("/invite", validateJson(memberSchemas.invite), async (c) => {
+  const parsed = c.get("validatedBody") as typeof memberSchemas.invite._type;
+  const db = getDb();
+  const repo = createMemberRepository(db);
+  const existing = await repo.getByPhoneNumber(parsed.phoneNumber);
+  if (existing) {
+    return c.json({ error: "Member already exists" }, 409);
+  }
+  // TODO: implement invite flow (SMS/WhatsApp) and persistence.
+  logger.info("api.members.invite", { phoneNumber: parsed.phoneNumber });
+  return c.json({ data: { phoneNumber: parsed.phoneNumber } }, 202);
 });
 
 memberRoutes.put("/:id", validateJson(memberSchemas.update), async (c) => {

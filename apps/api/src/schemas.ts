@@ -50,6 +50,9 @@ export const memberSchemas = {
     onboardingCompletedAt: z.string().datetime().optional(),
     isActive: z.boolean().optional()
   }),
+  invite: z.object({
+    phoneNumber: z.string().min(1)
+  }),
   update: z.object({
     phoneNumber: z.string().min(1).optional(),
     name: z.string().min(1).optional(),

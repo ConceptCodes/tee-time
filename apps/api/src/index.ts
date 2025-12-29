@@ -31,10 +31,17 @@ app.use("*", loggingMiddleware());
 app.use("*", sessionMiddleware());
 app.use("*", contentTypeMiddleware());
 app.use(
-  "/api/auth/*",
+  "*",
   cors({
-    origin: process.env.ADMIN_APP_ORIGIN ?? "http://localhost:5173",
-    credentials: true
+    origin: (origin) => {
+      const allowedOrigin = process.env.ADMIN_APP_ORIGIN ?? "http://localhost:5173";
+      // Allow the specific origin or any origin if it matches the pattern (for development flexibility)
+      if (origin === allowedOrigin || !origin) return origin;
+      return allowedOrigin;
+    },
+    credentials: true,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.get("/health", (c) => c.json({ ok: true }));
@@ -60,7 +67,7 @@ app.route("/api/admin/overview", overviewRoutes);
 app.route("/api/support-requests", supportRequestRoutes);
 app.route("/api/audit-logs", auditLogRoutes);
 app.route("/api/message-logs", messageLogRoutes);
-app.route("/api/bookings", bookingRoutes);
+app.route("/api/bookings", bookingRoutes); // NOTE: why two?
 app.route("/api/bookings", bookingHistoryRoutes);
 app.route("/api/faqs", faqRoutes);
 app.route("/api/reports", reportRoutes);

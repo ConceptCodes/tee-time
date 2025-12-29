@@ -12,6 +12,9 @@ import {
   exportBookingsData,
   exportMessageLogs,
   getDateRangeForPeriod,
+  getRequestMix,
+  getAutomationTrend,
+  getConversionResponseTrend,
   type ReportPeriod,
   type DateRange,
 } from "@tee-time/core";
@@ -89,6 +92,39 @@ reportRoutes.get("/member-activity", async (c) => {
   const db = getDb();
   const dateRange = getDateRangeForPeriod(period);
   const data = await getMemberActivityStats(db, dateRange);
+  return c.json({ data, period, dateRange });
+});
+
+/**
+ * Get request mix breakdown.
+ */
+reportRoutes.get("/request-mix", async (c) => {
+  const period = (c.req.query("period") ?? "month") as ReportPeriod;
+  const db = getDb();
+  const dateRange = getDateRangeForPeriod(period);
+  const data = await getRequestMix(db, dateRange);
+  return c.json({ data, period, dateRange });
+});
+
+/**
+ * Get automation trend.
+ */
+reportRoutes.get("/automation-trend", async (c) => {
+  const period = (c.req.query("period") ?? "month") as ReportPeriod;
+  const db = getDb();
+  const dateRange = getDateRangeForPeriod(period);
+  const data = await getAutomationTrend(db, dateRange);
+  return c.json({ data, period, dateRange });
+});
+
+/**
+ * Get conversion and response time trend.
+ */
+reportRoutes.get("/conversion-trend", async (c) => {
+  const period = (c.req.query("period") ?? "month") as ReportPeriod;
+  const db = getDb();
+  const dateRange = getDateRangeForPeriod(period);
+  const data = await getConversionResponseTrend(db, dateRange);
   return c.json({ data, period, dateRange });
 });
 
