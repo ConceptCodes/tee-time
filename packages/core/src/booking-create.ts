@@ -122,7 +122,7 @@ export const createBookingWithHistory = async (
           clubId: params.clubId,
           clubLocationId: params.clubLocationId ?? null,
           bayId: bayId ?? null,
-          preferredDate: params.preferredDate,
+          preferredDate: params.preferredDate.toISOString().slice(0, 10),
           preferredTimeStart: params.preferredTimeStart,
           preferredTimeEnd: params.preferredTimeEnd ?? null,
           bookingReference,

@@ -1,4 +1,4 @@
-import type { Booking, Database } from "@tee-time/database";
+import type { Database } from "@tee-time/database";
 import { notifyBooking } from "./notifications/slack";
 import { setBookingStatusWithHistory } from "./booking-status";
 import { logger } from "./logger";
@@ -40,7 +40,7 @@ export const cancelBookingWithHistory = async (
   });
 
   if (params.notify) {
-    const date = result.booking.preferredDate.toISOString().slice(0, 10);
+    const date = String(result.booking.preferredDate).slice(0, 10);
     const timeWindow = result.booking.preferredTimeEnd
       ? `${result.booking.preferredTimeStart} - ${result.booking.preferredTimeEnd}`
       : result.booking.preferredTimeStart;

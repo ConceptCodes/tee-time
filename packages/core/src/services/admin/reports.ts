@@ -1,14 +1,12 @@
+import { sql, eq, and, gte, lte, desc, isNotNull } from "drizzle-orm";
 import type { Database } from "@tee-time/database";
 import {
-  createBookingRepository,
-  createBookingStatusHistoryRepository,
   bookings,
   bookingStatusHistory,
   clubs,
   memberProfiles,
   messageLogs,
 } from "@tee-time/database";
-import { sql, eq, and, gte, lte, desc, isNotNull } from "drizzle-orm";
 import { logger } from "../../logger";
 
 export type ReportPeriod = "day" | "week" | "month" | "quarter" | "year";
@@ -552,6 +550,6 @@ export const getConversionResponseTrend = async (
       response: Number((responseMap.get(r.period) || 0).toFixed(1)),
     }))
     .sort(
-      (a, b) => new Date(a.period).getTime() - new Date(b.period).getTime()
+      (a, b) => new Date(a.period as string).getTime() - new Date(b.period as string).getTime()
     );
 };

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import { type Database } from "../client";
 import { clubLocations, clubs } from "../schema";
 import { firstOrNull } from "./utils";
@@ -145,7 +145,7 @@ export const createClubLocationRepository = (db: Database) => ({
     const locationGeography = sql`(${clubLocations.locationPoint})::geography`;
     const distance = sql<number>`ST_Distance(${locationGeography}, ${point})`;
     const withinRadius = sql<boolean>`ST_DWithin(${locationGeography}, ${point}, ${radiusMeters})`;
-    const conditions = [withinRadius];
+    const conditions: SQL[] = [withinRadius];
 
     if (params.activeOnly !== false) {
       conditions.push(eq(clubLocations.isActive, true), eq(clubs.isActive, true));
@@ -153,7 +153,7 @@ export const createClubLocationRepository = (db: Database) => ({
 
     const query = db
       .select({
-        ...clubLocations,
+        ...getTableColumns(clubLocations),
         clubName: clubs.name,
         distanceMeters: distance,
       })
@@ -168,7 +168,7 @@ export const createClubLocationRepository = (db: Database) => ({
     if (params.offset) {
       query.offset(params.offset);
     }
-    return query;
+    return query as unknown as NearbyClubLocation[];
   },
   countActiveByClubId: async (clubId: string): Promise<number> => {
     const rows = await db

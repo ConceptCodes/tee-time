@@ -1,3 +1,4 @@
+import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { Database } from "@tee-time/database";
 import {
   bookings,
@@ -8,7 +9,6 @@ import {
   createScheduledJobRepository,
   memberProfiles
 } from "@tee-time/database";
-import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { logger } from "../../logger";
 import { getAverageStaffResponseTime, getConversionRate, getAutomationTrend } from "./reports";
 
@@ -243,7 +243,7 @@ export const getOverviewUiData = async (
       .leftJoin(clubLocations, eq(bookings.clubLocationId, clubLocations.id))
       .where(
         and(
-          gte(bookings.preferredDate, todayStart),
+          gte(bookings.preferredDate, todayStart.toISOString().slice(0, 10)),
           inArray(bookings.status, ["Pending", "Confirmed", "Follow-up required"])
         )
       )

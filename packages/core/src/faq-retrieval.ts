@@ -1,12 +1,12 @@
+import { and, cosineDistance, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
+import { embed } from "ai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   createFaqRepository,
   type Database,
   faqEntries
 } from "@tee-time/database";
 import { logger } from "./logger";
-import { embed } from "ai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { cosineDistance, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 
 const getOpenRouterClient = () => {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -57,9 +57,13 @@ export const retrieveFaqCandidates = async (
       confidence: similarity,
     })
     .from(faqEntries)
-    .where(isNotNull(faqEntries.embedding))
-    .where(eq(faqEntries.isActive, true))
-    .where(gt(similarity, minConfidence))
+    .where(
+      and(
+        isNotNull(faqEntries.embedding),
+        eq(faqEntries.isActive, true),
+        gt(similarity, minConfidence)
+      )
+    )
     .orderBy(desc(similarity))
     .limit(limit);
 
@@ -72,6 +76,9 @@ export const retrieveFaqAnswer = async (
   options?: { minConfidence?: number; limit?: number }
 ) => {
   const matches = await retrieveFaqCandidates(db, question, options);
+  if (!matches) {
+    return null;
+  }
   const match = matches[0];
   if (!match) {
     return null;

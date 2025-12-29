@@ -90,7 +90,7 @@ const matchesTime = (bookingTime: string, desired?: string) => {
   if (!normalized) {
     return true;
   }
-  return normalizeTime(bookingTime).startsWith(normalized);
+  return normalizeTime(bookingTime)?.startsWith(normalized) ?? false;
 };
 
 const matchesReference = (bookingReference: string | null, desired?: string) => {

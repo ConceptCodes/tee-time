@@ -63,8 +63,8 @@ export const runFaqFlow = async (
   const getCandidates =
     runtime.getFaqCandidates ??
     (input.db
-      ? (question: string) =>
-          retrieveFaqCandidates(input.db as Database, question, { limit: 3 })
+      ? async (question: string) =>
+          (await retrieveFaqCandidates(input.db as Database, question, { limit: 3 })) ?? []
       : undefined);
 
   if (getCandidates) {

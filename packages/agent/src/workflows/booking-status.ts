@@ -223,7 +223,7 @@ export const runBookingStatusFlow = async (
           type: "respond",
           message:
             "You don't have any upcoming bookings. Would you like to book a tee time?",
-          offerBooking: timeframe !== "past",
+          offerBooking: true,
         };
       }
       return {

@@ -33,27 +33,27 @@ export const createClubLocationBayRepository = (db: Database) => ({
     clubLocationId: string,
     params?: { status?: "available" | "booked" | "maintenance" }
   ): Promise<ClubLocationBay[]> => {
-    const query = db
+    const conditions = [eq(clubLocationBays.clubLocationId, clubLocationId)];
+    if (params?.status) {
+      conditions.push(eq(clubLocationBays.status, params.status));
+    }
+    return db
       .select()
       .from(clubLocationBays)
-      .where(eq(clubLocationBays.clubLocationId, clubLocationId));
-    if (params?.status) {
-      query.where(eq(clubLocationBays.status, params.status));
-    }
-    return query;
+      .where(and(...conditions));
   },
   countByLocationId: async (
     clubLocationId: string,
     params?: { status?: "available" | "booked" | "maintenance" }
   ): Promise<number> => {
-    const query = db
+    const conditions = [eq(clubLocationBays.clubLocationId, clubLocationId)];
+    if (params?.status) {
+      conditions.push(eq(clubLocationBays.status, params.status));
+    }
+    const rows = await db
       .select({ count: sql<number>`count(*)` })
       .from(clubLocationBays)
-      .where(eq(clubLocationBays.clubLocationId, clubLocationId));
-    if (params?.status) {
-      query.where(eq(clubLocationBays.status, params.status));
-    }
-    const rows = await query;
+      .where(and(...conditions));
     return Number(rows[0]?.count ?? 0);
   },
   reserve: async (

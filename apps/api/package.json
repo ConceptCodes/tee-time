@@ -15,5 +15,9 @@
     "better-auth": "^1.4.0",
     "hono": "^4.6.8",
     "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "typescript": "^5.9.3"
   }
 }
