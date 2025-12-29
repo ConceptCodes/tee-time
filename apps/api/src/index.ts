@@ -1,14 +1,16 @@
-import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./auth";
+
 import { errorHandler } from "./middleware/error";
 import { contentTypeMiddleware } from "./middleware/content-type";
 import { loggingMiddleware } from "./middleware/logging";
 import { sessionMiddleware } from "./middleware/auth";
 import { traceMiddleware } from "./middleware/trace";
 import type { ApiVariables } from "./middleware/types";
+
 import { getDb } from "@tee-time/database";
+
 import { staffRoutes } from "./routes/admin/staff";
 import { meRoutes } from "./routes/admin/me";
 import { clubRoutes } from "./routes/admin/clubs";
@@ -80,16 +82,5 @@ app.onError(errorHandler);
 
 const port = Number.parseInt(process.env.PORT ?? "8787", 10);
 
-if (process.env.NODE_ENV === "development") {
-  serve(
-    {
-      fetch: app.fetch,
-      port
-    },
-    () => {
-      console.log(`API server running on port ${port}`);
-    }
-  );
-}
-
+console.log(`API server running on port ${port}`);
 export default app

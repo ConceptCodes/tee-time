@@ -7,5 +7,6 @@ dist/
 *.tsbuildinfo
 *.d.ts
 !src/**/*.d.ts
+.vercel
 
 AGENTS.md
