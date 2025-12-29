@@ -21,8 +21,9 @@ const redactEnabled = (process.env.LOG_REDACT ?? "true").toLowerCase() !== "fals
 const minLevel = parseLevel(process.env.LOG_LEVEL);
 
 const redactString = (value: string) => {
-  // Don't redact valid UUIDs (avoids false positives with phone regex)
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+  // Don't redact valid UUIDs or ISO dates (avoids false positives with phone regex)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) || 
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
     return value;
   }
 
@@ -32,8 +33,11 @@ const redactString = (value: string) => {
     /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
     "[redacted-email]"
   );
-  // Phone numbers (very loose)
-  result = result.replace(/(\+?\d[\d\s().-]{7,}\d)/g, "[redacted-phone]");
+  // Phone numbers (very loose) - skip if it looks like a date YYYY-MM-DD
+  result = result.replace(/(\+?\d[\d\s().-]{7,}\d)/g, (match) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(match)) return match;
+    return "[redacted-phone]";
+  });
   // Lat/lng coordinates
   result = result.replace(
     /\b-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g,

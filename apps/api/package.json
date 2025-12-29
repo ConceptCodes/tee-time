@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vc dev",
-    "start": "bun src/index.ts",
-    "build": "bun build src/index.ts --outdir=dist --target=node --format=esm"
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir=dist --target=node --format=esm",
+    "start": "bun src/index.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",

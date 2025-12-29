@@ -81,11 +81,4 @@ app.route("/api/reports", reportRoutes);
 app.route("/webhooks/whatsapp", whatsappWebhookRoutes);
 app.onError(errorHandler);
 
-const port = Number.parseInt(process.env.PORT ?? "8787", 10);
-console.log(`API server running on port ${port}`);
-
-if (process.env.NODE_ENV === "development") {
-  serve({ fetch: app.fetch, port });
-}
-
 export default app;
