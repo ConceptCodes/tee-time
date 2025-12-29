@@ -5,15 +5,9 @@ import { createClubLocationBayRepository } from "../src/repositories/bays";
 import { createFaqRepository } from "../src/repositories/faqs";
 import { createMemberRepository } from "../src/repositories/members";
 import { createBookingRepository } from "../src/repositories/bookings";
-import { config } from "@dotenvx/dotenvx";
-import path from "node:path";
 import { generateFaqEmbedding } from "@tee-time/core";
 import { clubs, bookings, bookingStatusHistory, faqEntries } from "../src/schema";
 import { eq } from "drizzle-orm";
-
-// Load environment variables
-config({ path: path.join(__dirname, "../../../.env") });
-
 async function main() {
   console.log("🌱 Seeding database...");
 
@@ -56,13 +50,13 @@ async function main() {
 
   // -- 2. Locations --
   console.log("Creating locations...");
-  const locationData: { clubId: string | undefined, name: string }[] = [
-    { clubId: topgolf?.id, name: "Dallas" },
-    { clubId: topgolf?.id, name: "Austin" },
-    { clubId: topgolf?.id, name: "The Colony" },
-    { clubId: driveShack?.id, name: "Frisco" },
-    { clubId: puttery?.id, name: "The Colony" },
-    { clubId: puttery?.id, name: "Houston" },
+  const locationData: { clubId: string | undefined, name: string, lat: number, lng: number, address: string }[] = [
+    { clubId: topgolf?.id, name: "London", lat: 51.5074, lng: -0.1278, address: "The O2, Peninsula Square, London SE10 0DX" },
+    { clubId: topgolf?.id, name: "Manchester", lat: 53.4808, lng: -2.2426, address: "Barton Square, Trafford Park, Manchester M17 8AS" },
+    { clubId: topgolf?.id, name: "Birmingham", lat: 52.4862, lng: -1.8904, address: "Water's Edge, Brindley Place, Birmingham B1 2HL" },
+    { clubId: driveShack?.id, name: "Leeds", lat: 53.8008, lng: -1.5491, address: "Crown Point Retail Park, Leeds LS10 1HS" },
+    { clubId: puttery?.id, name: "Glasgow", lat: 55.8642, lng: -4.2518, address: "Buchanan Galleries, Glasgow G1 2GF" },
+    { clubId: puttery?.id, name: "Edinburgh", lat: 55.9533, lng: -3.1883, address: "Ocean Terminal, Leith, Edinburgh EH6 6JJ" },
   ];
 
   for (const l of locationData) {
@@ -73,9 +67,9 @@ async function main() {
         const loc = await locationRepo.create({
             clubId: l.clubId,
             name: l.name,
-            address: "123 Test St",
+            address: l.address,
             isActive: true,
-            locationPoint: { x: 0, y: 0 },
+            locationPoint: { x: l.lng, y: l.lat },
             createdAt: new Date(),
             updatedAt: new Date()
         });

@@ -1,8 +1,4 @@
 import { defineConfig } from "drizzle-kit";
-import { config } from "@dotenvx/dotenvx";
-import path from "node:path";
-
-config({ path: path.join(__dirname, "../../.env") });
 
 export default defineConfig({
   schema: "./src/schema.ts",
@@ -12,6 +8,10 @@ export default defineConfig({
     url: process.env.DATABASE_URL ?? "",
   },
   tablesFilter: [
+    "users",
+    "sessions",
+    "accounts",
+    "verifications",
     "clubs",
     "club_locations",
     "club_location_bays",

@@ -9,15 +9,18 @@
   },
   "dependencies": {
     "@tee-time/core": "workspace:*",
+    "better-auth": "^1.4.9",
     "drizzle-orm": "^0.38.0",
     "pg": "^8.11.5"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
     "@types/pg": "^8.11.10",
     "drizzle-kit": "^0.30.0"
   },
   "scripts": {
     "push": "drizzle-kit push",
-    "seed": "bun scripts/seed.ts"
+    "seed": "bun scripts/seed.ts",
+    "onboard-demo": "bun scripts/onboard-demo.ts"
   }
 }
