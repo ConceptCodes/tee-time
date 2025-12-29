@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vc dev",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outdir=dist --target=node --format=esm"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",
