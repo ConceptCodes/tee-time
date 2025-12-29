@@ -81,6 +81,7 @@ const OnboardingParseSchema = z.object({
   favoriteClub: z.string().nullable(),
   favoriteLocation: z.string().nullable(),
   preferredBay: z.string().nullable(),
+  isSkipping: z.boolean().nullable().describe("True if the user indicates they want to skip the current question or have no preference"),
 });
 
 const REQUIRED_FIELDS: OnboardingField[] = ["name"];
@@ -237,11 +238,17 @@ export const runOnboardingFlow = async (
       schema: OnboardingParseSchema,
       system:
         "Extract onboarding details from the message. Use the user's wording when possible. " +
-        "If the user provides a short response that looks like a name (e.g., 'John', 'Sarah Smith'), extract it as 'name'.",
+        "If the user provides a short response that looks like a name (e.g., 'John', 'Sarah Smith'), extract it as 'name'. " +
+        "If the user says 'no', 'skip', 'not really', 'no preference', or similar to a question, set isSkipping to true.",
       prompt:
         `${historyContext}${lastFieldContext}Extract any of these fields if present: name, timezone, favorite club, favorite location, preferred bay. ` +
-        `If a field is not present, omit it.\n\nUser message: "${message}"`,
+        `If the user indicates they don't have a preference or want to skip, set isSkipping: true.\n\nUser message: "${message}"`,
     });
+
+    // Handle explicit skip intent from LLM
+    if (result.object.isSkipping && state.lastPromptedField) {
+      state = applySkip(state, state.lastPromptedField);
+    }
 
     // Convert null to undefined for state compatibility
     const cleaned = Object.fromEntries(

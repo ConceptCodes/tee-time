@@ -1,6 +1,6 @@
 # WhatsApp Bot for Tee Time Booking
 
-An automated WhatsApp-based booking system for golf tee times featuring member onboarding, FAQ automation, and a dedicated staff administration dashboard.
+An AI-powered automated WhatsApp booking system designed to streamline golf tee time reservations, featuring intelligent member onboarding, FAQ automation, and a comprehensive staff administration dashboard.
 
 ## Project Structure
 
@@ -12,42 +12,37 @@ An automated WhatsApp-based booking system for golf tee times featuring member o
 - `packages/database`: Drizzle schema, migrations, and repositories.
 - `packages/evals`: Agent eval runner (booking, FAQ, fallback, updates).
 
-
 ## Technology Stack
 
-- [`Bun`](https://bun.sh)
-- [`TypeScript`](https://www.typescriptlang.org)
-- [`Biome`](https://biomejs.dev)
-- [`@dotenvx/dotenvx`](https://github.com/dotenvx/dotenvx)
-- [`Vite`](https://vite.dev)
-- [`React`](https://react.dev)
-- [`Tailwind CSS`](https://tailwindcss.com)
-- [`shadcn/ui`](https://ui.shadcn.com)
-- [`TanStack Query/Form/Table`](https://tanstack.com)
-- [`Leaflet`](https://leafletjs.com)
-- [`Recharts`](https://recharts.github.io/)
-- [`Hono`](https://hono.dev) (with `@hono/node-server`)
-- [`Better Auth`](https://www.better-auth.com/)
-- [`twilio`](https://www.twilio.com)
-- [`@slack/web-api`](https://slack.dev/node-slack-sdk/web-api)
-- [`Vercel AI SDK`](https://ai-sdk.dev/docs/introduction) + [`OpenRouter`](https://openrouter.ai) provider
-- [`PostgreSQL`](https://www.postgresql.org), [`PostGIS`](https://postgis.net), [`drizzle-orm`](https://orm.drizzle.team/) and [`pg`](https://node-postgres.com) for DB access, migrations, and geo queries.
-- [`Twilio WhatsApp`](https://www.twilio.com/en-us/messaging/channels/whatsapp) for member flows, [`Slack`](https://slack.com) + email for staff alerts
-
+- **Runtime**: [`Bun`](https://bun.sh)
+- **Language**: [`TypeScript`](https://www.typescriptlang.org)
+- **Frameworks**: [`Hono`](https://hono.dev), [`React`](https://react.dev), [`Vite`](https://vite.dev)
+- **Database**: [`PostgreSQL`](https://www.postgresql.org) with [`PostGIS`](https://postgis.net), managed via [`drizzle-orm`](https://orm.drizzle.team/)
+- **AI**: [`Vercel AI SDK`](https://ai-sdk.dev/docs/introduction) + [`OpenRouter`](https://openrouter.ai)
+- **UI**: [`Tailwind CSS`](https://tailwindcss.com), [`shadcn/ui`](https://ui.shadcn.com), [`TanStack Query`](https://tanstack.com/query/latest)
+- **Messaging**: [`Twilio`](https://www.twilio.com) (WhatsApp), [`Slack`](https://slack.com) (Admin Notifications)
+- **Tooling**: [`Biome`](https://biomejs.dev) (Linting/Formatting), [`dotenvx`](https://github.com/dotenvx/dotenvx)
 
 ## Commands
 
-- `bun install`: install workspace dependencies.
-- `bun --filter @tee-time/admin dev`: run the admin app.
-- `bun --filter @tee-time/api dev`: run the API server.
-- `bun --filter @tee-time/worker dev`: run the worker service.
-- `bun db:generate`: generate Drizzle migrations.
-- `bun db:migrate`: apply migrations.
-- `bun run lint`: run Biome lint.
-- `bun run format`: run Biome format.
-- `bun run check`: run Biome check.
-- `bun run chat`: run the local CLI chat harness.
-- `bun run evals`: run agent evals (use `--help` for options).
+Common development commands mapping to `package.json` scripts:
+
+- `bun install`: Install workspace dependencies.
+- `bun run admin:dev`: Run the admin UI (localhost:5173).
+- `bun run api:dev`: Run the API server (localhost:8787).
+- `bun run worker:dev`: Run the background worker.
+- `bun run db:generate`: Generate Drizzle migrations.
+- `bun run db:migrate`: Apply database migrations.
+- `bun run lint`: Run Biome lint.
+- `bun run format`: Run Biome format.
+- `bun run chat`: Run the local CLI chat harness for testing agent flows.
+- `bun run evals`: Run agent evaluation suite.
+
+## Documentation
+
+- **Application Spec**: See `docs/app-spec.txt` for detailed product specifications.
+- **Features**: See `docs/features.json` for feature flags and definitions.
+- **Progress**: See `docs/progress.md` for current development status.
 
 ## Agent Routing Overview
 
@@ -144,9 +139,6 @@ You: TopGolf
 Agent: Do you have a preferred club location? You can say "skip".
 
 You: skip
-Agent: No problem. Skip preferred location for now?
-
-You: yes
 Agent: Do you have a preferred bay? You can say "skip".
 
 You: no
@@ -185,50 +177,47 @@ You: looks good to me
 
 <send slack message to staff>
 
-Agent: I can help book a new tee time, update or cancel an existing booking, check booking status, and answer FAQs. If you need something else, I can connect you to staff.
+Agent: I can help book a new tee time, update or cancel your existing booking, check booking status, and answer FAQs. If you need something else, I can connect you to staff. 
 ```
-
-## API Highlights
-
-- **Auth**: Better Auth endpoints mounted under `/api/auth/*`.
-- **Health**: `/health` and `/ready` (DB connectivity).
-- **Admin**: CRUD endpoints for staff, members, bookings, clubs/locations, support requests, audit logs, message logs, and FAQs.
-- **Reports**: `/api/reports/*` for booking and member analytics.
-- **WhatsApp Webhook**: `/webhooks/whatsapp` for inbound message handling.
-- **Current User**: `/api/me` (get/update profile).
 
 ## Admin Dashboard
 
-The admin UI lives in `apps/admin` and is built with Vite + React. It provides:
-- Staff and member management screens.
-- Booking overview and manual adjustments.
-- FAQ management with vector‑based search.
-- Reports dashboard (conversion, response time, booking mix).
-- Real‑time Slack notifications for new bookings and support requests.
+The admin UI (`apps/admin`) lives at `http://localhost:5173` during development and offers:
+
+- **Overview**: Real-time stats, recent activity feed, and quick actions.
+- **Bookings**: Detailed list view, filtered search, and manual booking management.
+- **Members**: Complete member directory, profile management, and onboarding status.
+- **Clubs**: Configuration for golf clubs and their specific locations/bays.
+- **Messages**: Support request management and full conversation history view.
+- **Reports**: Analytics for bookings, member growth, and system usage.
+- **Audit Logs**: Secuirty and operational logs for all staff actions.
+- **Settings**: System configuration including Staff management and KB/FAQ updates.
 
 ## Development Workflow
 
-1. Install dependencies: `bun install`
-2. Create a `.env` (copy from `.env.example`) and fill in required secrets.
-3. Run the admin UI: `bun --filter @tee-time/admin dev`
-4. Run the API server: `bun --filter @tee-time/api dev`
-5. Run database migrations when schema changes:
-   - Generate: `bun db:generate`
-   - Apply: `bun db:migrate`
-6. Lint / format: `bun run lint` / `bun run format`
-7. Run type‑checking: `bun run check`
+1.  **Setup**:
+    ```bash
+    bun install
+    cp .env.example .env
+    # Fill in required secrets in .env
+    ```
 
-## Testing
+2.  **Database**:
+    ```bash
+    bun run db:generate
+    bun run db:migrate
+    ```
 
-Use the eval harness for system checks:
-```
-bun run evals --help
-```
+3.  **Run Services**:
+    Open separate terminals for:
+    - API: `bun run api:dev`
+    - Admin: `bun run admin:dev`
+    - Worker: `bun run worker:dev` (optional, for scheduled tasks)
 
-Unit and integration tests live alongside each package under `__tests__`. Run them with:
-```
-bun test
-```
+4.  **Testing**:
+    - Unit tests: `bun test`
+    - Agent Evals: `bun run evals`
+    - Interactive Chat: `bun run chat`
 
 ## License
 
