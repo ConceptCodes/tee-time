@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
-import type { Club, ClubLocation } from "@/lib/mock-data";
+import type { Club, ClubLocation } from "@/lib/api-types";
 import "leaflet/dist/leaflet.css";
 
 // Fix default marker icon issue with Webpack/Vite

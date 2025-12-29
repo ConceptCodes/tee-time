@@ -15,11 +15,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { mockMembers, Booking } from "@/lib/mock-data"
+import { Booking, MemberProfile } from "@/lib/api-types"
 
-const memberById = new Map(mockMembers.map((member) => [member.id, member]))
+const formatTimeRange = (start?: string, end?: string | null) => {
+  if (!start) return "-"
+  const normalizedStart = start.slice(0, 5)
+  const normalizedEnd = end ? end.slice(0, 5) : ""
+  return normalizedEnd ? `${normalizedStart} - ${normalizedEnd}` : normalizedStart
+}
 
-export const columns: ColumnDef<Booking>[] = [
+export const getBookingColumns = (
+  memberById: Map<string, MemberProfile> = new Map()
+): ColumnDef<Booking>[] => [
   {
     accessorKey: "status",
     header: "Status",
@@ -74,7 +81,7 @@ export const columns: ColumnDef<Booking>[] = [
     cell: ({ row }) => {
       const start = row.getValue("preferredTimeStart") as string
       const end = row.original.preferredTimeEnd
-      return end ? `${start} - ${end}` : start
+      return formatTimeRange(start, end)
     },
   },
   {

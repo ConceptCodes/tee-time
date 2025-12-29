@@ -1,26 +1,43 @@
 import { useForm } from "@tanstack/react-form"
 import { zodValidator } from "@tanstack/zod-form-adapter"
-import { z } from "zod"
+import { useState, type KeyboardEvent } from "react"
+import { X } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockMembers, mockClubs } from "@/lib/mock-data"
+import { useClubs, useMembers } from "@/hooks/use-api-queries"
+import { bookingSchema, type BookingFormValues } from "@/lib/booking-form"
 
-const MAX_PLAYERS = import.meta.env.VITE_MAX_PLAYERS || 4;
+const parseGuestNames = (value?: string) =>
+  value
+    ?.split(",")
+    .map((guest) => guest.trim())
+    .filter(Boolean) ?? []
 
-const bookingSchema = z.object({
-  memberId: z.string().min(1, "Member is required"),
-  clubId: z.string().min(1, "Club is required"),
-  preferredDate: z.string().min(1, "Date is required"),
-  preferredTimeStart: z.string().min(1, "Time is required"),
-  numberOfPlayers: z.number().min(1).max(MAX_PLAYERS),
-  notes: z.string().optional(),
-})
+const joinGuestNames = (names: string[]) => (names.length ? names.join(", ") : "")
 
-export type BookingFormValues = z.infer<typeof bookingSchema>
+const appendGuestName = (existingValue: string | undefined, guest: string) => {
+  const sanitized = guest.trim()
+  if (!sanitized) {
+    return existingValue ?? ""
+  }
+
+  const existing = parseGuestNames(existingValue)
+  if (existing.includes(sanitized)) {
+    return existingValue ?? joinGuestNames(existing)
+  }
+
+  return joinGuestNames([...existing, sanitized])
+}
+
+const removeGuestName = (existingValue: string | undefined, guest: string) => {
+  const remaining = parseGuestNames(existingValue).filter((name) => name !== guest)
+  return joinGuestNames(remaining)
+}
 
 type BookingFormProps = {
   onSuccess?: (values: BookingFormValues) => void
@@ -28,6 +45,10 @@ type BookingFormProps = {
 }
 
 export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
+  const membersQuery = useMembers()
+  const clubsQuery = useClubs()
+  const [guestInput, setGuestInput] = useState("")
+
   const form = useForm({
     defaultValues: {
       memberId: "",
@@ -35,6 +56,7 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
       preferredDate: "",
       preferredTimeStart: "",
       numberOfPlayers: 4,
+      guestNames: "",
       notes: "",
     },
     validatorAdapter: zodValidator,
@@ -68,8 +90,8 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
                   <SelectValue placeholder="Select member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockMembers.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
+                  {(membersQuery.data ?? []).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
                       {m.name}
                     </SelectItem>
                   ))}
@@ -91,7 +113,7 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
                   <SelectValue placeholder="Select club" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockClubs.map((c) => (
+                  {(clubsQuery.data ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
@@ -148,6 +170,73 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
           )}
         </form.Field>
       </div>
+
+      <form.Field name="guestNames">
+        {(field) => {
+          const guests = parseGuestNames(field.state.value)
+
+          const commitGuest = (value: string) => {
+            const updated = appendGuestName(field.state.value, value)
+            field.handleChange(updated)
+            setGuestInput("")
+          }
+
+          const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault()
+              if (guestInput.trim()) {
+                commitGuest(guestInput)
+              }
+            }
+          }
+
+          const handleRemoveGuest = (guest: string) => {
+            field.handleChange(removeGuestName(field.state.value, guest))
+          }
+
+          return (
+            <div className="space-y-2">
+              <Label htmlFor={`${field.name}-input`}>Guest names</Label>
+              <div className="flex min-h-[48px] flex-wrap items-center gap-2 rounded-md border border-input bg-background px-3 py-2">
+                {guests.map((guest) => (
+                  <Badge
+                    key={guest}
+                    variant="secondary"
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    <span>{guest}</span>
+                    <button
+                      type="button"
+                      className="rounded-full p-1 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      aria-label={`Remove ${guest}`}
+                      onClick={() => handleRemoveGuest(guest)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                <input
+                  id={`${field.name}-input`}
+                  type="text"
+                  value={guestInput}
+                  onChange={(event) => setGuestInput(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={() => {
+                    if (guestInput.trim()) {
+                      commitGuest(guestInput)
+                    }
+                  }}
+                  placeholder="Press Enter after each guest"
+                  className="flex-1 min-w-[120px] border-0 bg-transparent px-0 py-1 text-sm focus-visible:outline-none"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Press Enter to add each guest to the list.
+              </p>
+            </div>
+          )
+        }}
+      </form.Field>
 
       <form.Field name="notes">
         {(field) => (

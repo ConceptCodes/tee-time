@@ -5,6 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import { Download, FileJson2, FileSpreadsheet } from "lucide-react";
 
 type ExportDropdownProps<T extends Record<string, unknown>> = {
@@ -16,9 +17,19 @@ type ExportDropdownProps<T extends Record<string, unknown>> = {
 };
 
 export function ExportDropdown<T extends Record<string, unknown>>({
+  data,
   onExport,
   disabled = false,
 }: ExportDropdownProps<T>) {
+  const handleExport = (format: "csv" | "json") => {
+    if (!data?.length) {
+      toast.error("There is no data to export.");
+      return;
+    }
+
+    onExport(format);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -28,11 +39,11 @@ export function ExportDropdown<T extends Record<string, unknown>>({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onExport("csv")} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => handleExport("csv")} className="gap-2 cursor-pointer">
           <FileSpreadsheet className="h-4 w-4" />
           Export as CSV
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onExport("json")} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => handleExport("json")} className="gap-2 cursor-pointer">
           <FileJson2 className="h-4 w-4" />
           Export as JSON
         </DropdownMenuItem>

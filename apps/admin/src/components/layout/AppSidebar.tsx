@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   MapPinned,
 } from "lucide-react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { signOut } from "@/lib/auth-client"
 
 import {
   Sidebar,
@@ -41,6 +42,17 @@ const items = [
 
 export function AppSidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const handleSignOut = async () => {
+    await signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          navigate("/login")
+        },
+      },
+    })
+  }
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -89,7 +101,11 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t/60 p-4">
-        <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start gap-2 text-sidebar-foreground"
+          onClick={handleSignOut}
+        >
             <LogOut className="h-4 w-4" />
             <span>Sign Out</span>
         </Button>

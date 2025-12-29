@@ -6,7 +6,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, Line, XAxis, YAxis } from "recharts"
+import { Bar, ComposedChart, CartesianGrid, Line, XAxis, YAxis } from "recharts"
 
 const conversionConfig = {
   conversion: {
@@ -29,7 +29,7 @@ export function ConversionResponseChart({ data }: ConversionResponseChartProps) 
       config={conversionConfig}
       className="h-[260px] w-full"
     >
-      <BarChart data={data} margin={{ left: 8, right: 8 }}>
+      <ComposedChart data={data} margin={{ left: 8, right: 8 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="week"
@@ -54,7 +54,7 @@ export function ConversionResponseChart({ data }: ConversionResponseChartProps) 
           dot={false}
           name="Response (min)"
         />
-      </BarChart>
+      </ComposedChart>
     </ChartContainer>
   )
 }

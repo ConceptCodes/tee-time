@@ -1,8 +1,8 @@
 import { ColumnDef } from "@tanstack/react-table"
-import { MemberProfile } from "@/lib/mock-data"
+import { MemberProfile } from "@/lib/api-types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, ArrowUpDown } from "lucide-react"
+import { MoreHorizontal, ArrowUpDown, Copy } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { format } from "date-fns"
 import { Link } from "react-router-dom"
+import { toast } from "sonner"
 
 export const columns: ColumnDef<MemberProfile>[] = [
   {
@@ -39,6 +40,26 @@ export const columns: ColumnDef<MemberProfile>[] = [
   {
     accessorKey: "membershipId",
     header: "Membership",
+    cell: ({ row }) => {
+      const id = row.getValue("membershipId") as string
+      return (
+        <div className="flex items-center gap-2">
+          <span>{id}</span>
+          <Button
+            variant="ghost" 
+            size="icon"
+            className="h-4 w-4 text-muted-foreground hover:text-primary"
+            onClick={() => {
+              navigator.clipboard.writeText(id)
+              toast.success("Membership ID copied")
+            }}
+          >
+            <Copy className="h-3 w-3" />
+            <span className="sr-only">Copy Membership ID</span>
+          </Button>
+        </div>
+      )
+    },
   },
   {
     accessorKey: "isActive",
@@ -77,7 +98,12 @@ export const columns: ColumnDef<MemberProfile>[] = [
             <DropdownMenuItem asChild>
                 <Link to={`/members/${member.id}`}>View Profile</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(member.phoneNumber)}>
+            <DropdownMenuItem onClick={() => {
+              navigator.clipboard.writeText(member.phoneNumber)
+              toast.success("Phone number copied", {
+                description: `Copied ${member.phoneNumber} to clipboard`,
+              })
+            }}>
               Copy Phone
             </DropdownMenuItem>
           </DropdownMenuContent>
