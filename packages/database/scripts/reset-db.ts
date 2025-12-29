@@ -5,37 +5,18 @@ async function main() {
   const db = getDb();
   console.log("🧹 Resetting database...");
 
-  const tables = [
-    "audit_logs",
-    "booking_status_history",
-    "notifications",
-    "scheduled_jobs",
-    "bookings",
-    "club_location_bays",
-    "club_locations",
-    "clubs",
-    "faq_entries",
-    "message_dedup",
-    "message_logs",
-    "support_requests",
-    "team_memberships",
-    "teams",
-    "booking_states",
-    "member_profiles",
-    "sessions",
-    "accounts",
-    "verifications",
-    "users",
-    "staff_users"
-  ];
-
-  for (const table of tables) {
-    try {
-      await db.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE`));
-      console.log(`  - Truncated ${table}`);
-    } catch (e) {
-      console.log(`  - Table ${table} not found or error, skipping...`);
-    }
+  try {
+    // Drop and recreate public schema to wipe everything including enums and extensions
+    // This allows migrations to run from scratch without "type already exists" errors
+    await db.execute(sql.raw(`DROP SCHEMA IF EXISTS public CASCADE`));
+    await db.execute(sql.raw(`CREATE SCHEMA public`));
+    await db.execute(sql.raw(`GRANT ALL ON SCHEMA public TO public`));
+    await db.execute(sql.raw(`COMMENT ON SCHEMA public IS 'standard public schema'`));
+    
+    console.log("  - Dropped and recreated 'public' schema");
+  } catch (e) {
+    console.error("  ❌ Error reseting schema:", e);
+    process.exit(1);
   }
 
   console.log("✅ Database reset complete!");

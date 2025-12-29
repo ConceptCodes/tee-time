@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Hono } from "hono";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
@@ -36,7 +37,7 @@ staffRoutes.get("/:id", async (c) => {
 });
 
 staffRoutes.post("/", validateJson(staffSchemas.create), async (c) => {
-  const parsed = c.get("validatedBody") as typeof staffSchemas.create._type;
+  const parsed = c.get("validatedBody") as z.infer<typeof staffSchemas.create>;
   const now = new Date();
   const db = getDb();
   const staffUser = await createStaffUser(db, {
@@ -49,7 +50,7 @@ staffRoutes.post("/", validateJson(staffSchemas.create), async (c) => {
 });
 
 staffRoutes.put("/:id", validateJson(staffSchemas.update), async (c) => {
-  const parsed = c.get("validatedBody") as typeof staffSchemas.update._type;
+  const parsed = c.get("validatedBody") as z.infer<typeof staffSchemas.update>;
   const db = getDb();
   const staffUser = await updateStaffUser(db, c.req.param("id"), {
     ...parsed,
