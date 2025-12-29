@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { serve } from "@hono/node-server";
 import { auth } from "./auth";
 
 import { errorHandler } from "./middleware/error";
@@ -81,6 +82,10 @@ app.route("/webhooks/whatsapp", whatsappWebhookRoutes);
 app.onError(errorHandler);
 
 const port = Number.parseInt(process.env.PORT ?? "8787", 10);
-
 console.log(`API server running on port ${port}`);
-export default app
+
+if (process.env.NODE_ENV === "development") {
+  serve({ fetch: app.fetch, port });
+}
+
+export default app;

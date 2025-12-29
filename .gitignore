@@ -2,7 +2,7 @@ docs/
 .env
 node_modules/
 dist/
-apps/api/index.js
+apps/api/api/
 .DS_Store
 .vscode/
 *.tsbuildinfo

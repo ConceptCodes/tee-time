@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "installCommand": "cd ../.. && bun install",
-  "buildCommand": "bun build src/index.ts --outfile=index.js --target=node --format=esm",
+  "buildCommand": "bun build src/index.ts --outfile=api/index.js --target=node --format=esm --minify",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
+  ],
   "bunVersion": "1.x"
 }
