@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { zodValidator } from "@tanstack/zod-form-adapter"
+
 import { z } from "zod"
 
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,6 @@ export default function SendTemplateForm({
       templateId: "booking-confirmed",
       personalization: "",
     },
-    validatorAdapter: zodValidator,
     validators: {
       onSubmit: sendTemplateSchema,
     },
@@ -76,7 +75,7 @@ export default function SendTemplateForm({
             </Select>
             {field.state.meta.errors?.[0] && (
               <p className="text-xs text-destructive">
-                {field.state.meta.errors[0]}
+                {field.state.meta.errors[0]?.message}
               </p>
             )}
           </div>
@@ -95,7 +94,7 @@ export default function SendTemplateForm({
             />
             {field.state.meta.errors?.[0] && (
               <p className="text-xs text-destructive">
-                {field.state.meta.errors[0]}
+                {field.state.meta.errors[0]?.message}
               </p>
             )}
           </div>

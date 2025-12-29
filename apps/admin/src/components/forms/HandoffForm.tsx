@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { zodValidator } from "@tanstack/zod-form-adapter"
+
 import { z } from "zod"
 
 import { Button } from "@/components/ui/button"
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
 const handoffSchema = z.object({
-  reason: z.string().optional(),
+  reason: z.string(),
 })
 
 export type HandoffFormValues = z.infer<typeof handoffSchema>
@@ -22,7 +22,6 @@ export default function HandoffForm({ onSuccess, onCancel }: HandoffFormProps) {
     defaultValues: {
       reason: "",
     },
-    validatorAdapter: zodValidator,
     validators: {
       onSubmit: handoffSchema,
     },
@@ -53,7 +52,7 @@ export default function HandoffForm({ onSuccess, onCancel }: HandoffFormProps) {
             />
             {field.state.meta.errors?.[0] && (
               <p className="text-xs text-destructive">
-                {field.state.meta.errors[0]}
+                {field.state.meta.errors[0]?.message}
               </p>
             )}
           </div>

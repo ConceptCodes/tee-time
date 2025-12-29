@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form"
-import { zodValidator } from "@tanstack/zod-form-adapter"
+
 import { useState, type KeyboardEvent } from "react"
 import { X } from "lucide-react"
 
@@ -59,7 +59,6 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
       guestNames: "",
       notes: "",
     },
-    validatorAdapter: zodValidator,
     validators: {
       onSubmit: bookingSchema,
     },

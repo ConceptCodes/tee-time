@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@tee-time/core": "workspace:*",
-    "@tee-time/database": "workspace:*"
+    "@tee-time/database": "workspace:*",
+    "drizzle-orm": "^0.38.0"
   }
 }
