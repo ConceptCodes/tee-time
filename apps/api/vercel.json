@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "cd ../.. && bun install",
-  "buildCommand": "bun build src/index.ts --outfile=api/index.js --target=node --format=esm --minify",
+  "buildCommand": "bun build src/index.ts --outfile=api/index.js --target=node --format=esm --minify && mkdir -p public",
+  "outputDirectory": "public",
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
   ],
