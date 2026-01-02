@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,13 @@ import {
 } from "@/components/ui/empty"
 import { ArrowLeft, Phone, Calendar, Globe2, MapPin } from "lucide-react"
 import { format } from "date-fns"
-import { useBookings, useMember } from "@/hooks/use-api-queries"
+import { useBookings, useMember, useStaff } from "@/hooks/use-api-queries"
+import { useAuth } from "@/context/AuthContext"
+import { useQueryClient } from "@tanstack/react-query"
+import { apiPut } from "@/lib/api-client"
+import { queryKeys } from "@/lib/query-keys"
+import { toast } from "sonner"
+import type { ApiResponse, MemberProfile } from "@/lib/api-types"
 
 export default function MemberProfilePage() {
   const { id } = useParams()
@@ -22,6 +28,10 @@ export default function MemberProfilePage() {
 
   const memberQuery = useMember(id)
   const bookingsQuery = useBookings()
+  const staffQuery = useStaff()
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const [isTogglingActive, setIsTogglingActive] = useState(false)
 
   const member = memberQuery.data ?? null
   const bookings = useMemo(() => {
@@ -36,6 +46,32 @@ export default function MemberProfilePage() {
     () => getBookingColumns(memberById),
     [memberById]
   )
+
+  const currentStaff = (staffQuery.data ?? []).find(
+    (staffMember) => staffMember.authUserId === user?.id
+  )
+  const canToggleMember = currentStaff?.role === "admin"
+
+  const handleToggleActive = async () => {
+    if (!member) return
+    setIsTogglingActive(true)
+    try {
+      await apiPut<ApiResponse<MemberProfile>>(`/api/admin/members/${member.id}`, {
+        isActive: !member.isActive,
+      })
+      queryClient.invalidateQueries({ queryKey: queryKeys.member(member.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.members() })
+      toast.success(
+        member.isActive ? "Member disabled" : "Member re-enabled"
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to update member"
+      toast.error(message)
+    } finally {
+      setIsTogglingActive(false)
+    }
+  }
 
   if (memberQuery.isLoading) {
     return (
@@ -76,17 +112,23 @@ export default function MemberProfilePage() {
             <h1 className="text-2xl font-bold tracking-tight">{member.name}</h1>
             <p className="text-muted-foreground">Manage member profile and view history.</p>
         </div>
-        <div className="ml-auto">
-             <Badge
-                className="text-base px-4 py-1"
-                variant={
-                    member.isActive
-                    ? "default"
-                    : "secondary"
-                }
-                >
-                {member.isActive ? "active" : "inactive"}
-            </Badge>
+        <div className="ml-auto flex items-center gap-3">
+          <Badge
+            className="text-base px-4 py-1"
+            variant={member.isActive ? "default" : "secondary"}
+          >
+            {member.isActive ? "active" : "inactive"}
+          </Badge>
+          {canToggleMember && (
+            <Button
+              variant={member.isActive ? "destructive" : "outline"}
+              size="sm"
+              onClick={handleToggleActive}
+              disabled={isTogglingActive || staffQuery.isLoading}
+            >
+              {member.isActive ? "Disable member" : "Enable member"}
+            </Button>
+          )}
         </div>
       </div>
 
