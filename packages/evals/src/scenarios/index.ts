@@ -21,6 +21,11 @@ export { buildFaqScenarios } from "./faq";
 export { buildFallbackScenarios } from "./fallback";
 export { buildEdgeCaseScenarios } from "./edge-cases";
 export { buildUpdateScenarios } from "./updates";
+export {
+  statePersistenceScenarios,
+  multiBookingScenarios,
+  courseCorrectionScenarios,
+} from "./ux-features";
 
 // Import builders for buildScenarios
 import type { ClubInfo } from "./types";
@@ -34,6 +39,11 @@ import { buildFaqScenarios } from "./faq";
 import { buildFallbackScenarios } from "./fallback";
 import { buildEdgeCaseScenarios } from "./edge-cases";
 import { buildUpdateScenarios } from "./updates";
+import {
+  statePersistenceScenarios,
+  multiBookingScenarios,
+  courseCorrectionScenarios,
+} from "./ux-features";
 
 /**
  * Build all scenarios based on configuration counts.

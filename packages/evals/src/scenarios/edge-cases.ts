@@ -1,5 +1,78 @@
-import type { ClubInfo, EvalScenario, ScenarioExpectation } from "./types";
+import type {
+  ClubInfo,
+  EvalScenario,
+  ScenarioExpectation,
+  ScenarioResult,
+} from "./types";
 import { formatClub } from "./types";
+import { createFaqAgent } from "@tee-time/agent";
+import { getDb } from "@tee-time/database";
+
+const runClubNetworkScenario = async (): Promise<ScenarioResult> => {
+  const db = getDb();
+  const agent = createFaqAgent({ db });
+  const userMessage = "What clubs are in your network?";
+  try {
+    const result = await agent.generate({
+      messages: [{ role: "user", content: userMessage }],
+    });
+    const text = (result.text ?? "").trim();
+    if (!text) {
+      return { status: "fail", details: "FAQ agent returned empty text" };
+    }
+    const normalized = text.toLowerCase();
+    if (!normalized.includes("active") || !normalized.includes("total")) {
+      return {
+        status: "fail",
+        details: "Response did not mention the total active clubs",
+      };
+    }
+
+    const toolResult = result.steps
+      .flatMap((step) => step.toolResults ?? [])
+      .find((tr) => tr.toolName === "listClubs");
+    if (!toolResult) {
+      return { status: "fail", details: "listClubs tool was not invoked" };
+    }
+    if (
+      !toolResult.result ||
+      typeof toolResult.result !== "object" ||
+      !Array.isArray((toolResult.result as any).clubs)
+    ) {
+      return { status: "fail", details: "listClubs tool returned unexpected result" };
+    }
+
+    const { totalCount, clubs } = toolResult.result as {
+      totalCount?: number;
+      clubs?: Array<{ name: string }>;
+    };
+    if (typeof totalCount !== "number") {
+      return { status: "fail", details: "listClubs result missing totalCount" };
+    }
+    if (!clubs || clubs.length === 0) {
+      return { status: "fail", details: "listClubs returned no sample clubs" };
+    }
+    if (clubs.length > 5) {
+      return { status: "fail", details: "listClubs returned more than 5 sample clubs" };
+    }
+
+    const hasSampleMention = clubs.some((club) =>
+      normalized.includes(club.name.toLowerCase())
+    );
+    if (!hasSampleMention) {
+      return { status: "fail", details: "Response did not include any sample club names" };
+    }
+
+    return {
+      status: "pass",
+    };
+  } catch (error) {
+    return {
+      status: "fail",
+      details: `FAQ agent error: ${(error as Error).message ?? "unexpected"}`,
+    };
+  }
+};
 
 export const buildEdgeCaseScenarios = (clubs: ClubInfo[], count: number): EvalScenario[] => {
   if (count <= 0) return [];
@@ -7,7 +80,18 @@ export const buildEdgeCaseScenarios = (clubs: ClubInfo[], count: number): EvalSc
   const club = clubs.length > 0 ? clubs[0] : null;
   const clubText = club ? formatClub(club, club.locations.length > 1) : "Topgolf";
 
-  const templates: Array<{ id: string; name: string; turns: string[]; expect: ScenarioExpectation }> = [
+  const templates: Array<{
+    id: string;
+    name: string;
+    turns?: string[];
+    expect?: ScenarioExpectation;
+    run?: (params: { now: Date }) => Promise<ScenarioResult>;
+  }> = [
+    {
+      id: "edge-club-network",
+      name: "Club network summary question",
+      run: runClubNetworkScenario,
+    },
     // Past date scenarios - "yesterday" can be routed to booking-new (ask for new date) or clarify (LLM variance)
     { id: "edge-past-date", name: "Booking in the past (yesterday)", turns: [`Book ${clubText} yesterday at 2pm for 1 player. Notes: none.`], expect: { flow: ["booking-new", "clarify"], decisionTypes: ["ask", "clarify"] } },
     { id: "edge-past-date-explicit", name: "Booking with explicit past date", turns: [`Book ${clubText} January 1 2020 at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask"] } },

@@ -10,7 +10,10 @@ export type ScenarioSuite =
   | "faq"
   | "fallback"
   | "edge-cases"
-  | "updates";
+  | "updates"
+  | "state-persistence"
+  | "multi-booking"
+  | "course-correction";
 
 export type FlowType = RouterDecision["flow"];
 
