@@ -40,12 +40,29 @@ export const isFlowStateEnvelope = (
   return "flow" in value && "data" in value;
 };
 
+export type SharedBookingContext = {
+  club?: string;
+  clubId?: string;
+  clubLocation?: string;
+  preferredDate?: string;
+  preferredTime?: string;
+  players?: number;
+  guestNames?: string;
+  notes?: string;
+  bay?: string;
+  bayLabel?: string;
+};
+
+export const SHARED_CONTEXT_KEY = "sharedBookingContext";
+
 export const wrapFlowState = <TState>(
   flow: string,
-  data: TState
+  data: TState,
+  sharedContext?: SharedBookingContext
 ): FlowStateEnvelope<TState> => ({
   flow,
   data,
+  ...(sharedContext && { [SHARED_CONTEXT_KEY]: sharedContext }),
 });
 
 export const unwrapFlowState = <TState>(
@@ -59,6 +76,41 @@ export const unwrapFlowState = <TState>(
     return value as TState;
   }
   return undefined;
+};
+
+export const extractSharedContext = (
+  value: unknown
+): SharedBookingContext | undefined => {
+  if (isFlowStateEnvelope(value)) {
+    const envelope = value as FlowStateEnvelope & Record<string, unknown>;
+    return (
+      (envelope[SHARED_CONTEXT_KEY] as SharedBookingContext | undefined) ??
+      (envelope.data as Record<string, unknown>)[
+        SHARED_CONTEXT_KEY
+      ] as SharedBookingContext | undefined
+    );
+  }
+  if (isRecord(value)) {
+    return value[SHARED_CONTEXT_KEY] as SharedBookingContext;
+  }
+  return undefined;
+};
+
+export const mergeSharedContext = (
+  existing: SharedBookingContext | undefined,
+  updates: Partial<SharedBookingContext>
+): SharedBookingContext => {
+  const base = existing ?? {};
+  const merged = {
+    ...base,
+    ...updates,
+  };
+  Object.keys(merged).forEach((key) => {
+    if (merged[key as keyof SharedBookingContext] === undefined) {
+      delete merged[key as keyof SharedBookingContext];
+    }
+  });
+  return merged;
 };
 
 export const getFlowFromState = (value: unknown): string | null => {

@@ -7,7 +7,8 @@ import type {
 import {
   createAuditLogRepository,
   createBookingRepository,
-  createBookingStatusHistoryRepository
+  createBookingStatusHistoryRepository,
+  createClubLocationBayRepository
 } from "@tee-time/database";
 import { logger } from "./logger";
 import {
@@ -16,6 +17,7 @@ import {
   scheduleBookingReminder,
   scheduleBookingFollowUp,
 } from "./notification-queue";
+import { CancellationWindowExceededError } from "./errors";
 
 const DEFAULT_CANCELLATION_WINDOW_MINUTES = 60;
 
@@ -82,6 +84,7 @@ export const setBookingStatusWithHistory = async (
     const bookingRepo = createBookingRepository(tx);
     const historyRepo = createBookingStatusHistoryRepository(tx);
     const auditRepo = createAuditLogRepository(tx);
+    const bayRepo = createClubLocationBayRepository(tx);
 
     const current = await bookingRepo.getById(params.bookingId);
     if (!current) {
@@ -104,13 +107,21 @@ export const setBookingStatusWithHistory = async (
             windowMinutes,
             bookingDateTime: bookingDateTime.toISOString()
           });
-          throw new Error("cancellation_window_exceeded");
+          throw new CancellationWindowExceededError();
         }
       } else {
         logger.warn("core.bookingStatus.cancelWindowSkipped", {
           bookingId: params.bookingId
         });
       }
+    }
+
+    const shouldReleaseBay =
+      (params.nextStatus === "Cancelled" ||
+        params.nextStatus === "Not Available") &&
+      Boolean(current.bayId);
+    if (shouldReleaseBay && current.bayId) {
+      await bayRepo.release(current.bayId, now);
     }
 
     const updated = await bookingRepo.updateStatus({

@@ -172,6 +172,48 @@ export const lookupMemberBooking = async (
   return booking;
 };
 
+export const lookupAllMemberBookings = async (
+  db: Database,
+  memberId: string,
+  timeframe: "upcoming" | "past" | "any" = "upcoming"
+) => {
+  const repo = createBookingRepository(db);
+  const bookings = await repo.listByMemberId(memberId);
+  const now = new Date();
+
+  const filtered = bookings.filter((booking) => {
+    const timeframeMatch = matchesTimeframe(
+      booking.preferredDate,
+      booking.preferredTimeStart,
+      timeframe,
+      now
+    );
+    return timeframeMatch;
+  });
+
+  const withTimestamp = filtered
+    .map((booking) => ({
+      booking,
+      timestamp: getBookingTimestamp(
+        booking.preferredDate,
+        booking.preferredTimeStart
+      ),
+    }))
+    .filter((entry) => !Number.isNaN(entry.timestamp));
+
+  withTimestamp.sort((a, b) =>
+    timeframe === "past" ? b.timestamp - a.timestamp : a.timestamp - b.timestamp
+  );
+
+  logger.info("core.booking.lookup.all", {
+    memberId,
+    timeframe,
+    count: withTimestamp.length,
+  });
+
+  return withTimestamp.map((entry) => entry.booking);
+};
+
 export const formatBookingStatus = (booking: {
   status: string;
   preferredDate: Date | string;

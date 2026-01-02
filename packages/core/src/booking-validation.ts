@@ -62,6 +62,14 @@ export const parsePreferredDate = (value?: string, now = new Date()) => {
       return toIsoDate(addDays(now, delta));
     }
   }
+  if (input.startsWith("this ")) {
+    const day = parseWeekday(input.replace("this ", "").trim());
+    if (day !== null) {
+      const current = now.getDay();
+      const delta = day >= current ? day - current : 7 - (current - day);
+      return delta === 0 ? toIsoDate(now) : toIsoDate(addDays(now, delta));
+    }
+  }
   const weekday = parseWeekday(input);
   if (weekday !== null) {
     const current = now.getDay();
@@ -169,7 +177,10 @@ const parseTimeToken = (
   return { time: `${pad(hour)}:${pad(minute)}`, meridiem };
 };
 
-export const parsePreferredTimeWindow = (value?: string): ParsedTimeWindow | null => {
+export const parsePreferredTimeWindow = (
+  value?: string,
+  _timezone?: string
+): ParsedTimeWindow | null => {
   const raw = value?.trim().toLowerCase();
   if (!raw) {
     return null;

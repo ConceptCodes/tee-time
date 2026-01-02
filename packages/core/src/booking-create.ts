@@ -8,6 +8,7 @@ import {
 } from "@tee-time/database";
 import { notifyBooking } from "./notifications/slack";
 import { logger } from "./logger";
+import { BookingInPastError, BookingTooSoonError } from "./errors";
 
 export type CreateBookingParams = {
   memberId: string;
@@ -78,11 +79,11 @@ export const createBookingWithHistory = async (
   if (!Number.isNaN(bookingDateTime.getTime())) {
     const nowTime = now.getTime();
     if (bookingDateTime.getTime() < nowTime) {
-      throw new Error("booking_in_past");
+      throw new BookingInPastError();
     }
     const cutoff = nowTime + Math.max(leadMinutes, 0) * 60 * 1000;
     if (leadMinutes > 0 && bookingDateTime.getTime() < cutoff) {
-      throw new Error("booking_too_soon");
+      throw new BookingTooSoonError();
     }
   }
   let booking: Booking | null = null;

@@ -1,6 +1,7 @@
 import type { Database, ScheduledJob } from "@tee-time/database";
 import { logger } from "./logger";
 import { processBookingNotification } from "./notification-queue";
+import { runRetentionCleanup } from "./retention";
 
 export type JobRunnerContext = {
   db: Database;
@@ -73,14 +74,14 @@ const handleFollowUpJob = async (
  */
 const handleRetentionJob = async (
   job: ScheduledJob,
-  _context: JobRunnerContext
+  context: JobRunnerContext
 ) => {
   logger.info("Scheduled retention job handled", {
     service: "worker",
     jobId: job.id,
     jobType: job.jobType,
   });
-  // TODO: Implement retention logic (e.g., send promotional messages)
+  await runRetentionCleanup(context.db);
 };
 
 /**

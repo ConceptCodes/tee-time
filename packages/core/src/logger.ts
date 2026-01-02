@@ -38,6 +38,16 @@ const redactString = (value: string) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(match)) return match;
     return "[redacted-phone]";
   });
+  // Names (capitalized words, 2-3 parts) - common pattern for full names
+  result = result.replace(
+    /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b/g,
+    (match) => {
+      // Don't redact common non-name words
+      const nonNames = ['Demo User', 'Unknown', 'Pending', 'Confirmed', 'Cancelled'];
+      if (nonNames.includes(match)) return match;
+      return "[redacted-name]";
+    }
+  );
   // Lat/lng coordinates
   result = result.replace(
     /\b-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g,

@@ -106,19 +106,24 @@ const notifySlackTargets = async (payload: {
   channel?: string;
   usernames?: string[];
 }) => {
-  const updatesChannel = payload.channel;
-  if (updatesChannel) {
-    await postSlackMessage({
-      channel: updatesChannel,
-      text: payload.text,
-    });
-  }
+  try {
+    const updatesChannel = payload.channel;
+    if (updatesChannel) {
+      await postSlackMessage({
+        channel: updatesChannel,
+        text: payload.text,
+      });
+    }
 
-  if (payload.usernames?.length) {
-    const userIds = await resolveSlackUserIds(payload.usernames);
-    await Promise.all(
-      userIds.map((userId) => postSlackDm({ userId, text: payload.text }))
-    );
+    if (payload.usernames?.length) {
+      const userIds = await resolveSlackUserIds(payload.usernames);
+      await Promise.all(
+        userIds.map((userId) => postSlackDm({ userId, text: payload.text }))
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn("core.slack.notifyFailed", { error: message });
   }
 };
 
