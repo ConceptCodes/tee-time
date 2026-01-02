@@ -1,16 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 2,
+  "framework": null,
   "installCommand": "cd ../.. && bun install",
-  "buildCommand": "bun scripts/build-vercel.ts",
-  "outputDirectory": ".",
-  "functions": {
-    "api/index.mjs": {
-      "runtime": "@vercel/node@3",
-      "includeFiles": "api/**"
-    }
-  },
+  "buildCommand": "bun build src/index.ts --outfile=api/index.js --target=bun --format=esm --minify && mkdir -p public && echo '{}' > public/.vercel",
+  "outputDirectory": "public",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index.mjs" }
-  ]
+    { "source": "/(.*)", "destination": "/api" }
+  ],
+  "bunVersion": "1.x"
 }

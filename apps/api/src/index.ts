@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { auth } from "./auth";
 
+import { auth } from "./auth";
 import { errorHandler } from "./middleware/error";
 import { contentTypeMiddleware } from "./middleware/content-type";
 import { loggingMiddleware } from "./middleware/logging";

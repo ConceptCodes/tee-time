@@ -38,11 +38,6 @@ Common development commands mapping to `package.json` scripts:
 - `bun run chat`: Run the local CLI chat harness for testing agent flows.
 - `bun run evals`: Run agent evaluation suite.
 
-## Documentation
-
-- **Application Spec**: See `docs/app-spec.txt` for detailed product specifications.
-- **Features**: See `docs/features.json` for feature flags and definitions.
-- **Progress**: See `docs/progress.md` for current development status.
 
 ## Agent Routing Overview
 
