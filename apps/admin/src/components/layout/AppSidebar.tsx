@@ -8,6 +8,7 @@ import {
   FileText,
   ShieldCheck,
   MapPinned,
+  Bot,
 } from "lucide-react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { signOut } from "@/lib/auth-client"
@@ -37,6 +38,7 @@ const items = [
   { icon: MapPinned, title: "Clubs", url: "/clubs" },
   { icon: FileText, title: "Reports", url: "/reports" },
   { icon: ShieldCheck, title: "Audit Logs", url: "/audit-logs" },
+  { icon: Bot, title: "Agent Demo", url: "/agent-demo" },
   { icon: Settings, title: "Settings", url: "/settings" },
 ]
 
