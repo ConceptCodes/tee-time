@@ -17,6 +17,7 @@ export type {
 export {
   createAgentTools,
   createValidateClubTool,
+  createListClubsTool,
   createResolveClubLocationTool,
   createCheckAvailabilityTool,
   createSearchFaqsTool,
@@ -102,3 +103,10 @@ export {
   debugLog,
 } from "./utils";
 
+export { runAgentConversation } from "./conversation";
+export type {
+  AgentConversationInput,
+  AgentConversationResult,
+} from "./conversation";
+
+export { getOpenRouterClient, resolveModelId } from "./provider";

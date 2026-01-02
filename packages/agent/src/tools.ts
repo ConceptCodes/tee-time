@@ -49,6 +49,68 @@ export const createValidateClubTool = (db: Database) =>
   });
 
 /**
+ * Creates a tool to list active clubs in the network.
+ */
+export const createListClubsTool = (db: Database) =>
+  tool({
+    description:
+      "List the active clubs in the network (optionally include locations)",
+    inputSchema: z.object({
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .max(100)
+        .optional()
+        .describe("Optional limit on number of clubs to return (max 100)"),
+      includeLocations: z
+        .boolean()
+        .optional()
+        .describe("Whether to include location names for each club"),
+    }),
+    execute: async ({
+      limit,
+      includeLocations,
+    }: {
+      limit?: number;
+      includeLocations?: boolean;
+    }) => {
+      const clubRepo = createClubRepository(db);
+      const locationRepo = createClubLocationRepository(db);
+      const defaultLimit = Math.min(limit ?? 5, 100);
+      const clubs = await clubRepo.listActive({ limit: defaultLimit });
+      const totalCount = await clubRepo.countActive();
+      if (!includeLocations) {
+        return {
+          totalCount,
+          hasMore: clubs.length < totalCount,
+          clubs: clubs.map((club) => ({
+            id: club.id,
+            name: club.name,
+          })),
+        };
+      }
+
+      const clubsWithLocations = await Promise.all(
+        clubs.map(async (club) => {
+          const locations = await locationRepo.listActiveByClubId(club.id);
+          return {
+            id: club.id,
+            name: club.name,
+            locations: locations.map((location) => location.name),
+          };
+        })
+      );
+
+      return {
+        totalCount,
+        hasMore: clubsWithLocations.length < totalCount,
+        clubs: clubsWithLocations,
+      };
+    },
+  });
+
+/**
  * Creates a tool to list and resolve club locations.
  */
 export const createResolveClubLocationTool = (db: Database) =>
@@ -257,6 +319,7 @@ export const escalateToHumanTool = tool({
  */
 export const createAgentTools = (db: Database) => ({
   validateClub: createValidateClubTool(db),
+  listClubs: createListClubsTool(db),
   resolveClubLocation: createResolveClubLocationTool(db),
   checkAvailability: createCheckAvailabilityTool(db),
   parseDate: parseDateTool,

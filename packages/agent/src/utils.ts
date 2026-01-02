@@ -2,6 +2,15 @@
  * Shared utility functions for the agent package.
  */
 
+import { getOpenRouterClient, resolveModelId } from "./provider";
+import { generateObject } from "ai";
+import { z } from "zod";
+import { sanitizeUserInput } from "@tee-time/core";
+
+// Cache for course correction detection to avoid repeated LLM calls
+const COURSE_CORRECTION_CACHE = new Map<string, { result: boolean; timestamp: number }>();
+const CACHE_TTL_MS = 60000; // 1 minute
+
 /**
  * Debug logging that only outputs when DEBUG environment variable is set.
  */
@@ -10,6 +19,8 @@ export const debugLog = (message: string, ...args: unknown[]) => {
     console.log(`[Agent Debug] ${message}`, ...args);
   }
 };
+
+export const sanitizePromptInput = (message: string) => sanitizeUserInput(message);
 
 /**
  * Check if a message is a simple confirmation/affirmative response.
@@ -37,6 +48,22 @@ export const isConfirmationMessage = (message: string): boolean => {
   const confirmPatterns = [
     /\b(sounds? good|looks? good|that works?|go ahead|do it|book it|perfect|great|awesome)\b/,
     /^(correct|right|exactly|absolutely|definitely|for sure)$/,
+    /that['']?s fine\b/,
+    /fine by me\b/,
+    /works for me\b/,
+    /let['']?s do it\b/,
+    /im good with that\b/,
+    /i['']?m good with that\b/,
+    /ye[pa][sp]? good/,
+    /yeah sure/,
+    /sounds perfect/,
+    /looks perfect/,
+    /works great/,
+    /that['']?s perfect/,
+    /roger that/,
+    /copy that/,
+    /make it happen/,
+    /gotcha/,
   ];
   return confirmPatterns.some(pattern => pattern.test(normalized));
 };
@@ -83,7 +110,7 @@ export const isConfirmationMessageAsync = async (message: string): Promise<boole
       system: "You are analyzing if a user's message is confirming/agreeing to proceed with an action. " +
         "Return true if the message expresses agreement, approval, or confirmation. " +
         "Return false if it's a question, request for changes, new information, or decline.",
-      prompt: `Is this message a confirmation/agreement to proceed?\n\nUser message: "${message}"`,
+      prompt: `Is this message a confirmation/agreement to proceed?\n\nUser message: "${sanitizePromptInput(message)}"`,
     });
     
     return result.object.isConfirmation;
@@ -94,35 +121,9 @@ export const isConfirmationMessageAsync = async (message: string): Promise<boole
 };
 
 /**
- * Check if a message is a negative/declining response.
- * Used to detect when users decline offers or suggestions.
- */
-export const isNegativeReply = (message: string): boolean => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  return /^(no|nope|nah|not now|not today|later|maybe later|don't|do not)$/.test(
-    normalized
-  );
-};
-
-/**
- * Check if a message indicates the user wants to skip a step.
- */
-export const isSkipReply = (message: string): boolean => {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized || normalized.length > 32) {
-    return false;
-  }
-  return /^(skip|skip it|skip this|skip for now|no thanks|no thank you|later|not now)$/.test(
-    normalized
-  );
-};
-
-/**
  * Check if a message looks like a follow-up answer rather than a new intent.
- * Used by the router to determine if a short message should continue the current flow.
+ * Used by the router to determine if a short message should continue to current flow.
+ * This is the original regex-based version for fast sync checks.
  */
 export const looksLikeFollowup = (message: string): boolean => {
   const normalized = message.trim().toLowerCase();
@@ -150,6 +151,228 @@ export const looksLikeFollowup = (message: string): boolean => {
 };
 
 /**
+ * Check if a message is a negative reply (no, cancel, etc).
+ */
+export const isNegativeReply = (message: string): boolean => {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 32) {
+    return false;
+  }
+  return /^(no|nope|nah|cancel|stop|never mind|nevermind|forget it)$/.test(
+    normalized
+  );
+};
+
+/**
+ * Check if a message indicates user wants to skip a step.
+ */
+export const isSkipReply = (message: string): boolean => {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 32) {
+    return false;
+  }
+  return /^(skip|skip it|skip this|skip for now|no thanks|no thank you|later|not now)$/.test(
+    normalized
+  );
+};
+
+/**
+ * LLM-based check to determine if a message is a follow-up answer rather than a new intent.
+ * Used by the router to determine if a message should continue to current flow.
+ * Returns true if the message appears to be answering a question, providing info, or continuing current task.
+ */
+export const looksLikeFollowupAsync = async (
+  message: string,
+  activeFlow?: string,
+  conversationHistory?: Array<{ role: string; content: string }>
+): Promise<boolean> => {
+  const normalized = message.trim().toLowerCase();
+
+  // Fast path: very short messages without intent keywords are likely followups
+  if (normalized.length <= 16) {
+    const intentKeywords = [
+      "book",
+      "tee time",
+      "cancel",
+      "reschedule",
+      "modify",
+      "change",
+      "status",
+      "support",
+      "help",
+      "human",
+      "faq",
+      "question",
+      "start",
+      "begin",
+      "need",
+      "want",
+    ];
+    if (!intentKeywords.some((keyword) => normalized.includes(keyword))) {
+      return true;
+    }
+  }
+
+  // Fast path: check for explicit new intent indicators
+  const newIntentPatterns = [
+    /^(i want|i need|i'd like|can i|could i|help me|i want to|i need to)/i,
+    /^(what about|how about|tell me about)/i,
+  ];
+  if (newIntentPatterns.some((pattern) => pattern.test(message))) {
+    return false;
+  }
+
+  // LLM-based detection for ambiguous cases
+  try {
+    const client = getOpenRouterClient();
+    const modelId = resolveModelId("default");
+
+    const flowContext = activeFlow
+      ? `\n\nCurrent active flow: ${activeFlow}\nRecent questions likely relate to this flow.`
+      : "";
+    const historyContext = conversationHistory?.length
+      ? `\n\nRecent conversation:\n${conversationHistory.slice(-3).map((msg) => `${msg.role}: ${msg.content}`).join("\n")}`
+      : "";
+
+    const FollowupCheckSchema = z.object({
+      isFollowup: z.boolean(),
+      reason: z.string(),
+    });
+
+    const prompt = `You are analyzing if a user message is a follow-up to a previous conversation or a new intent.
+
+User's message: "${sanitizePromptInput(message)}"${flowContext}${historyContext}
+
+Determine if this message is:
+1. A follow-up: Answering a question, providing requested info, continuing a task, or saying yes/no/cancel
+2. A new intent: Starting a different task, asking a new question unrelated to current context
+
+Return true only if it's clearly a follow-up. Be strict - if uncertain, return false.`;
+
+    const result = await generateObject({
+      model: client(modelId),
+      schema: FollowupCheckSchema,
+      prompt,
+      temperature: 0.1,
+    });
+
+    const decision = result.object as z.infer<typeof FollowupCheckSchema>;
+    debugLog(`🔍 LLM followup detection: ${decision.reason}`);
+
+    return decision.isFollowup;
+  } catch (error) {
+    debugLog(`⚠ LLM followup detection failed: ${error}, falling back to regex`);
+    // Fallback to original regex logic
+    return looksLikeFollowup(message);
+  }
+};
+
+export async function isCourseCorrection(message: string): Promise<boolean> {
+  const trimmed = message.trim().toLowerCase();
+
+  // Fast path: check cache
+  const cached = COURSE_CORRECTION_CACHE.get(trimmed);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    debugLog("Course correction cache hit");
+    return cached.result;
+  }
+
+  const correctionPatterns = [
+    "wait",
+    "actually",
+    "never mind",
+    "nevermind",
+    "forget it",
+    "cancel that",
+    "ignore that",
+    "stop",
+    "wrong",
+    "i changed my mind",
+    "change of plans",
+    "on second thought",
+    "i meant",
+    "i didn't mean",
+    "not that",
+    "let me start over",
+    "scratch that",
+    "disregard",
+  ];
+
+  const hasCorrectionPattern = correctionPatterns.some((pattern) =>
+    trimmed.includes(pattern),
+  );
+
+  if (!hasCorrectionPattern) {
+    return false;
+  }
+
+  const actionVerbs = [
+    "book",
+    "reserve",
+    "cancel",
+    "change",
+    "modify",
+    "update",
+    "reschedule",
+    "move",
+    "check",
+    "see",
+    "show",
+  ];
+
+  const hasActionVerb = actionVerbs.some((verb) => trimmed.includes(verb));
+
+  if (hasActionVerb && trimmed.length > 50) {
+    return false;
+  }
+
+  try {
+    const openrouter = getOpenRouterClient();
+    const modelId = resolveModelId();
+    const { generateObject: genObj } = await import("ai");
+    const { z: zod } = await import("zod");
+    const { withRetry } = await import("./retry-utils");
+    
+    // Wrap LLM call with retry logic
+    const result = await withRetry(
+      () => genObj({
+        model: openrouter.chat(modelId),
+        schema: zod.object({
+          isCorrection: zod.boolean(),
+        }),
+        prompt: `Analyze this message to determine if it's a mid-course correction (user wants to change their mind or stop what they're doing):
+
+Message: "${sanitizePromptInput(message)}"
+
+Consider:
+- Is user signaling they want to stop or change what they just said?
+- Is this a natural part of a multi-step flow or an interruption?
+- Does it indicate they want to start over or try something different?
+
+Return true if it's a course correction/interruption, false if it's just part of normal flow.`,
+        temperature: 0.1,
+      }),
+      { maxRetries: 2, baseDelay: 500 }
+    );
+
+    const isCorrection = result.object.isCorrection;
+    
+    // Cache result
+    COURSE_CORRECTION_CACHE.set(trimmed, { result: isCorrection, timestamp: Date.now() });
+
+    debugLog("isCourseCorrection", {
+      message,
+      isCorrection,
+    });
+
+    return isCorrection;
+  } catch (error) {
+    debugLog("isCourseCorrection error", { error });
+    return hasCorrectionPattern;
+  }
+}
+
+/**
  * Normalize a value for case-insensitive, punctuation-free matching.
  * Used for matching club names, locations, bays, etc.
  */
@@ -158,3 +381,73 @@ export const normalizeMatchValue = (value: string): string =>
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
+
+/**
+ * Calculate Levenshtein distance between two strings.
+ * Returns the minimum number of single-character edits (insertions, deletions or substitutions)
+ * required to change one string into the other.
+ */
+export const levenshteinDistance = (str1: string, str2: string): number => {
+  const normalized1 = normalizeMatchValue(str1);
+  const normalized2 = normalizeMatchValue(str2);
+  const m = normalized1.length;
+  const n = normalized2.length;
+
+  const dp: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) {
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= n; j++) {
+    dp[0][j] = j;
+  }
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (normalized1[i - 1] === normalized2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] =
+          1 +
+          Math.min(
+            dp[i - 1][j],
+            dp[i][j - 1],
+            dp[i - 1][j - 1]
+          );
+      }
+    }
+  }
+
+  return dp[m][n];
+};
+
+/**
+ * Find the best fuzzy match from a list of candidates.
+ * Returns the best match if its distance ratio is below the threshold (default: 0.4).
+ * Distance ratio = distance / max(len1, len2), so lower is better.
+ */
+export const findBestFuzzyMatch = (
+  input: string,
+  candidates: string[],
+  threshold = 0.4
+): string | null => {
+  if (candidates.length === 0) return null;
+
+  let bestMatch: string | null = null;
+  let bestDistance = Infinity;
+
+  for (const candidate of candidates) {
+    const distance = levenshteinDistance(input, candidate);
+    const maxLength = Math.max(input.length, candidate.length);
+    const ratio = distance / maxLength;
+
+    if (distance < bestDistance && ratio <= threshold) {
+      bestDistance = distance;
+      bestMatch = candidate;
+    }
+  }
+
+  return bestMatch;
+};

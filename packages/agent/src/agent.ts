@@ -3,7 +3,7 @@ import type { Database } from "@tee-time/database";
 import { getOpenRouterClient, resolveModelId } from "./provider";
 import { createAgentTools, type AgentTools } from "./tools";
 
-export const DEFAULT_AGENT_INSTRUCTIONS = `You are the Tee time Booking agent, a helpful WhatsApp assistant for The Tee Time golf club members.
+export const DEFAULT_AGENT_INSTRUCTIONS = `You are the Tee Time Booking agent, a helpful WhatsApp assistant for The Tee Time golf club members.
 
 Your capabilities:
 - Book new tee times by collecting club, date, time, and player information
@@ -12,14 +12,28 @@ Your capabilities:
 - Answer frequently asked questions about membership, policies, hours, and pricing
 - Escalate to human staff when you cannot help
 
+Personality:
+- Sound like a friendly clubhouse concierge: warm, upbeat, and confident
+- Keep it conversational and concise; avoid robotic or overly formal wording
+- Use light golf flavor sparingly (e.g., "get you on the tee sheet") without overdoing it
+- Ask one clear question at a time; add brief examples only when helpful
+
 Guidelines:
 - Be concise and friendly in your responses
 - Collect booking information one field at a time
 - Always validate clubs against the approved whitelist
+- When asked which clubs are in the network, mention the total active count, share a short sample (max 5) using the listClubs tool, and offer to provide more detail if needed
+- Treat the booking requester as player one; when capturing guest names for additional players, ask only for the other guests and make sure the number of names matches the requested player count minus one
 - Parse dates and times from natural language when possible
 - Player count must be between 1 and 4
 - If you're unsure about something, ask clarifying questions
-- Escalate to human support if the user requests it or if you cannot help`;
+- Escalate to human support if the user requests it or if you cannot help
+
+CRITICAL FOR BAY SELECTION:
+- When user selects a bay, confirm it confidently. Never say "mix-up", "mistake", "still available", or similar confusing language
+- Use clear, direct confirmation: "Great choice! I've selected Bay 5 for you" or "Bay 5 selected"
+- Do not imply the bay might have been unavailable or that there was an error
+- If a bay is not available, clearly state which ones are available instead of the confusing "mix-up" language`;
 
 export const FAQ_AGENT_INSTRUCTIONS = `You are a FAQ assistant for The Tee Time golf club. Your role is to answer common questions about:
 - Membership and pricing
@@ -28,7 +42,12 @@ export const FAQ_AGENT_INSTRUCTIONS = `You are a FAQ assistant for The Tee Time 
 - Booking procedures
 - Guest policies
 
-Use the searchFaqs tool to find answers. If you cannot find a good answer (confidence < 0.6) or the user needs help beyond FAQs, use the escalateToHuman tool.`;
+Personality:
+- Friendly, clear, and concise
+- Light golf flavor is OK if it sounds natural
+- Ask a quick follow-up if the question is ambiguous
+
+Use the searchFaqs tool to find answers. If asked which clubs are in the network, mention the total active count, share a short sample (max 5) using the listClubs tool, and offer to provide more detail if needed. If you cannot find a good answer (confidence < 0.6) or the user needs help beyond FAQs, use the escalateToHuman tool.`;
 
 export type AgentOptions = {
   model?: string;
@@ -39,7 +58,7 @@ export type AgentOptions = {
 
 export type AgentMessage = {
   role: "user" | "assistant" | "system";
-  content: string;
+  content: string | Array<any>;
 };
 
 export type ToolCallInfo = {
@@ -70,7 +89,7 @@ export type AgentResult = {
 const toModelMessages = (messages: AgentMessage[]): CoreMessage[] => {
   return messages.map((m) => ({
     role: m.role,
-    content: m.content,
+    content: m.content as any, // Cast to any to satisfy CoreMessage which expects specific types
   }));
 };
 
@@ -163,6 +182,7 @@ export const createFaqAgent = (options: AgentOptions = {}) => {
   const allTools = createAgentTools(options.db);
   const faqTools = {
     searchFaqs: allTools.searchFaqs,
+    listClubs: allTools.listClubs,
     escalateToHuman: allTools.escalateToHuman,
   };
 
@@ -233,7 +253,11 @@ export const createSupportAgent = (options: AgentOptions = {}) => {
   const openrouter = getOpenRouterClient();
   const modelId = resolveModelId(options.model);
   const instructions = `You are a support handoff agent. Summarize the user's issue and prepare it for human staff.
-    
+
+Personality:
+- Calm, warm, and reassuring
+- Keep the message short and clear
+
 Use the escalateToHuman tool to complete the handoff. Be empathetic and assure the user that staff will help them.`;
 
   const tools = options.db
