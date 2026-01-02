@@ -17,6 +17,7 @@ import MessagesPage from "@/pages/MessagesPage"
 import AuditLogsPage from "@/pages/AuditLogsPage"
 import ClubsPage from "@/pages/ClubsPage"
 import AgentDemoPage from "@/pages/AgentDemoPage"
+import NotFoundPage from "@/pages/NotFoundPage"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +50,7 @@ function App() {
                 <Route path="/clubs" element={<ClubsPage />} />
                 <Route path="/agent-demo" element={<AgentDemoPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Route>
           </Routes>
