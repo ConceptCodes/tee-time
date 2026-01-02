@@ -67,12 +67,6 @@ export default function AuditLogsPage() {
         </div>
       </div>
       <Card className="border bg-card/80">
-        <CardHeader>
-          <CardTitle className="font-display text-2xl">
-            Recent Activity
-          </CardTitle>
-          <CardDescription>Latest system actions and changes.</CardDescription>
-        </CardHeader>
         <CardContent>
           {logsQuery.isError ? (
             <div className="text-sm text-destructive">
