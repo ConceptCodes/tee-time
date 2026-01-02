@@ -170,28 +170,108 @@ export default function ReportsPage() {
           ) : clubBookings.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No booking data available for this period.</p>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {clubBookings.map((club) => (
-                <div
-                  key={club.clubId}
-                  className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium">{club.clubName}</p>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span className="text-green-600">{club.confirmed} confirmed</span>
-                      <span className="text-yellow-600">{club.pending} pending</span>
-                      <span className="text-red-600">{club.notAvailable + club.cancelled} lost</span>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {clubBookings.map((club) => {
+                const totalBookings =
+                  club.total ??
+                  club.confirmed +
+                    club.pending +
+                    club.notAvailable +
+                    club.cancelled
+                const confirmedShare =
+                  totalBookings > 0 ? (club.confirmed / totalBookings) * 100 : 0
+                const pendingShare =
+                  totalBookings > 0 ? (club.pending / totalBookings) * 100 : 0
+                const lostShare =
+                  totalBookings > 0
+                    ? ((club.notAvailable + club.cancelled) / totalBookings) * 100
+                    : 0
+                const conversionRate = Math.round((club.conversionRate ?? 0) * 100)
+
+                return (
+                  <div
+                    key={club.clubId}
+                    className="flex min-h-[160px] flex-col justify-between rounded-2xl border border-input bg-gradient-to-b from-card/80 to-card/20 p-5 shadow-lg transition hover:shadow-xl"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                        {club.region ?? "Club"}
+                      </p>
+                      <p className="text-lg font-semibold">{club.clubName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {totalBookings ?? 0} bookings tracked
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex items-end justify-between">
+                      <div>
+                        <p className="text-3xl font-bold text-foreground">
+                          {conversionRate}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          conversion rate
+                        </p>
+                      </div>
+                      <div className="mr-2 flex flex-col items-end text-xs text-muted-foreground">
+                        <span>
+                          {club.confirmed} confirmed
+                        </span>
+                        <span>
+                          {club.pending} pending
+                        </span>
+                        <span>
+                          {club.notAvailable + club.cancelled} lost
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 space-y-3 text-xs">
+                      <div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-muted-foreground">Confirmed share</span>
+                          <span className="font-semibold text-foreground">
+                            {confirmedShare.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-muted/40">
+                          <div
+                            className="h-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+                            style={{ width: `${confirmedShare}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-muted-foreground">Pending share</span>
+                          <span className="font-semibold text-foreground">
+                            {pendingShare.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-muted/40">
+                          <div
+                            className="h-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-600"
+                            style={{ width: `${pendingShare}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-muted-foreground">Lost share</span>
+                          <span className="font-semibold text-foreground">
+                            {lostShare.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-muted/40">
+                          <div
+                            className="h-1.5 rounded-full bg-gradient-to-r from-red-400 to-rose-600"
+                            style={{ width: `${lostShare}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">
-                      {(club.conversionRate * 100).toFixed(0)}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">{club.total} total</p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
