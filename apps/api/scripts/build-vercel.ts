@@ -74,6 +74,15 @@ async function build() {
   await writeFile(`${FUNCTIONS_DIR}/.vc-config.json`, JSON.stringify(functionConfig, null, 2));
   console.log("✅ Created function config");
 
+  // Create package.json for ES module support in the function directory
+  // This is required for Node.js to recognize the ESM syntax
+  const functionPackageJson = {
+    type: "module"
+  };
+  
+  await writeFile(`${FUNCTIONS_DIR}/package.json`, JSON.stringify(functionPackageJson, null, 2));
+  console.log("✅ Created function package.json");
+
   // Create a placeholder static file (required for static directory)
   await writeFile(`${STATIC_DIR}/.gitkeep`, "");
 
