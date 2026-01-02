@@ -45,7 +45,7 @@ export const jobTypeEnum = pgEnum("job_type", [
   "retention"
 ]);
 
-export const staffRoleEnum = pgEnum("staff_role", ["admin", "staff", "member"]);
+export const staffRoleEnum = pgEnum("staff_role", ["admin", "staff"]);
 
 export const bayStatusEnum = pgEnum("bay_status", [
   "available",

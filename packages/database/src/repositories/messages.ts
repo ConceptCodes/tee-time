@@ -123,4 +123,26 @@ export const createMessageDedupRepository = (db: Database) => ({
       );
     return firstOrNull(rows);
   },
+  deleteByMemberAndHash: async (
+    memberId: string,
+    messageHash: string
+  ): Promise<MessageDedup | null> => {
+    const rows = await db
+      .delete(messageDedup)
+      .where(
+        and(
+          eq(messageDedup.memberId, memberId),
+          eq(messageDedup.messageHash, messageHash)
+        )
+      )
+      .returning();
+    return firstOrNull(rows);
+  },
+  deleteExpired: async (now = new Date()): Promise<number> => {
+    const rows = await db
+      .delete(messageDedup)
+      .where(sql`${messageDedup.expiresAt} < ${now}`)
+      .returning({ id: messageDedup.id });
+    return rows.length;
+  }
 });
