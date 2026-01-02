@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir=dist --target=node --format=esm",
-    "start": "bun src/index.ts"
+    "build": "bun build src/index.ts --outdir=dist --target=bun  --format=esm",
+    "start": "bun dist/index.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",
     "@tee-time/agent": "workspace:*",
     "@tee-time/core": "workspace:*",
     "@tee-time/database": "workspace:*",
+    "ai": "^6.0.3",
     "better-auth": "^1.4.0",
     "hono": "^4.6.8",
     "zod": "^4.2.1"

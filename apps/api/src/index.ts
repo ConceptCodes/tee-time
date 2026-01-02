@@ -26,6 +26,7 @@ import { bookingRoutes } from "./routes/admin/bookings";
 import { faqRoutes } from "./routes/admin/faqs";
 import { reportRoutes } from "./routes/admin/reports";
 import { whatsappWebhookRoutes } from "./routes/webhooks/whatsapp";
+import { chatRoutes } from "./routes/chat";
 
 const app = new Hono<{ Variables: ApiVariables }>();
 
@@ -78,6 +79,7 @@ app.route("/api/bookings", bookingRoutes); // NOTE: why two?
 app.route("/api/bookings", bookingHistoryRoutes);
 app.route("/api/faqs", faqRoutes);
 app.route("/api/reports", reportRoutes);
+app.route("/api/chat", chatRoutes);
 app.route("/webhooks/whatsapp", whatsappWebhookRoutes);
 app.onError(errorHandler);
 
