@@ -92,7 +92,24 @@ export const getBookingColumns = (
     id: "actions",
     cell: ({ row }) => {
       const booking = row.original
- 
+      const status = booking.status
+      const actionConfig = (() => {
+        switch (status) {
+          case "Pending":
+            return { label: "Confirm booking", disabled: false }
+          case "Follow-up required":
+            return { label: "Request follow-up", disabled: false }
+          case "Confirmed":
+            return { label: "Already confirmed", disabled: true }
+          case "Cancelled":
+            return { label: "Booking cancelled", disabled: true }
+          case "Not Available":
+            return { label: "Offer alternative", disabled: false }
+          default:
+            return { label: "View booking status", disabled: true }
+        }
+      })()
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -117,7 +134,9 @@ export const getBookingColumns = (
             <DropdownMenuItem asChild>
                 <Link to={`/bookings/${booking.id}`}>View details</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>Confirm Booking</DropdownMenuItem>
+            <DropdownMenuItem disabled={actionConfig.disabled}>
+              {actionConfig.label}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )
