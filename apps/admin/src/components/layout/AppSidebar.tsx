@@ -103,13 +103,13 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t/60 p-4">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className="w-full justify-start gap-2 text-sidebar-foreground"
           onClick={handleSignOut}
         >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
+          <LogOut className="h-4 w-4" />
+          <span className="group-data-[collapsible=icon]:hidden">Sign Out</span>
         </Button>
       </SidebarFooter>
       <SidebarRail />
