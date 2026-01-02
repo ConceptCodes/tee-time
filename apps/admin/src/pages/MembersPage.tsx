@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/empty"
 import { MailPlus, Users } from "lucide-react"
 import { MemberProfile } from "@/lib/api-types"
-import { useMembers } from "@/hooks/use-api-queries"
+import { useAuth } from "@/context/AuthContext"
+import { useMembers, useStaff } from "@/hooks/use-api-queries"
 import InviteMemberModal from "@/components/modals/InviteMemberModal"
 
 const memberExportColumns: { key: keyof MemberProfile; label: string }[] = [
@@ -39,6 +40,13 @@ const memberExportColumns: { key: keyof MemberProfile; label: string }[] = [
 
 export default function MembersPage() {
   const membersQuery = useMembers()
+  const staffQuery = useStaff()
+  const { user } = useAuth()
+
+  const currentStaff = (staffQuery.data ?? []).find(
+    (staffMember) => staffMember.authUserId === user?.id
+  )
+  const canInviteMembers = currentStaff?.role === "admin"
 
   const handleExport = (format: "csv" | "json") => {
     exportData(membersQuery.data ?? [], "members", format, memberExportColumns)
@@ -55,22 +63,24 @@ export default function MembersPage() {
             Members
           </h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ExportDropdown
-            data={membersQuery.data ?? []}
-            filename="members"
-            columns={memberExportColumns}
-            onExport={handleExport}
-          />
-          <InviteMemberModal
-            trigger={
-              <Button variant="outline" className="gap-2">
-                <MailPlus className="h-4 w-4" />
-                Invite
-              </Button>
-            }
-          />
-        </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportDropdown
+              data={membersQuery.data ?? []}
+              filename="members"
+              columns={memberExportColumns}
+              onExport={handleExport}
+            />
+            {canInviteMembers && (
+              <InviteMemberModal
+                trigger={
+                  <Button variant="outline" className="gap-2">
+                    <MailPlus className="h-4 w-4" />
+                    Invite
+                  </Button>
+                }
+              />
+            )}
+          </div>
       </div>
       <Card className="border bg-card/80">
         <CardHeader>
