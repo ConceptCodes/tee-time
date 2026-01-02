@@ -246,7 +246,10 @@ export const routeAgentMessage = async (
       if (activeFlow === "booking-status") {
         return {
           flow: "booking-status",
-          decision: await runBookingStatusFlow(input as BookingStatusFlowInput),
+          decision: await runBookingStatusFlow({
+            ...(input as BookingStatusFlowInput),
+            existingState: activeData as BookingStatusFlowInput["existingState"],
+          }),
         };
       }
       if (activeFlow === "support") {
@@ -254,16 +257,8 @@ export const routeAgentMessage = async (
       }
     }
 
-    const statusQueryPattern =
-      /\b(my|any|upcoming|past|current)\b.*\bbooking(s)?\b|\bbooking(s)?\b.*\b(status|confirm|confirmation|upcoming|past)\b|\bdo i have\b.*\bbooking(s)?\b/i;
-    if (statusQueryPattern.test(message)) {
-      return {
-        flow: "booking-status",
-        decision: await runBookingStatusFlow(input as BookingStatusFlowInput),
-      };
-    }
-
-    // Removed regex-based status detection - LLM handles this via prompt
+    // NOTE: Removed regex-based heuristics for booking-status, cancel, and modify detection.
+    // The LLM handles intent detection via the prompt below, which is more robust for edge cases.
 
     const historyContext = input.conversationHistory?.length
       ? `\nConversation history:\n${input.conversationHistory
@@ -322,7 +317,13 @@ export const routeAgentMessage = async (
     if (result.object.flow === "booking-status") {
       return {
         flow: "booking-status",
-        decision: await runBookingStatusFlow(input as BookingStatusFlowInput),
+        decision: await runBookingStatusFlow({
+          ...(input as BookingStatusFlowInput),
+          existingState:
+            activeFlow === "booking-status" && activeData
+              ? (activeData as BookingStatusFlowInput["existingState"])
+              : undefined,
+        }),
       };
     }
 

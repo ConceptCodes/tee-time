@@ -16,6 +16,15 @@ export type BookingStatusFlowInput = {
   memberId?: string;
   locale?: string;
   db?: Database;
+  existingState?: {
+    allowSelection?: boolean;
+    selectionOptions?: Array<{
+      bookingId: string;
+      preferredDate: Date | string;
+      preferredTimeStart: string;
+      preferredTimeEnd?: string | null;
+    }>;
+  };
   lookupBooking?: (params: {
     memberId: string;
     bookingId?: string;
@@ -51,6 +60,12 @@ export type BookingStatusFlowDecision =
       message: string;
       offerBooking?: boolean;
       allowSelection?: boolean;
+      selectionOptions?: Array<{
+        bookingId: string;
+        preferredDate: Date | string;
+        preferredTimeStart: string;
+        preferredTimeEnd?: string | null;
+      }>;
     }
   | {
       type: "not-found";
@@ -73,6 +88,31 @@ const BookingStatusParseSchema = z.object({
   preferredTime: z.string().nullable(),
   timeframe: z.enum(["past", "upcoming", "any"]).nullable(),
 });
+
+const parseSelectionIndex = (message: string) => {
+  const normalized = message.toLowerCase();
+  const ordinalMap: Record<string, number> = {
+    first: 1,
+    second: 2,
+    third: 3,
+    fourth: 4,
+    fifth: 5,
+  };
+  for (const [label, index] of Object.entries(ordinalMap)) {
+    if (normalized.includes(label)) {
+      return index - 1;
+    }
+  }
+
+  const tokens = normalized.split(/\s+/);
+  for (const token of tokens) {
+    const numeric = Number.parseInt(token, 10);
+    if (Number.isFinite(numeric)) {
+      return numeric - 1;
+    }
+  }
+  return null;
+};
 
 const toIsoDate = (value: Date | string) => {
   if (value instanceof Date) {
@@ -195,6 +235,47 @@ export const runBookingStatusFlow = async (
       input.lookupBooking ??
       ((params: Parameters<typeof lookupMemberBooking>[1]) =>
         lookupMemberBooking(input.db as Database, params));
+    const selectionIndex = parseSelectionIndex(message);
+
+    if (selectionIndex !== null && input.db) {
+      const selectionOptions =
+        input.existingState?.selectionOptions ?? [];
+      let target = selectionOptions[selectionIndex];
+
+      if (!target) {
+        const allBookings = await lookupAllMemberBookings(
+          input.db,
+          input.memberId,
+          "upcoming"
+        );
+        if (selectionIndex >= 0 && selectionIndex < allBookings.length) {
+          const fallback = allBookings[selectionIndex];
+          target = {
+            bookingId: fallback.id,
+            preferredDate: fallback.preferredDate,
+            preferredTimeStart: fallback.preferredTimeStart,
+            preferredTimeEnd: fallback.preferredTimeEnd ?? null,
+          };
+        }
+      }
+
+      if (target) {
+        const booking = await lookup({
+          memberId: input.memberId,
+          bookingId: target.bookingId,
+          timeframe: "any",
+        });
+        if (booking) {
+          const formatter = input.formatStatus ?? formatBookingStatus;
+          return { type: "respond", message: formatter(booking) };
+        }
+        return {
+          type: "not-found",
+          prompt: "I couldn't find that booking. Want to check another one?",
+        };
+      }
+    }
+
     const hasActionableCriteria = Boolean(
       reference || preferredDate || preferredTime
     );
@@ -213,12 +294,19 @@ export const runBookingStatusFlow = async (
           .slice(0, 5)
           .map((booking, index) => `${index + 1}. ${formatBookingChoice(booking)}`)
           .join("\n");
+        const selectionOptions = allBookings.slice(0, 5).map((booking) => ({
+          bookingId: booking.id,
+          preferredDate: booking.preferredDate,
+          preferredTimeStart: booking.preferredTimeStart,
+          preferredTimeEnd: booking.preferredTimeEnd ?? null,
+        }));
         return {
           type: "respond",
           message:
             `You have ${allBookings.length} upcoming booking${allBookings.length > 1 ? 's' : ''}:\n\n${choices}\n\n` +
             `Which one would you like details for? Reply with the number.`,
           allowSelection: true,
+          selectionOptions,
         };
       }
       const formatter = input.formatStatus ?? formatBookingStatus;

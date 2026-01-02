@@ -47,7 +47,7 @@ Personality:
 - Light golf flavor is OK if it sounds natural
 - Ask a quick follow-up if the question is ambiguous
 
-Use the searchFaqs tool to find answers. If asked which clubs are in the network, mention the total active count, share a short sample (max 5) using the listClubs tool, and offer to provide more detail if needed. If you cannot find a good answer (confidence < 0.6) or the user needs help beyond FAQs, use the escalateToHuman tool.`;
+Use the searchFaqs tool to find answers. If asked which clubs are in the network, first call listClubs to get the data, then respond with something like "We have X active clubs in our network" where X is the total count, share a short sample (max 5 club names), and offer to provide more detail if needed. If you cannot find a good answer (confidence < 0.6) or the user needs help beyond FAQs, use the escalateToHuman tool.`;
 
 export type AgentOptions = {
   model?: string;
@@ -93,6 +93,14 @@ const toModelMessages = (messages: AgentMessage[]): CoreMessage[] => {
   }));
 };
 
+const toToolResults = (
+  toolResults: Array<{ toolName: string } & Record<string, unknown>> | undefined
+) =>
+  toolResults?.map((tr) => ({
+    toolName: tr.toolName,
+    result: "output" in tr ? tr.output : "result" in tr ? tr.result : undefined,
+  }));
+
 /**
  * Creates the main booking agent configuration.
  * Returns a function that can be called with messages to generate responses.
@@ -134,10 +142,11 @@ export const createBookingAgent = (options: AgentOptions = {}) => {
             toolName: tc.toolName,
             args: "args" in tc ? (tc.args as Record<string, unknown>) : {},
           })),
-          toolResults: step.toolResults?.map((tr) => ({
-            toolName: tr.toolName,
-            result: "result" in tr ? tr.result : undefined,
-          })),
+          toolResults: toToolResults(
+            step.toolResults as Array<
+              { toolName: string } & Record<string, unknown>
+            > | undefined
+          ),
         })),
         finishReason: result.finishReason,
       };
@@ -217,10 +226,11 @@ export const createFaqAgent = (options: AgentOptions = {}) => {
             toolName: tc.toolName,
             args: "args" in tc ? (tc.args as Record<string, unknown>) : {},
           })),
-          toolResults: step.toolResults?.map((tr) => ({
-            toolName: tr.toolName,
-            result: "result" in tr ? tr.result : undefined,
-          })),
+          toolResults: toToolResults(
+            step.toolResults as Array<
+              { toolName: string } & Record<string, unknown>
+            > | undefined
+          ),
         })),
         finishReason: result.finishReason,
       };
@@ -290,10 +300,11 @@ Use the escalateToHuman tool to complete the handoff. Be empathetic and assure t
             toolName: tc.toolName,
             args: "args" in tc ? (tc.args as Record<string, unknown>) : {},
           })),
-          toolResults: step.toolResults?.map((tr) => ({
-            toolName: tr.toolName,
-            result: "result" in tr ? tr.result : undefined,
-          })),
+          toolResults: toToolResults(
+            step.toolResults as Array<
+              { toolName: string } & Record<string, unknown>
+            > | undefined
+          ),
         })),
         finishReason: result.finishReason,
       };

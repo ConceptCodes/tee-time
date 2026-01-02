@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { serve } from "@hono/node-server";
 import { auth } from "./auth";
 
 import { errorHandler } from "./middleware/error";

@@ -443,6 +443,11 @@ whatsappWebhookRoutes.post("/", async (c) => {
       if (d.type === "respond") {
         if (d.offerBooking) {
           await saveFlowState("booking-status", { offerBooking: true });
+        } else if (d.allowSelection && d.selectionOptions?.length) {
+          await saveFlowState("booking-status", {
+            allowSelection: true,
+            selectionOptions: d.selectionOptions,
+          });
         } else {
           await clearFlowState();
         }

@@ -13,7 +13,6 @@ import {
   mergeSharedContext,
   saveBookingState,
   wrapFlowState,
-  unwrapFlowState,
 } from "@tee-time/core";
 
 export type AgentConversationInput = {
@@ -202,13 +201,10 @@ export async function runAgentConversation(
       if (d.offerBooking) {
         await saveFlowState("booking-status", { offerBooking: true });
       }
-      if (d.allowSelection) {
-        const unwrappedState = storedState
-          ? unwrapFlowState<Record<string, unknown>>(storedState.state, "booking-status")
-          : undefined;
+      if (d.allowSelection && d.selectionOptions?.length) {
         await saveFlowState("booking-status", {
-          ...(unwrappedState ?? {}),
-          ...extractSharedContext({ allowSelection: true }),
+          allowSelection: true,
+          selectionOptions: d.selectionOptions,
         });
       }
     } else if (d.type === "need-booking-info") {

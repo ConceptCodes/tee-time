@@ -162,6 +162,22 @@ const formatTimeRangeLabel = (state: BookingIntakeState) => {
   return start;
 };
 
+const formatDateLabel = (value?: string) => {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      });
+    }
+  }
+  return value;
+};
+
 const resolveClubByName = async (
   db: Database,
   name: string,
@@ -211,11 +227,13 @@ const missingFields = (state: BookingIntakeState) => {
 };
 
 const formatSummary = (state: BookingIntakeState) => {
+  const dateLabel = formatDateLabel(state.preferredDate) ?? "-";
+  const timeLabel = formatTimeRangeLabel(state) ?? formatTimeWindow(state);
   const lines = [
     `⛳ Club: ${state.club ?? "-"} ${state.clubLocation ? `(${state.clubLocation})` : ""}`,
     state.bayLabel ? `🎯 Bay: ${state.bayLabel}` : null,
-    `📅 Date: ${state.preferredDate ?? "-"}`,
-    `🕒 Time: ${formatTimeWindow(state)}`,
+    `📅 Date: ${dateLabel}`,
+    `🕒 Time: ${timeLabel ?? "-"}`,
     `👥 Players: ${state.players ?? "-"}`,
   ];
 
@@ -287,7 +305,8 @@ const buildContextPrefix = (state: BookingIntakeState) => {
     parts.push(`at ${state.club}${locationSuffix}`);
   }
   if (state.preferredDate) {
-    parts.push(`on ${state.preferredDate}`);
+    const dateLabel = formatDateLabel(state.preferredDate);
+    parts.push(`on ${dateLabel}`);
   }
   const timeLabel = formatTimeRangeLabel(state);
   if (timeLabel) {
@@ -1006,17 +1025,6 @@ export const runBookingIntakeFlow = async (
         nextState: state,
       };
     }
-    await persistState(state);
-    return {
-      type: "ask",
-        prompt: buildAskPrompt(
-          "bayLabel",
-          "Which bay should we use?",
-          { ...input.suggestions, bays: uniqueBayNames },
-          state
-        ),
-      nextState: state,
-    };
   }
   if (confirmed) {
     const submit =

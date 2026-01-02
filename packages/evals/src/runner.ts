@@ -7,6 +7,8 @@ import {
 import {
   clearBookingState,
   createMemberProfile,
+  saveBookingState,
+  wrapFlowState,
 } from "@tee-time/core";
 import {
   routeAgentMessage,
@@ -291,6 +293,24 @@ const runAgentScenario = async (
     const responseText = decisionToResponse(lastDecision);
     conversationHistory.push({ role: "user", content: turn });
     conversationHistory.push({ role: "assistant", content: responseText });
+
+    if (member && lastDecision.flow === "booking-status") {
+      const decision = lastDecision.decision;
+      if (decision.type === "respond") {
+        if (decision.allowSelection && decision.selectionOptions?.length) {
+          await saveBookingState(
+            db,
+            member.id,
+            wrapFlowState("booking-status", {
+              allowSelection: true,
+              selectionOptions: decision.selectionOptions,
+            })
+          );
+        } else {
+          await clearBookingState(db, member.id);
+        }
+      }
+    }
   }
 
   if (!lastDecision) {
