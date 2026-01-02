@@ -25,6 +25,9 @@ export {
   statePersistenceScenarios,
   multiBookingScenarios,
   courseCorrectionScenarios,
+  buildStatePersistenceScenarios,
+  buildMultiBookingScenarios,
+  buildCourseCorrectionScenarios,
 } from "./ux-features";
 
 // Import builders for buildScenarios
@@ -40,9 +43,9 @@ import { buildFallbackScenarios } from "./fallback";
 import { buildEdgeCaseScenarios } from "./edge-cases";
 import { buildUpdateScenarios } from "./updates";
 import {
-  statePersistenceScenarios,
-  multiBookingScenarios,
-  courseCorrectionScenarios,
+  buildStatePersistenceScenarios,
+  buildMultiBookingScenarios,
+  buildCourseCorrectionScenarios,
 } from "./ux-features";
 
 /**
@@ -62,6 +65,9 @@ export const buildScenarios = (params: {
     fallback: number;
     "edge-cases": number;
     updates: number;
+    "state-persistence": number;
+    "multi-booking": number;
+    "course-correction": number;
   };
 }) => {
   return {
@@ -75,5 +81,12 @@ export const buildScenarios = (params: {
     fallback: buildFallbackScenarios(params.counts.fallback),
     "edge-cases": buildEdgeCaseScenarios(params.clubs, params.counts["edge-cases"]),
     updates: buildUpdateScenarios(params.counts.updates),
+    "state-persistence": buildStatePersistenceScenarios(
+      params.counts["state-persistence"]
+    ),
+    "multi-booking": buildMultiBookingScenarios(params.counts["multi-booking"]),
+    "course-correction": buildCourseCorrectionScenarios(
+      params.counts["course-correction"]
+    ),
   };
 };

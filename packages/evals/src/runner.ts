@@ -32,6 +32,9 @@ export type EvalConfig = {
     fallback: number;
     "edge-cases": number;
     updates: number;
+    "state-persistence": number;
+    "multi-booking": number;
+    "course-correction": number;
   };
   seed: number;
   verbose: boolean;
@@ -401,6 +404,9 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
     { suite: "fallback", scenarios: scenariosBySuite.fallback },
     { suite: "edge-cases", scenarios: scenariosBySuite["edge-cases"] },
     { suite: "updates", scenarios: scenariosBySuite.updates },
+    { suite: "state-persistence", scenarios: scenariosBySuite["state-persistence"] },
+    { suite: "multi-booking", scenarios: scenariosBySuite["multi-booking"] },
+    { suite: "course-correction", scenarios: scenariosBySuite["course-correction"] },
   ];
 
   const filteredSuites = allSuites.filter((suite) =>

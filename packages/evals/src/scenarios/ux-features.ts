@@ -1,4 +1,4 @@
-import type { ClubInfo } from "./types";
+import type { EvalScenario } from "./types";
 
 export type UXFeatureScenario = {
   name: string;
@@ -10,6 +10,24 @@ export type UXFeatureScenario = {
     expectedFlow: string;
     expectedContent?: string[];
   }[];
+};
+
+const toEvalScenario = (
+  suite: EvalScenario["suite"],
+  scenario: UXFeatureScenario
+): EvalScenario => {
+  const turns = [scenario.initialMessage, ...scenario.turns.map((turn) => turn.message)];
+  const lastTurn = scenario.turns[scenario.turns.length - 1];
+  return {
+    id: scenario.name,
+    name: scenario.description,
+    suite,
+    turns,
+    expect: {
+      flow: lastTurn?.expectedFlow ?? scenario.expectedFlow,
+      promptIncludes: lastTurn?.expectedContent,
+    },
+  };
 };
 
 export const statePersistenceScenarios: UXFeatureScenario[] = [
@@ -104,3 +122,18 @@ export const courseCorrectionScenarios: UXFeatureScenario[] = [
     ],
   },
 ];
+
+export const buildStatePersistenceScenarios = (count: number): EvalScenario[] =>
+  statePersistenceScenarios
+    .slice(0, count)
+    .map((scenario) => toEvalScenario("state-persistence", scenario));
+
+export const buildMultiBookingScenarios = (count: number): EvalScenario[] =>
+  multiBookingScenarios
+    .slice(0, count)
+    .map((scenario) => toEvalScenario("multi-booking", scenario));
+
+export const buildCourseCorrectionScenarios = (count: number): EvalScenario[] =>
+  courseCorrectionScenarios
+    .slice(0, count)
+    .map((scenario) => toEvalScenario("course-correction", scenario));

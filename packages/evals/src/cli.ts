@@ -12,6 +12,9 @@ const DEFAULT_COUNTS = {
   fallback: 8,
   "edge-cases": 15,
   updates: 6,
+  "state-persistence": 2,
+  "multi-booking": 2,
+  "course-correction": 2,
 };
 
 const ALL_SUITES = [
@@ -25,6 +28,9 @@ const ALL_SUITES = [
   "fallback",
   "edge-cases",
   "updates",
+  "state-persistence",
+  "multi-booking",
+  "course-correction",
 ] as const;
 
 const parseArgs = (args: string[]) => {
@@ -105,6 +111,27 @@ const parseArgs = (args: string[]) => {
       i += 1;
       continue;
     }
+    if (arg === "--state-persistence") {
+      config.counts["state-persistence"] = Number(
+        args[i + 1] ?? DEFAULT_COUNTS["state-persistence"]
+      );
+      i += 1;
+      continue;
+    }
+    if (arg === "--multi-booking") {
+      config.counts["multi-booking"] = Number(
+        args[i + 1] ?? DEFAULT_COUNTS["multi-booking"]
+      );
+      i += 1;
+      continue;
+    }
+    if (arg === "--course-correction") {
+      config.counts["course-correction"] = Number(
+        args[i + 1] ?? DEFAULT_COUNTS["course-correction"]
+      );
+      i += 1;
+      continue;
+    }
     if (arg === "--seed") {
       config.seed = Number(args[i + 1] ?? Date.now());
       i += 1;
@@ -164,6 +191,9 @@ Suites:
   fallback       Fallback/support/clarify flows (default: ${DEFAULT_COUNTS.fallback})
   edge-cases     Edge cases and failure scenarios (default: ${DEFAULT_COUNTS["edge-cases"]})
   updates        Status update message tests (default: ${DEFAULT_COUNTS.updates})
+  state-persistence State continuity and context retention (default: ${DEFAULT_COUNTS["state-persistence"]})
+  multi-booking  Multi-booking selections and disambiguation (default: ${DEFAULT_COUNTS["multi-booking"]})
+  course-correction Mid-flow corrections and resets (default: ${DEFAULT_COUNTS["course-correction"]})
 
 Options:
   --suite <list>            Run specific suites (comma-separated)
@@ -177,6 +207,9 @@ Options:
   --fallback <n>            Number of fallback scenarios
   --edge-cases <n>          Number of edge-case scenarios
   --updates <n>             Number of update scenarios
+  --state-persistence <n>   Number of state-persistence scenarios
+  --multi-booking <n>       Number of multi-booking scenarios
+  --course-correction <n>   Number of course-correction scenarios
   --seed <n>                Shuffle seed (default: now)
   --allow-faq-escalation    Treat FAQ escalations as pass
   --summary-only            Print only the final summary table (suppresses per-test logs)
