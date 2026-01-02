@@ -254,6 +254,15 @@ export const routeAgentMessage = async (
       }
     }
 
+    const statusQueryPattern =
+      /\b(my|any|upcoming|past|current)\b.*\bbooking(s)?\b|\bbooking(s)?\b.*\b(status|confirm|confirmation|upcoming|past)\b|\bdo i have\b.*\bbooking(s)?\b/i;
+    if (statusQueryPattern.test(message)) {
+      return {
+        flow: "booking-status",
+        decision: await runBookingStatusFlow(input as BookingStatusFlowInput),
+      };
+    }
+
     // Removed regex-based status detection - LLM handles this via prompt
 
     const historyContext = input.conversationHistory?.length

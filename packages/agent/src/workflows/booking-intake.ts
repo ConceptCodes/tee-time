@@ -141,6 +141,27 @@ const formatTimeWindow = (state: BookingIntakeState) => {
   return state.preferredTime ?? "-";
 };
 
+const formatTimeLabel = (value?: string) => {
+  if (!value) return null;
+  const [hourPart, minutePart] = value.split(":");
+  const hour = Number(hourPart);
+  const minute = Number(minutePart ?? "0");
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return value;
+  }
+  const meridiem = hour >= 12 ? "pm" : "am";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  const minuteLabel = minute === 0 ? "" : `:${minutePart?.padStart(2, "0")}`;
+  return `${displayHour}${minuteLabel}${meridiem}`;
+};
+
+const formatTimeRangeLabel = (state: BookingIntakeState) => {
+  const start = formatTimeLabel(state.preferredTime);
+  const end = formatTimeLabel(state.preferredTimeEnd ?? undefined);
+  if (start && end) return `${start}-${end}`;
+  return start;
+};
+
 const resolveClubByName = async (
   db: Database,
   name: string,
@@ -259,24 +280,43 @@ const buildDefaultPrompt = (field: BookingIntakeField, value: string) => {
   }
 };
 
+const buildContextPrefix = (state: BookingIntakeState) => {
+  const parts: string[] = [];
+  if (state.club) {
+    const locationSuffix = state.clubLocation ? ` ${state.clubLocation}` : "";
+    parts.push(`at ${state.club}${locationSuffix}`);
+  }
+  if (state.preferredDate) {
+    parts.push(`on ${state.preferredDate}`);
+  }
+  const timeLabel = formatTimeRangeLabel(state);
+  if (timeLabel) {
+    parts.push(`around ${timeLabel}`);
+  }
+  if (parts.length === 0) return "";
+  return `For your booking ${parts.join(" ")}, `;
+};
+
 const buildAskPrompt = (
   field: BookingIntakeField,
   basePrompt: string,
-  suggestions?: BookingIntakeInput["suggestions"]
+  suggestions?: BookingIntakeInput["suggestions"],
+  state?: BookingIntakeState
 ) => {
+  const contextPrefix = state ? buildContextPrefix(state) : "";
   if (field === "club" && suggestions?.clubs?.length) {
-    return `${basePrompt}\nOptions:\n- ${suggestions.clubs.join("\n- ")}`;
+    return `${contextPrefix}${basePrompt}\nOptions:\n- ${suggestions.clubs.join("\n- ")}`;
   }
   if (field === "clubLocation" && suggestions?.clubLocations?.length) {
-    return `${basePrompt}\nAvailable locations:\n- ${suggestions.clubLocations.join("\n- ")}`;
+    return `${contextPrefix}${basePrompt}\nAvailable locations:\n- ${suggestions.clubLocations.join("\n- ")}`;
   }
   if (field === "preferredTime" && suggestions?.times?.length) {
-    return `${basePrompt}\nSuggested times:\n- ${suggestions.times.join("\n- ")}`;
+    return `${contextPrefix}${basePrompt}\nSuggested times:\n- ${suggestions.times.join("\n- ")}`;
   }
   if (field === "bayLabel" && suggestions?.bays?.length) {
-    return `${basePrompt}\nAvailable bays:\n- ${suggestions.bays.join("\n- ")}`;
+    return `${contextPrefix}${basePrompt}\nAvailable bays:\n- ${suggestions.bays.join("\n- ")}`;
   }
-  return basePrompt;
+  return `${contextPrefix}${basePrompt}`;
 };
 
 const buildAlternativePrompt = (suggestedTimes?: string[]) => {
@@ -596,7 +636,7 @@ export const runBookingIntakeFlow = async (
         const prompt = buildAskPrompt("club", "Which club would you like to book?", {
           ...input.suggestions,
           clubs: clubs.map((item) => item.name)
-        });
+        }, state);
         await persistState(state);
         return { type: "ask", prompt, nextState: state };
       }
@@ -632,7 +672,8 @@ export const runBookingIntakeFlow = async (
         const prompt = buildAskPrompt(
           "clubLocation",
           "Which location should we use for that club?",
-          { ...input.suggestions, clubLocations: locationNames }
+          { ...input.suggestions, clubLocations: locationNames },
+          state
         );
         await persistState(state);
         return { type: "ask", prompt, nextState: state };
@@ -645,11 +686,12 @@ export const runBookingIntakeFlow = async (
             state.clubLocation?.trim().toLowerCase()
         );
         if (!match) {
-          const prompt = buildAskPrompt(
-            "clubLocation",
-            "Which location should we use for that club?",
-            { ...input.suggestions, clubLocations: locationNames }
-          );
+        const prompt = buildAskPrompt(
+          "clubLocation",
+          "Which location should we use for that club?",
+          { ...input.suggestions, clubLocations: locationNames },
+          state
+        );
           await persistState(state);
           return { type: "ask", prompt, nextState: state };
         }
@@ -668,7 +710,9 @@ export const runBookingIntakeFlow = async (
         type: "ask",
         prompt: buildAskPrompt(
           "preferredDate",
-          "What date would you like?"
+          "What date would you like?",
+          undefined,
+          state
         ),
         nextState: state,
       };
@@ -686,7 +730,9 @@ export const runBookingIntakeFlow = async (
         type: "ask",
         prompt: buildAskPrompt(
           "preferredTime",
-          "What time (or time window) should we request?"
+          "What time (or time window) should we request?",
+          undefined,
+          state
         ),
         nextState: state,
       };
@@ -727,7 +773,9 @@ export const runBookingIntakeFlow = async (
           type: "ask",
           prompt: buildAskPrompt(
             "players",
-            `How many players (1-${getMaxPlayers()})?`
+            `How many players (1-${getMaxPlayers()})?`,
+            undefined,
+            state
           ),
           nextState: state,
         };
@@ -740,7 +788,9 @@ export const runBookingIntakeFlow = async (
           type: "ask",
           prompt: buildAskPrompt(
             "preferredDate",
-            "That date is in the past. What date would you like instead?"
+            "That date is in the past. What date would you like instead?",
+            undefined,
+            state
           ),
           nextState: state,
         };
@@ -754,7 +804,9 @@ export const runBookingIntakeFlow = async (
           type: "ask",
           prompt: buildAskPrompt(
             "preferredTime",
-            "What time (or time window) should we request?"
+            "What time (or time window) should we request?",
+            undefined,
+            state
           ),
           nextState: state,
         };
@@ -769,12 +821,17 @@ export const runBookingIntakeFlow = async (
     if (!normalized) {
       state.players = undefined;
       await persistState(state);
-      return {
-        type: "ask",
-        prompt: buildAskPrompt("players", `How many players (1-${getMaxPlayers()})?`),
-        nextState: state,
-      };
-    }
+        return {
+          type: "ask",
+          prompt: buildAskPrompt(
+            "players",
+            `How many players (1-${getMaxPlayers()})?`,
+            undefined,
+            state
+          ),
+          nextState: state,
+        };
+      }
     state.players = normalized;
   }
 
@@ -810,7 +867,7 @@ export const runBookingIntakeFlow = async (
     await persistState(state);
     return {
       type: "ask",
-      prompt: buildAskPrompt(field, missing[1], input.suggestions),
+      prompt: buildAskPrompt(field, missing[1], input.suggestions, state),
       nextState: state,
     };
   }
@@ -927,7 +984,8 @@ export const runBookingIntakeFlow = async (
           prompt: buildAskPrompt(
             "bayLabel",
             "Which bay should we use?",
-            { ...input.suggestions, bays: uniqueBayNames }
+            { ...input.suggestions, bays: uniqueBayNames },
+            state
           ),
           nextState: state,
         };
@@ -951,11 +1009,12 @@ export const runBookingIntakeFlow = async (
     await persistState(state);
     return {
       type: "ask",
-      prompt: buildAskPrompt(
-        "bayLabel",
-        "Which bay should we use?",
-        { ...input.suggestions, bays: uniqueBayNames }
-      ),
+        prompt: buildAskPrompt(
+          "bayLabel",
+          "Which bay should we use?",
+          { ...input.suggestions, bays: uniqueBayNames },
+          state
+        ),
       nextState: state,
     };
   }
@@ -1016,7 +1075,9 @@ export const runBookingIntakeFlow = async (
             type: "ask",
             prompt: buildAskPrompt(
               "preferredDate",
-              "That time is in the past. What date would you like instead?"
+              "That time is in the past. What date would you like instead?",
+              undefined,
+              state
             ),
             nextState: state,
           };
@@ -1029,7 +1090,9 @@ export const runBookingIntakeFlow = async (
             type: "ask",
             prompt: buildAskPrompt(
               "preferredTime",
-              "That time is too soon. What time would you like instead?"
+              "That time is too soon. What time would you like instead?",
+              undefined,
+              state
             ),
             nextState: state,
           };
