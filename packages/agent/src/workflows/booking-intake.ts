@@ -18,12 +18,20 @@ import {
   unwrapFlowState,
   wrapFlowState,
   saveBookingState,
+  extractSharedContext,
+  mergeSharedContext,
   isBookingInPastError,
   isBookingTooSoonError,
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { runClubSelectionFlow } from "./club-selection";
-import { isConfirmationMessage, isConfirmationMessageAsync, normalizeMatchValue, debugLog } from "../utils";
+import {
+  isConfirmationMessage,
+  isConfirmationMessageAsync,
+  normalizeMatchValue,
+  debugLog,
+  sanitizePromptInput
+} from "../utils";
 
 export type BookingIntakeInput = {
   message: string;
@@ -173,13 +181,10 @@ const missingFields = (state: BookingIntakeState) => {
 
   // Only ask for guest names if there are multiple players
   if (state.players && state.players > 1 && !state.guestNames) {
-    missing.push(["guestNames", "What are the names of the other guests?"] as const);
+    missing.push(["guestNames", "What are the names of other guests?"] as const);
   }
 
-  // Always ask for notes
-  if (state.notes === undefined) {
-    missing.push(["notes", "Any specific notes or requests for this booking? (or say 'none')"] as const);
-  }
+  // Notes are optional - never ask for them, user can provide optionally
 
   return missing[0];
 };
@@ -334,6 +339,7 @@ export const runBookingIntakeFlow = async (
         "I can help book a tee time. Tell me the club, date, and time you want.",
     };
   }
+  const sanitizedMessage = sanitizePromptInput(message);
 
   const storedState =
     input.db && input.memberId
@@ -342,7 +348,9 @@ export const runBookingIntakeFlow = async (
   const persistedState = storedState
     ? unwrapFlowState<BookingIntakeState>(storedState.state, "booking-new")
     : undefined;
+  const sharedContext = storedState ? extractSharedContext(storedState.state) : undefined;
   const state: BookingIntakeState = {
+    ...(sharedContext ?? {}),
     ...(input.defaults ?? {}),
     ...(persistedState ?? {}),
     ...(input.existingState ?? {}),
@@ -353,10 +361,11 @@ export const runBookingIntakeFlow = async (
 
   const persistState = async (nextState: BookingIntakeState) => {
     if (input.db && state.memberId) {
+      const sharedContext = extractSharedContext(nextState);
       await saveBookingState(
         input.db,
         state.memberId,
-        wrapFlowState("booking-new", nextState)
+        wrapFlowState("booking-new", nextState, sharedContext)
       );
     }
   };
@@ -369,22 +378,26 @@ export const runBookingIntakeFlow = async (
 
   // Look up member preferences to offer their favorite club as default
   let memberDefaults: { club?: string; clubLocation?: string } = {};
+  let memberTimezone: string | undefined;
   if (memberRepo && input.memberId && !state.club && !persistedState?.club) {
     const member = await memberRepo.getById(input.memberId);
-    if (member?.favoriteLocationLabel) {
-      // favoriteLocationLabel is like "Topgolf Dallas" or "Topgolf (Dallas)"
-      // Try to extract club name from it
-      const favLabel = member.favoriteLocationLabel;
-      const matchedClub = activeClubs.find(
-        (c) => favLabel.toLowerCase().includes(c.name.toLowerCase())
-      );
-      if (matchedClub) {
-        memberDefaults.club = matchedClub.name;
-        // Also try to extract location if present
-        const locationPart = favLabel.replace(matchedClub.name, "").trim();
-        if (locationPart) {
-          // Remove parentheses and clean up
-          memberDefaults.clubLocation = locationPart.replace(/[()]/g, "").trim();
+    if (member) {
+      memberTimezone = member.timezone;
+      if (member.favoriteLocationLabel) {
+        // favoriteLocationLabel is like "Topgolf Dallas" or "Topgolf (Dallas)"
+        // Try to extract club name from it
+        const favLabel = member.favoriteLocationLabel;
+        const matchedClub = activeClubs.find(
+          (c) => favLabel.toLowerCase().includes(c.name.toLowerCase())
+        );
+        if (matchedClub) {
+          memberDefaults.club = matchedClub.name;
+          // Also try to extract location if present
+          const locationPart = favLabel.replace(matchedClub.name, "").trim();
+          if (locationPart) {
+            // Remove parentheses and clean up
+            memberDefaults.clubLocation = locationPart.replace(/[()]/g, "").trim();
+          }
         }
       }
     }
@@ -444,7 +457,7 @@ export const runBookingIntakeFlow = async (
           "For 'notes' or 'guest names', if the user says 'no', 'none', or 'skip', set the field to 'None'.",
         prompt:
           `${historyContext}${clubContext}Extract any of these fields if present from the user message: club, club location, bay, preferred date, preferred time or time window, number of players (1-${getMaxPlayers()}), guest names, notes. ` +
-          `If a field is not present, omit it.\n\nUser message: "${message}"`,
+          `If a field is not present, omit it.\n\nUser message: "${sanitizedMessage}"`,
       });
 
       debugLog("Extracted intake fields:", JSON.stringify(result.object));
@@ -460,6 +473,15 @@ export const runBookingIntakeFlow = async (
           !hasGuestContext(message)
         ) {
           delete parsedFields.guestNames;
+        }
+      }
+
+      if (typeof parsedFields.notes === "string") {
+        const normalizedNotes = parsedFields.notes.trim().toLowerCase();
+        if (
+          ["none", "no", "n/a", "na", "nope", "skip"].includes(normalizedNotes)
+        ) {
+          delete parsedFields.notes;
         }
       }
 
@@ -655,7 +677,7 @@ export const runBookingIntakeFlow = async (
   }
 
   if (state.preferredTime) {
-    const parsedTime = parsePreferredTimeWindow(state.preferredTime);
+    const parsedTime = parsePreferredTimeWindow(state.preferredTime, memberTimezone);
     if (!parsedTime) {
       state.preferredTime = undefined;
       state.preferredTimeEnd = undefined;
@@ -692,7 +714,7 @@ export const runBookingIntakeFlow = async (
           "Return JSON with issues describing why fields are invalid.",
         prompt:
           `Today is ${todayIso}.\n` +
-          `User message: "${message}"\n` +
+          `User message: "${sanitizedMessage}"\n` +
           `Extracted players: ${state.players ?? "null"}\n` +
           `Extracted date: ${state.preferredDate ?? "null"}\n` +
           `Extracted time: ${state.preferredTime ?? "null"}`,
@@ -855,6 +877,9 @@ export const runBookingIntakeFlow = async (
     };
   }
 
+  // Use LLM-based confirmation for natural language understanding
+  const confirmed = input.confirmed ?? await isConfirmationMessageAsync(message);
+
   const availableBayNames =
     input.availability?.availableBays?.map((bay) => bay.name) ??
     input.suggestions?.bays ??
@@ -910,7 +935,9 @@ export const runBookingIntakeFlow = async (
     }
   }
 
-  if (shouldPromptForBay && !state.bayLabel) {
+  // Only prompt for bay after user has confirmed the booking (review step)
+  // This prevents blocking the review summary with bay selection
+  if (confirmed && shouldPromptForBay && !state.bayLabel) {
     const defaultBay = input.defaults?.bayLabel;
     if (defaultBay) {
       state.pendingDefaultField = "bayLabel";
@@ -932,9 +959,6 @@ export const runBookingIntakeFlow = async (
       nextState: state,
     };
   }
-
-  // Use LLM-based confirmation for natural language understanding
-  const confirmed = input.confirmed ?? await isConfirmationMessageAsync(message);
   if (confirmed) {
     const submit =
       input.submitBooking ??

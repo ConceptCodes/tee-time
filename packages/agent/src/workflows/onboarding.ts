@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { Database } from "@tee-time/database";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { createMemberProfile, updateMemberProfile } from "@tee-time/core";
-import { isConfirmationMessage, isNegativeReply, isSkipReply } from "../utils";
+import {
+  isConfirmationMessage,
+  isNegativeReply,
+  isSkipReply,
+  sanitizePromptInput
+} from "../utils";
 
 export type OnboardingInput = {
   message: string;
@@ -233,6 +238,7 @@ export const runOnboardingFlow = async (
       ? `The assistant just asked for the user's ${state.lastPromptedField.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}. If the user's response looks like a ${state.lastPromptedField === 'name' ? 'name' : 'value'}, extract it as "${state.lastPromptedField}".\n\n`
       : "";
     
+    const sanitizedMessage = sanitizePromptInput(message);
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: OnboardingParseSchema,
@@ -242,7 +248,7 @@ export const runOnboardingFlow = async (
         "If the user says 'no', 'skip', 'not really', 'no preference', or similar to a question, set isSkipping to true.",
       prompt:
         `${historyContext}${lastFieldContext}Extract any of these fields if present: name, timezone, favorite club, favorite location, preferred bay. ` +
-        `If the user indicates they don't have a preference or want to skip, set isSkipping: true.\n\nUser message: "${message}"`,
+        `If the user indicates they don't have a preference or want to skip, set isSkipping: true.\n\nUser message: "${sanitizedMessage}"`,
     });
 
     // Handle explicit skip intent from LLM

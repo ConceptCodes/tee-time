@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Database } from "@tee-time/database";
 import { updateMemberPreferences } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
+import { sanitizePromptInput } from "../utils";
 
 export type MemberPreferencesInput = {
   message: string;
@@ -92,6 +93,7 @@ export const runMemberPreferencesFlow = async (
   try {
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
+    const sanitizedMessage = sanitizePromptInput(message);
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: MemberPreferencesSchema,
@@ -99,7 +101,7 @@ export const runMemberPreferencesFlow = async (
         "Extract preferred booking preferences from the message. Use the user's wording when possible.",
       prompt:
         "Extract any of these fields if present: preferred location, preferred time of day, preferred bay. " +
-        `If a field is not present, omit it.\n\nUser message: "${message}"`,
+        `If a field is not present, omit it.\n\nUser message: "${sanitizedMessage}"`,
     });
 
     Object.assign(

@@ -10,7 +10,7 @@ import {
   lookupMemberBooking,
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
-import { isConfirmationMessage } from "../utils";
+import { isConfirmationMessage, sanitizePromptInput } from "../utils";
 
 export type ModifyBookingInput = {
   message: string;
@@ -156,6 +156,7 @@ export const runModifyBookingFlow = async (
   try {
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
+    const sanitizedMessage = sanitizePromptInput(message);
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: ModifyBookingParseSchema,
@@ -167,7 +168,7 @@ export const runModifyBookingFlow = async (
           .map((m) => `${m.role}: ${m.content}`)
           .join("\n")}\n\n` +
         "Extract any of these fields if present: booking id, booking reference, club, club location, preferred date, preferred time, number of players, guest names, notes. " +
-        `If a field is not present, omit it.\n\nUser message: "${message}"`,
+        `If a field is not present, omit it.\n\nUser message: "${sanitizedMessage}"`,
     });
 
     Object.assign(
@@ -213,11 +214,22 @@ export const runModifyBookingFlow = async (
       timeframe: "upcoming",
     });
     if (!booking) {
-      // No booking found - offer to create a new one
+      // No booking found - check if we have enough info or need more
+      const hasWeakCriteria = !state.bookingReference &&
+        (!state.preferredDate || !state.preferredTime);
+
+      await persistState(state);
+      if (hasWeakCriteria) {
+        return {
+          type: "need-booking-info",
+          prompt:
+            "I need more information to find your booking. Please share your confirmation reference or specify both the date and time of your booking.",
+        };
+      }
       return {
-        type: "offer-booking",
+        type: "not-found",
         prompt:
-          "I couldn't find an upcoming booking matching that. Would you like to book a new tee time instead?",
+          "I couldn't find an upcoming booking matching that information. Please verify the date, time, or share your confirmation reference.",
       };
     }
     // Found the booking - update state with booking info

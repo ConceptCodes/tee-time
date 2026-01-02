@@ -4,6 +4,7 @@ import type { Database } from "@tee-time/database";
 import { retrieveFaqCandidates } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { createFaqAgent, type AgentMessage } from "../agent";
+import { sanitizePromptInput } from "../utils";
 
 export type FaqFlowInput = {
   message: string;
@@ -33,7 +34,7 @@ export type FaqFlowDecision =
     };
 
 const DEFAULT_CLARIFY_PROMPT =
-  "I can help with tee times, membership, or club info. What would you like to know?";
+  "Happy to help with tee times, membership, or club info. What would you like to know?";
 
 export type FaqFlowRuntime = {
   getFaqAnswer?: (question: string) => Promise<{
@@ -59,6 +60,7 @@ export const runFaqFlow = async (
   if (!message) {
     return { type: "clarify", prompt: DEFAULT_CLARIFY_PROMPT };
   }
+  const sanitizedMessage = sanitizePromptInput(message);
 
   const getCandidates =
     runtime.getFaqCandidates ??
@@ -108,7 +110,7 @@ export const runFaqFlow = async (
             "If none match, return decision no_match. " +
             "If you pick, return decision pick and the 1-based index.",
           prompt:
-            `User question: "${message}"\n\nFAQ entries:\n${promptLines}`,
+            `User question: "${sanitizedMessage}"\n\nFAQ entries:\n${promptLines}`,
         });
         if (
           selection.object.decision === "pick" &&
@@ -137,7 +139,7 @@ export const runFaqFlow = async (
       // Build messages array with conversation history
       const messages: AgentMessage[] = [
         ...(input.conversationHistory ?? []),
-        { role: "user" as const, content: message },
+        { role: "user" as const, content: sanitizedMessage },
       ];
 
       const result = await agent.generate({ messages });

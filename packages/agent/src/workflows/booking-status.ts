@@ -1,13 +1,15 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { createBookingRepository, type Database } from "@tee-time/database";
+import { createBookingRepository, createMemberRepository, type Database } from "@tee-time/database";
 import {
   formatBookingStatus,
+  lookupAllMemberBookings,
   lookupMemberBooking,
   parsePreferredDate,
   parsePreferredTimeWindow,
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
+import { sanitizePromptInput } from "../utils";
 
 export type BookingStatusFlowInput = {
   message: string;
@@ -48,6 +50,7 @@ export type BookingStatusFlowDecision =
       type: "respond";
       message: string;
       offerBooking?: boolean;
+      allowSelection?: boolean;
     }
   | {
       type: "not-found";
@@ -59,10 +62,10 @@ export type BookingStatusFlowDecision =
     };
 
 const DEFAULT_BOOKING_INFO_PROMPT =
-  "To check your booking, please share the date, time, or confirmation reference.";
+  "To check your booking, share the date, time, or confirmation reference.";
 
 const DEFAULT_CLARIFY_PROMPT =
-  "Are you asking about a booking status? If so, share date, time, or a reference.";
+  "Looking for a booking status? Share the date, time, or confirmation reference.";
 
 const BookingStatusParseSchema = z.object({
   bookingReference: z.string().nullable(),
@@ -136,6 +139,7 @@ export const runBookingStatusFlow = async (
   try {
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
+    const sanitizedMessage = sanitizePromptInput(message);
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: BookingStatusParseSchema,
@@ -144,7 +148,7 @@ export const runBookingStatusFlow = async (
         "Return booking reference, preferred date, preferred time, and timeframe (past/upcoming/any) if mentioned. " +
         "If a field is not present, return null.",
       prompt:
-        `User message: "${message}"`,
+        `User message: "${sanitizedMessage}"`,
     });
     reference = result.object.bookingReference ?? undefined;
     preferredDate = result.object.preferredDate ?? undefined;
@@ -168,7 +172,25 @@ export const runBookingStatusFlow = async (
     }
   }
 
-  if ((input.lookupBooking || input.db) && input.memberId) {
+  // Look up member timezone if available
+  let memberTimezone: string | undefined;
+  if (input.memberId && input.db) {
+    const memberRepo = createMemberRepository(input.db);
+    const member = await memberRepo.getById(input.memberId);
+    memberTimezone = member?.timezone;
+  }
+
+  // Always attempt database lookup if memberId is available - don't escalate without trying
+  if (input.memberId) {
+    // If database is not available, escalate to human support
+    if (!input.lookupBooking && !input.db) {
+      return {
+        type: "not-found",
+        prompt:
+          "I'm unable to access the booking database at the moment. Would you like me to connect you with human support who can check your upcoming bookings?",
+      };
+    }
+
     const lookup =
       input.lookupBooking ??
       ((params: Parameters<typeof lookupMemberBooking>[1]) =>
@@ -177,10 +199,8 @@ export const runBookingStatusFlow = async (
       reference || preferredDate || preferredTime
     );
     if (!hasActionableCriteria && input.db && timeframe !== "past") {
-      const repo = createBookingRepository(input.db);
-      const bookings = await repo.listByMemberId(input.memberId);
-      const upcoming = bookings.filter((booking) => isUpcoming(booking));
-      if (upcoming.length === 0) {
+      const allBookings = await lookupAllMemberBookings(input.db, input.memberId, "upcoming");
+      if (allBookings.length === 0) {
         return {
           type: "respond",
           message:
@@ -188,20 +208,21 @@ export const runBookingStatusFlow = async (
           offerBooking: true,
         };
       }
-      if (upcoming.length > 1) {
-        const choices = upcoming
+      if (allBookings.length > 1) {
+        const choices = allBookings
           .slice(0, 5)
-          .map((booking) => `- ${formatBookingChoice(booking)}`)
+          .map((booking, index) => `${index + 1}. ${formatBookingChoice(booking)}`)
           .join("\n");
         return {
-          type: "need-booking-info",
-          prompt:
-            "Which booking are you asking about? Reply with the date or time.\n" +
-            `Upcoming bookings:\n${choices}`,
+          type: "respond",
+          message:
+            `You have ${allBookings.length} upcoming booking${allBookings.length > 1 ? 's' : ''}:\n\n${choices}\n\n` +
+            `Which one would you like details for? Reply with the number.`,
+          allowSelection: true,
         };
       }
       const formatter = input.formatStatus ?? formatBookingStatus;
-      return { type: "respond", message: formatter(upcoming[0]) };
+      return { type: "respond", message: formatter(allBookings[0]) };
     }
     const booking = await lookup({
       memberId: input.memberId,

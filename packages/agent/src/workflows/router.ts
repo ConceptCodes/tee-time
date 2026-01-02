@@ -4,6 +4,8 @@ import {
   getBookingState,
   getFlowFromState,
   isFlowStateEnvelope,
+  isBookingInPastError,
+  isBookingTooSoonError,
 } from "@tee-time/core";
 import { z } from "zod";
 import { getOpenRouterClient, resolveModelId } from "../provider";
@@ -28,7 +30,13 @@ import {
   type ModifyBookingDecision,
   type ModifyBookingInput,
 } from "./modify-booking";
-import { isConfirmationMessage, isNegativeReply, looksLikeFollowup, debugLog } from "../utils";
+import {
+  isConfirmationMessage,
+  isNegativeReply,
+  looksLikeFollowupAsync,
+  debugLog,
+  sanitizePromptInput
+} from "../utils";
 
 import type { Database } from "@tee-time/database";
 
@@ -193,11 +201,14 @@ export const routeAgentMessage = async (
       };
     }
 
+    const isLikelyFollowup =
+      await looksLikeFollowupAsync(message, activeFlow, input.conversationHistory || []);
+
     if (
       activeFlow &&
       activeData &&
       Object.keys(activeData).length > 0 &&
-      (looksLikeFollowup(message) ||
+      (isLikelyFollowup ||
         (activeFlow === "booking-new" &&
           /(change|edit|update|actually|instead|make it|move it)/.test(
             message.toLowerCase()
@@ -252,6 +263,7 @@ export const routeAgentMessage = async (
           .join("\n")}\n`
       : "";
 
+    const sanitizedMessage = sanitizePromptInput(message);
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: RouterSchema,
@@ -261,21 +273,35 @@ export const routeAgentMessage = async (
         "and the user replies with a specific time, choose 'booking-new'." +
         contextNote,
       prompt:
-        "Given the user message, select one flow:\n" +
-        "- booking-new: user wants to book a new tee time.\n" +
+        "Given user message, select one flow:\n" +
+        "- booking-new: user wants to create/book/reserve a NEW tee time. Keywords: 'book', 'reserve', 'want to play', 'need a slot', 'can I get'.\n" +
         "- booking-status: user asks about existing booking(s), confirmation status, upcoming/past bookings, " +
         "or uses phrases like 'any bookings', 'this week', 'next week', 'do I have'.\n" +
-        "- cancel-booking: user wants to cancel an existing booking.\n" +
-        "- modify-booking: user wants to reschedule or change details of an existing booking.\n" +
+        "- cancel-booking: user wants to cancel an existing booking. Keywords: 'cancel', 'can't make it', 'need to cancel'.\n" +
+        "- modify-booking: user wants to CHANGE/UPDATE/RESCHEDULE an EXISTING booking. Keywords: 'change', 'reschedule', 'modify', 'update', 'add player', 'remove player', 'move', 'change time', 'change date', 'instead of'.\n" +
         "- faq: general questions about membership, policies, hours, pricing, dress code, etc.\n" +
         "- support: user asks for human help, has issues, or wants to talk to staff.\n" +
         "- clarify: intent is unclear and doesn't fit any other flow.\n" +
+        "IMPORTANT: Distinguish between booking-new vs modify-booking by whether user wants to CREATE vs CHANGE an existing booking.\n" +
         "Return a JSON object with the flow, confidence (0-1), and a reason (string or null).\n\n" +
         `${historyContext}` +
-        `Message: "${message}"`,
+        `Message: "${sanitizedMessage}"`,
     });
 
     debugLog("Router Decision:", JSON.stringify(result.object));
+
+    // Reject low-confidence decisions to prevent misclassification
+    const CONFIDENCE_THRESHOLD = 0.7;
+    if (result.object.confidence < CONFIDENCE_THRESHOLD) {
+      debugLog(
+        `Router: Low confidence (${result.object.confidence} < ${CONFIDENCE_THRESHOLD}), routing to clarify`
+      );
+      return {
+        flow: "clarify",
+        prompt:
+          "Got it. I can book a tee time, check or change a booking, cancel one, or answer club questions. What would you like to do?",
+      };
+    }
 
     if (result.object.flow === "booking-new") {
       return {
@@ -328,31 +354,34 @@ export const routeAgentMessage = async (
     return {
       flow: "clarify",
       prompt:
-        "I can help book a new tee time, update or cancel an existing booking, check booking status, and answer FAQs. If you need something else, I can connect you to staff.",
+        "I can book a new tee time, check or update a booking, cancel one, or answer FAQs. What can I help with?",
     };
   } catch (error) {
     // Log error but don't mask it - workflow-specific errors should be handled by the workflow
     console.error("Router Error:", error);
     // Re-throw the error so workflow-specific error handling can occur
     // Only catch truly unexpected errors
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (
-      errorMessage.includes("booking_in_past") ||
-      errorMessage.includes("booking_too_soon") ||
-      errorMessage.includes("bay_unavailable")
-    ) {
+    if (isBookingInPastError(error) || isBookingTooSoonError(error)) {
       // These are handled by the booking flow, but if we got here the flow didn't handle it
       // Return a helpful clarify response
       return {
         flow: "clarify",
         prompt:
-          "There was an issue with the booking details. Please provide a valid date and time.",
+          "I ran into a snag with those booking details. Could you share a valid date and time?",
+      };
+    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("bay_unavailable")) {
+      return {
+        flow: "clarify",
+        prompt:
+          "I ran into a snag with those booking details. Could you share a valid date and time?",
       };
     }
     return {
       flow: "clarify",
       prompt:
-        "I can help book a new tee time, update or cancel an existing booking, check booking status, and answer FAQs. If you need something else, I can connect you to staff.",
+        "I can book a new tee time, check or update a booking, cancel one, or answer FAQs. What can I help with?",
     };
   }
 };

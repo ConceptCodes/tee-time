@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getOpenRouterClient, resolveModelId } from "../provider";
-import { isConfirmationMessage } from "../utils";
+import { isConfirmationMessage, sanitizePromptInput } from "../utils";
 
 export type SupportHandoffInput = {
   message: string;
@@ -61,13 +61,14 @@ export const runSupportHandoffFlow = async (
     try {
       const openrouter = getOpenRouterClient();
       const modelId = resolveModelId();
+      const sanitizedMessage = sanitizePromptInput(message);
       const result = await generateObject({
         model: openrouter.chat(modelId),
         schema: SupportParseSchema,
         system:
           "Summarize the support request in one sentence and capture a short reason.",
         prompt:
-          `Summarize the support request in plain language. If possible, extract a short reason.\n\nUser message: "${message}"`,
+          `Summarize the support request in plain language. If possible, extract a short reason.\n\nUser message: "${sanitizedMessage}"`,
       });
 
       Object.assign(

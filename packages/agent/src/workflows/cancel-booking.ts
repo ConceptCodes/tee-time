@@ -1,16 +1,16 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { Database } from "@tee-time/database";
+import { createMemberRepository, type Database } from "@tee-time/database";
 import {
-  cancelBookingWithHistory,
   lookupMemberBooking,
   parsePreferredDate,
   parsePreferredTimeWindow,
+  cancelBookingWithHistory,
   isCancellationWindowExceededError,
   isBookingNotFoundError,
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
-import { isConfirmationMessage } from "../utils";
+import { isConfirmationMessage, sanitizePromptInput } from "../utils";
 
 export type CancelBookingInput = {
   message: string;
@@ -128,15 +128,24 @@ export const runCancelBookingFlow = async (
     return {
       type: "clarify",
       prompt:
-        "I can help cancel a booking. Please share the date, time, or confirmation reference.",
+        "I can help cancel a booking. Please share date, time, or confirmation reference.",
     };
   }
 
   const state: CancelBookingState = { ...(input.existingState ?? {}) };
 
+  // Look up member timezone if available
+  let memberTimezone: string | undefined;
+  if (input.memberId && input.db) {
+    const memberRepo = createMemberRepository(input.db);
+    const member = await memberRepo.getById(input.memberId);
+    memberTimezone = member?.timezone;
+  }
+
   try {
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
+    const sanitizedMessage = sanitizePromptInput(message);
     const result = await generateObject({
       model: openrouter.chat(modelId),
       schema: CancelBookingParseSchema,
@@ -152,7 +161,7 @@ export const runCancelBookingFlow = async (
         "Examples:\n" +
         '- "Cancel booking ABC123" -> {"bookingReference":"ABC123"}\n' +
         '- "Cancel my Friday 2pm booking" -> {"preferredDate":"Friday","preferredTime":"2pm"}\n\n' +
-        `User message: "${message}"`,
+        `User message: "${sanitizedMessage}"`,
     });
 
     Object.assign(
@@ -173,7 +182,7 @@ export const runCancelBookingFlow = async (
   }
 
   if (state.preferredTime) {
-    const parsedTime = parsePreferredTimeWindow(state.preferredTime);
+    const parsedTime = parsePreferredTimeWindow(state.preferredTime, memberTimezone);
     if (parsedTime) {
       state.preferredTime = parsedTime.start;
     }
