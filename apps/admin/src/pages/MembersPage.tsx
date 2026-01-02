@@ -83,14 +83,6 @@ export default function MembersPage() {
           </div>
       </div>
       <Card className="border bg-card/80">
-        <CardHeader>
-          <CardTitle className="font-display text-2xl">
-            Member directory
-          </CardTitle>
-          <CardDescription>
-            Directory of all registered members.
-          </CardDescription>
-        </CardHeader>
         <CardContent>
           {membersQuery.isError ? (
             <div className="text-sm text-destructive">
