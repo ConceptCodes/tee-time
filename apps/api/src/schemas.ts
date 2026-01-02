@@ -5,13 +5,13 @@ export const staffSchemas = {
     authUserId: z.string().min(1),
     email: z.string().email(),
     name: z.string().min(1),
-    role: z.enum(["admin", "staff", "member"]),
+    role: z.enum(["admin", "staff"]),
     isActive: z.boolean().optional()
   }),
   update: z.object({
     email: z.string().email().optional(),
     name: z.string().min(1).optional(),
-    role: z.enum(["admin", "staff", "member"]).optional(),
+    role: z.enum(["admin", "staff"]).optional(),
     isActive: z.boolean().optional()
   })
 };

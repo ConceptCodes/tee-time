@@ -33,7 +33,7 @@ export const requireAuth = (): MiddlewareHandler => {
 };
 
 export const requireRole = (
-  roles: Array<"admin" | "staff" | "member">
+  roles: Array<"admin" | "staff">
 ): MiddlewareHandler => {
   return async (c, next) => {
     const staffUser = c.get("staffUser");

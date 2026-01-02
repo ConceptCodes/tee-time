@@ -4,13 +4,9 @@ import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
 import { getDb } from "@tee-time/database";
-import {
-  createBookingRepository,
-  createBookingStatusHistoryRepository,
-  createClubLocationBayRepository
-} from "@tee-time/database";
+import { createBookingRepository } from "@tee-time/database";
 import { bookingSchemas } from "../../schemas";
-import { setBookingStatusWithHistory } from "@tee-time/core";
+import { createBookingWithHistory, setBookingStatusWithHistory } from "@tee-time/core";
 import { paginatedResponse, parsePagination } from "../../pagination";
 
 export const bookingRoutes = new Hono<{ Variables: ApiVariables }>();
@@ -55,53 +51,25 @@ bookingRoutes.post("/", validateJson(bookingSchemas.create), async (c) => {
   const db = getDb();
   const now = new Date();
   try {
-    const booking = await db.transaction(async (tx) => {
-      const bookingRepo = createBookingRepository(tx);
-      const historyRepo = createBookingStatusHistoryRepository(tx);
-      const bayRepo = createClubLocationBayRepository(tx);
-      const initialStatus = payload.status ?? "Pending";
+    const [year, month, day] = payload.preferredDate.split("-").map(Number);
+    const preferredDate = new Date(year, month - 1, day);
 
-      let bayId = payload.bayId;
-      if (bayId) {
-        const reserved = await bayRepo.reserve(bayId, now);
-        if (!reserved) {
-          throw new Error("bay_unavailable");
-        }
-      } else if (payload.clubLocationId) {
-        const available = await bayRepo.listByLocationId(payload.clubLocationId, {
-          status: "available"
-        });
-        if (available.length === 0) {
-          throw new Error("bay_unavailable");
-        }
-        const reserved = await bayRepo.reserve(available[0].id, now);
-        if (!reserved) {
-          throw new Error("bay_unavailable");
-        }
-        bayId = reserved.id;
-      }
-
-      const booking = await bookingRepo.create({
-        ...payload,
-        bayId,
-        bookingReference: crypto.randomUUID().slice(0, 8).toUpperCase(),
-        preferredDate: payload.preferredDate,
-        cancelledAt: payload.cancelledAt ? new Date(payload.cancelledAt) : null,
-        status: initialStatus,
-        createdAt: now,
-        updatedAt: now
-      });
-
-      await historyRepo.create({
-        bookingId: booking.id,
-        previousStatus: initialStatus,
-        nextStatus: initialStatus,
-        changedByStaffId: payload.staffMemberId ?? null,
-        reason: null,
-        createdAt: now
-      });
-
-      return booking;
+    const booking = await createBookingWithHistory(db, {
+      memberId: payload.memberId,
+      clubId: payload.clubId,
+      clubLocationId: payload.clubLocationId ?? null,
+      bayId: payload.bayId ?? null,
+      preferredDate,
+      preferredTimeStart: payload.preferredTimeStart,
+      preferredTimeEnd: payload.preferredTimeEnd ?? null,
+      numberOfPlayers: payload.numberOfPlayers,
+      guestNames: payload.guestNames,
+      notes: payload.notes,
+      status: payload.status ?? "Pending",
+      staffMemberId: payload.staffMemberId ?? null,
+      cancelledAt: payload.cancelledAt ? new Date(payload.cancelledAt) : null,
+      notify: false,
+      now
     });
 
     return c.json({ data: booking }, 201);

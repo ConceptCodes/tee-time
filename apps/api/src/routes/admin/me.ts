@@ -9,7 +9,7 @@ import { meSchemas } from "../../schemas";
 
 export const meRoutes = new Hono<{ Variables: ApiVariables }>();
 
-meRoutes.use("*", requireAuth(), requireRole(["admin", "staff", "member"]));
+meRoutes.use("*", requireAuth(), requireRole(["admin", "staff"]));
 
 meRoutes.get("/", async (c) => {
   const session = c.get("session");

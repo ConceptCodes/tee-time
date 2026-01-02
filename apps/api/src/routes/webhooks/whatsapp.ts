@@ -1,9 +1,12 @@
 import { Hono } from "hono";
+import { createHash } from "crypto";
 import { z } from "zod";
+import { validateRequest } from "twilio/lib/webhooks/webhooks";
 import {
   getDb,
   createMemberRepository,
   createMessageLogRepository,
+  createMessageDedupRepository,
 } from "@tee-time/database";
 import {
   clearBookingState,
@@ -12,6 +15,7 @@ import {
   isFlowStateEnvelope,
   logMessage,
   createMemberProfile,
+  redactSensitiveText,
   saveBookingState,
   wrapFlowState,
 } from "@tee-time/core";
@@ -70,8 +74,7 @@ const processDecision = (decision: RouterDecision): string => {
       if (d.type === "ask" || d.type === "ask-alternatives") return d.prompt;
       if (d.type === "confirm-default") return d.prompt;
       if (d.type === "review") return d.summary;
-      if (d.type === "submitted")
-        return `Your booking has been submitted! Reference: ${d.bookingId}. ${d.message}`;
+      if (d.type === "submitted") return d.message;
       if (d.type === "submit")
         return "Processing your booking request...";
       return (d as { prompt?: string }).prompt ?? "How can I help you book?";
@@ -126,6 +129,29 @@ const processDecision = (decision: RouterDecision): string => {
 export const whatsappWebhookRoutes = new Hono();
 
 const DEFAULT_TIMEZONE = "Etc/UTC";
+const DEFAULT_DEBOUNCE_WINDOW_SECONDS = 15;
+const DEFAULT_DEDUP_WINDOW_SECONDS = 60;
+
+const parseDebounceWindowSeconds = () => {
+  const raw = process.env.DEBOUNCE_WINDOW_SECONDS;
+  if (!raw) return DEFAULT_DEBOUNCE_WINDOW_SECONDS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_DEBOUNCE_WINDOW_SECONDS;
+  if (parsed <= 0) return 0;
+  return parsed;
+};
+
+const parseDedupWindowSeconds = () => {
+  const raw = process.env.MESSAGE_DEDUP_WINDOW_SECONDS;
+  if (!raw) return DEFAULT_DEDUP_WINDOW_SECONDS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_DEDUP_WINDOW_SECONDS;
+  if (parsed <= 0) return 0;
+  return parsed;
+};
+
+const buildEmptyTwimlResponse = () => `<?xml version="1.0" encoding="UTF-8"?>
+<Response></Response>`;
 
 /**
  * Twilio webhook verification endpoint.
@@ -144,12 +170,26 @@ whatsappWebhookRoutes.post("/", async (c) => {
   const memberRepo = createMemberRepository(db);
 
   try {
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!authToken) {
+      console.error("Missing TWILIO_AUTH_TOKEN for webhook validation.");
+      return c.text("Server misconfigured", 500);
+    }
+
+    const signature = c.req.header("x-twilio-signature") ?? "";
+
     // Parse the incoming webhook payload
     const formData = await c.req.formData();
     const payload: Record<string, string> = {};
     formData.forEach((value, key) => {
       payload[key] = value.toString();
     });
+
+    const isValid = validateRequest(authToken, signature, c.req.url, payload);
+    if (!isValid) {
+      console.error("Invalid Twilio signature.");
+      return c.text("Invalid signature", 403);
+    }
 
     const parsed = TwilioWebhookSchema.safeParse(payload);
     if (!parsed.success) {
@@ -160,12 +200,25 @@ whatsappWebhookRoutes.post("/", async (c) => {
     const { From, Body, MessageSid, ProfileName } = parsed.data;
     const phoneNumber = extractPhoneNumber(From);
     const message = Body.trim();
+    const now = new Date();
+    const messageHash = createHash("sha256").update(message).digest("hex");
+    const messageRedaction = redactSensitiveText(message);
+    const profileNameRedaction = ProfileName
+      ? redactSensitiveText(ProfileName, { startIndex: messageRedaction.nextIndex })
+      : { redacted: null, redactions: [], nextIndex: messageRedaction.nextIndex };
+    const phoneRedaction = redactSensitiveText(phoneNumber, {
+      startIndex: profileNameRedaction.nextIndex,
+    });
+    const combinedRedactions = [
+      ...messageRedaction.redactions,
+      ...profileNameRedaction.redactions,
+      ...phoneRedaction.redactions,
+    ];
 
     // Log inbound message
     let memberId: string | undefined;
     let existingMember = await memberRepo.getByPhoneNumber(phoneNumber);
     if (!existingMember) {
-      const now = new Date();
       existingMember = await createMemberProfile(db, {
         phoneNumber,
         name: "Unknown",
@@ -183,6 +236,45 @@ whatsappWebhookRoutes.post("/", async (c) => {
     memberId = existingMember?.id;
     const memberIsOnboarded = Boolean(existingMember?.onboardingCompletedAt);
 
+    if (!memberId) {
+      console.error("Missing member id for webhook message.");
+      return c.text("Invalid member", 400);
+    }
+
+    const dedupRepo = createMessageDedupRepository(db);
+    const debounceSeconds = parseDebounceWindowSeconds();
+    const dedupSeconds = parseDedupWindowSeconds();
+    const dedupExpiresAt = new Date(now.getTime() + dedupSeconds * 1000);
+    if (dedupSeconds > 0) {
+      const existingDedup = await dedupRepo.getByMemberAndHash(
+        memberId,
+        messageHash
+      );
+      if (existingDedup) {
+        if (existingDedup.expiresAt > now) {
+          c.header("Content-Type", "application/xml");
+          return c.body(buildEmptyTwimlResponse());
+        }
+        await dedupRepo.deleteByMemberAndHash(memberId, messageHash);
+      }
+
+      try {
+        await dedupRepo.createWithExpiry({
+          memberId,
+          messageHash,
+          receivedAt: now,
+          expiresAt: dedupExpiresAt
+        });
+      } catch (error) {
+        const err = error as { code?: string };
+        if (err?.code === "23505") {
+          c.header("Content-Type", "application/xml");
+          return c.body(buildEmptyTwimlResponse());
+        }
+        throw error;
+      }
+    }
+
     const storedState = memberId
       ? await getBookingState<Record<string, unknown>>(db, memberId)
       : null;
@@ -191,26 +283,52 @@ whatsappWebhookRoutes.post("/", async (c) => {
         ? storedState.state
         : null;
 
+    const messageLogRepo = createMessageLogRepository(db);
+    const historyLogs = await messageLogRepo.listByMemberId(memberId);
+    if (debounceSeconds > 0) {
+      const lastLog = historyLogs[0];
+      if (
+        lastLog &&
+        lastLog.direction === "inbound" &&
+        now.getTime() - lastLog.createdAt.getTime() < debounceSeconds * 1000
+      ) {
+        await logMessage(db, {
+          memberId,
+          direction: "inbound",
+          channel: "whatsapp",
+          providerMessageId: MessageSid,
+          bodyRedacted: messageRedaction.redacted,
+          bodyHash: messageHash,
+          metadata: {
+            profileName: profileNameRedaction.redacted,
+            phoneNumber: phoneRedaction.redacted,
+            redactions: combinedRedactions,
+            debounced: true
+          }
+        });
+        c.header("Content-Type", "application/xml");
+        return c.body(buildEmptyTwimlResponse());
+      }
+    }
+
     await logMessage(db, {
-      memberId: memberId as string,
+      memberId,
       direction: "inbound",
       channel: "whatsapp",
       providerMessageId: MessageSid,
-      bodyRedacted: message,
+      bodyRedacted: messageRedaction.redacted,
+      bodyHash: messageHash,
       metadata: {
-        profileName: ProfileName,
-        phoneNumber,
+        profileName: profileNameRedaction.redacted,
+        phoneNumber: phoneRedaction.redacted,
+        redactions: combinedRedactions,
       },
     });
 
-    const messageLogRepo = createMessageLogRepository(db);
-    const historyLogs = await messageLogRepo.listByMemberId(
-      memberId ?? phoneNumber
-    );
     const recentLogs = historyLogs.slice(0, 6);
     if (
       recentLogs[0]?.direction === "inbound" &&
-      recentLogs[0]?.bodyRedacted === message
+      recentLogs[0]?.bodyRedacted === messageRedaction.redacted
     ) {
       recentLogs.shift();
     }
@@ -374,17 +492,20 @@ whatsappWebhookRoutes.post("/", async (c) => {
 
     // Generate response message
     const responseMessage = processDecision(finalDecision);
+    const responseHash = createHash("sha256").update(responseMessage).digest("hex");
+    const responseRedaction = redactSensitiveText(responseMessage);
 
     // Log outbound message
     await logMessage(db, {
-      memberId: memberId as string,
+      memberId,
       direction: "outbound",
       channel: "whatsapp",
-      bodyRedacted: responseMessage,
+      bodyRedacted: responseRedaction.redacted,
+      bodyHash: responseHash,
       metadata: {
         inReplyTo: MessageSid,
         agentFlow: finalDecision.flow,
-        phoneNumber,
+        redactions: responseRedaction.redactions,
       },
     });
 
@@ -407,12 +528,29 @@ whatsappWebhookRoutes.post("/", async (c) => {
  */
 whatsappWebhookRoutes.post("/status", async (c) => {
   const db = getDb();
-  const messageLogRepo = createMessageLogRepository(db);
 
   try {
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!authToken) {
+      console.error("Missing TWILIO_AUTH_TOKEN for status webhook validation.");
+      return c.text("Server misconfigured", 500);
+    }
+    const signature = c.req.header("x-twilio-signature") ?? "";
+
     const formData = await c.req.formData();
-    const messageSid = formData.get("MessageSid")?.toString();
-    const messageStatus = formData.get("MessageStatus")?.toString();
+    const payload: Record<string, string> = {};
+    formData.forEach((value, key) => {
+      payload[key] = value.toString();
+    });
+
+    const isValid = validateRequest(authToken, signature, c.req.url, payload);
+    if (!isValid) {
+      console.error("Invalid Twilio signature.");
+      return c.text("Invalid signature", 403);
+    }
+
+    const messageSid = payload.MessageSid;
+    const messageStatus = payload.MessageStatus;
 
     if (messageSid && messageStatus) {
       // Log status update - we'll find by provider message ID

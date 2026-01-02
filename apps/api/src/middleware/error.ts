@@ -3,13 +3,16 @@ import { logger } from "@tee-time/core";
 
 export const errorHandler = (err: unknown, c: Context) => {
   const requestId = c.get("requestId");
-  const message = err instanceof Error ? err.message : "Unexpected error";
   const status = 500;
-  logger.error("api.error", { requestId, message });
+  const message = err instanceof Error ? err.message : "Unexpected error";
+  logger.error("api.error", {
+    requestId,
+    message,
+    stack: err instanceof Error ? err.stack : undefined
+  });
   return c.json(
     {
       error: "Internal Server Error",
-      message,
       requestId: requestId ?? null
     },
     status
