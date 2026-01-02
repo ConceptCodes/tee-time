@@ -1,5 +1,5 @@
 import { createDb } from "@tee-time/database";
-import { logger, type JobRunnerContext } from "@tee-time/core";
+import { logger, runRetentionCleanup, type JobRunnerContext } from "@tee-time/core";
 import { runReports, runScheduledJobs } from "./jobs";
 import { config } from "./config";
 
@@ -57,6 +57,13 @@ const main = async () => {
       name: "report-generation",
       everyMs: config.worker.reportsIntervalMs,
       run: runReports
+    },
+    {
+      name: "retention-cleanup",
+      everyMs: config.worker.retentionIntervalMs,
+      run: async (context) => {
+        await runRetentionCleanup(context.db);
+      }
     }
   ];
 
