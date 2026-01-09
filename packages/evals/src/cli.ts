@@ -43,6 +43,7 @@ const parseArgs = (args: string[]) => {
     notify: false,
     captureTranscripts: false,
     summaryOnly: false,
+    parallel: false,
   };
   let json = false;
   let transcriptsPath: string | null = null;
@@ -153,6 +154,10 @@ const parseArgs = (args: string[]) => {
       config.notify = true;
       continue;
     }
+    if (arg === "--parallel") {
+      config.parallel = true;
+      continue;
+    }
     if (arg === "--json") {
       json = true;
       continue;
@@ -214,6 +219,7 @@ Options:
   --allow-faq-escalation    Treat FAQ escalations as pass
   --summary-only            Print only the final summary table (suppresses per-test logs)
   --notify                  Allow Slack notifications during evals
+  --parallel                Run suites in parallel (faster, but interleaved logs)
   --json                    Output JSON report
   --transcripts [path]      Save conversation transcripts to file
   --verbose                 Verbose output
@@ -223,6 +229,7 @@ Examples:
   bun run evals                           # Run all suites with defaults
   bun run evals --suite booking,cancel    # Run only booking and cancel
   bun run evals --edge-cases 20           # Run 20 edge case scenarios
+  bun run evals --parallel                # Run suites concurrently
   bun run evals --transcripts review.txt  # Save transcripts for review
 `);
 };

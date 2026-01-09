@@ -226,6 +226,113 @@ The admin UI (`apps/admin`) lives at `http://localhost:5173` during development 
     - Agent Evals: `bun run evals`
     - Interactive Chat: `bun run chat`
 
+## Agent Evaluation Suite
+
+The `packages/evals` module provides a comprehensive agent evaluation framework for validating the WhatsApp booking agent's behavior across various conversation flows.
+
+### Test Suites
+
+| Suite | Description | Default Count |
+|-------|-------------|---------------|
+| `booking` | New booking request flows | 15 |
+| `booking-status` | Booking status & lookup flows | 8 |
+| `cancel` | Cancel booking flows | 8 |
+| `modify` | Modify booking flows | 6 |
+| `onboarding` | New user onboarding | 5 |
+| `multi-turn` | Multi-turn conversations | 10 |
+| `faq` | FAQ question flows | 10 |
+| `fallback` | Fallback/support/clarify flows | 8 |
+| `edge-cases` | Edge cases & failure scenarios | 15 |
+| `updates` | Status update message tests | 6 |
+| `state-persistence` | State continuity & context retention | 2 |
+| `multi-booking` | Multi-booking selections & disambiguation | 2 |
+| `course-correction` | Mid-flow corrections & resets | 2 |
+
+### Running Evals
+
+```bash
+# Run all suites with defaults
+bun run evals
+
+# Run specific suites
+bun run evals --suite booking,cancel
+
+# Run with custom scenario counts
+bun run evals --edge-cases 20 --booking 10
+
+# Output summary only (suppress per-test logs)
+bun run evals --summary-only
+
+# Output JSON report
+bun run evals --json
+```
+
+### CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `--suite <list>` | Run specific suites (comma-separated) |
+| `--<suite-name> <n>` | Set scenario count for a suite (e.g., `--booking 20`) |
+| `--seed <n>` | Shuffle seed for reproducibility (default: current timestamp) |
+| `--allow-faq-escalation` | Treat FAQ escalations as pass |
+| `--summary-only` | Print only the final summary table |
+| `--parallel` | Run suites concurrently (faster execution) |
+| `--notify` | Allow Slack notifications during evals |
+| `--json` | Output JSON report |
+| `--transcripts [path]` | Save conversation transcripts to file |
+| `--verbose` | Verbose output (sets log level higher) |
+
+### Transcript Capture
+
+Capture full conversation transcripts for debugging or review:
+
+```bash
+# Save transcripts to a custom path
+bun run evals --transcripts review.txt
+
+# Auto-generated path based on timestamp
+bun run evals --transcripts
+```
+
+Transcript output includes:
+- Scenario ID and status (`PASS`/`FAIL`/`SKIP`)
+- Full USER ↔ AGENT conversation turns
+- Failure details when applicable
+
+### Report Output
+
+The eval runner produces a summary report showing:
+- Per-suite pass/fail/skip counts
+- Total duration
+- Detailed failure list with reasons
+- Scenario results table with status indicators
+
+Example output:
+```text
+🏌️ Tee Time Agent Evals
+========================
+Suites: booking, cancel, faq
+Seed: 1704825600000
+
+========================================
+EVALS REPORT
+========================================
+Duration: 45.2s
+Total: 28/33 passed
+
+[PASS] booking: 13/15 passed (2 failed, 0 skipped)
+[PASS] cancel: 7/8 passed (1 failed, 0 skipped)
+[PASS] faq: 8/10 passed (0 failed, 2 skipped)
+
+❌ Failures:
+  - booking/booking-12 - Expected flow booking-new, got clarify
+  - cancel/cancel-5 - Missing prompt text: confirm
+
+========================================
+Result: FAILED (3 failures)
+========================================
+```
+
 ## License
 
 MIT

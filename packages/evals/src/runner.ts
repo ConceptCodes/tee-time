@@ -1,12 +1,17 @@
 import {
+  createBookingRepository,
+  createBookingStatusHistoryRepository,
+  createClubLocationBayRepository,
   createClubLocationRepository,
   createClubRepository,
   createFaqRepository,
   getDb,
+  type Database,
 } from "@tee-time/database";
 import {
   clearBookingState,
   createMemberProfile,
+  createBookingWithHistory,
   saveBookingState,
   wrapFlowState,
 } from "@tee-time/core";
@@ -44,6 +49,7 @@ export type EvalConfig = {
   notify: boolean;
   captureTranscripts: boolean;
   summaryOnly: boolean;
+  parallel: boolean;
 };
 
 export type EvalScenarioReport = {
@@ -200,8 +206,10 @@ const collectClubInfo = async () => {
   const db = getDb();
   const clubRepo = createClubRepository(db);
   const locationRepo = createClubLocationRepository(db);
+
   const clubs = await clubRepo.listActive();
   const results: ClubInfo[] = [];
+
   for (const club of clubs) {
     const locations = await locationRepo.listActiveByClubId(club.id);
     results.push({
@@ -210,6 +218,7 @@ const collectClubInfo = async () => {
       locations: locations.map((location) => location.name),
     });
   }
+
   return results;
 };
 
@@ -245,6 +254,39 @@ const createEvalMember = async (label: string) => {
     updatedAt: now,
   });
   return member;
+};
+
+const setupTestFixtures = async (db: Database) => {
+  const clubRepo = createClubRepository(db);
+  const locationRepo = createClubLocationRepository(db);
+  const bayRepo = createClubLocationBayRepository(db);
+
+  const club = await clubRepo.create({
+    name: "Test Club",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const location = await locationRepo.create({
+    clubId: club.id,
+    name: "Test Location",
+    address: "123 Test St",
+    locationPoint: `POINT(0 0)`,
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  for (let i = 0; i < 5; i++) {
+    await bayRepo.create({
+      clubLocationId: location.id,
+      name: `Bay ${i + 1}`,
+      status: "available",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
 };
 
 const runAgentScenario = async (
@@ -404,8 +446,15 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
   }
 
   const startedAt = Date.now();
+
+  const db = getDb();
+
   const clubs = await collectClubInfo();
   const faqQuestions = await collectFaqQuestions(config.counts.faq);
+
+  if (config.suites.includes("multi-booking" as any) && clubs.length === 0) {
+    await setupTestFixtures(db);
+  }
 
   const scenariosBySuite = buildScenarios({
     clubs,
@@ -433,8 +482,7 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
     config.suites.includes(suite.suite)
   );
 
-  const reports: EvalSuiteReport[] = [];
-  for (const suite of filteredSuites) {
+  const runSuite = async (suite: { suite: ScenarioSuite; scenarios: EvalScenario[] }) => {
     const shuffled = shuffle(suite.scenarios, config.seed + suite.suite.length);
     const results: EvalScenarioReport[] = [];
     const suiteTotal = shuffled.length;
@@ -442,7 +490,7 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
     for (const scenario of shuffled) {
       index += 1;
       const prefix = `TEST [${suite.suite} ${index}/${suiteTotal}]`;
-      if (!config.summaryOnly) {
+      if (!config.summaryOnly && !config.parallel) {
         console.log(`${prefix} ${scenario.name}`);
       }
       const result = await runScenario(scenario, config);
@@ -453,12 +501,22 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
           ? "[SKIP]"
           : "[FAIL]";
       const detail = result.details ? ` - ${result.details}` : "";
-      if (!config.summaryOnly) {
+      if (!config.summaryOnly && !config.parallel) {
         console.log(`${statusLabel} ${scenario.id}${detail}`);
       }
       results.push(result);
     }
-    reports.push(summarizeSuite(suite.suite, results));
+    return summarizeSuite(suite.suite, results);
+  };
+
+  let reports: EvalSuiteReport[];
+  if (config.parallel) {
+    reports = await Promise.all(filteredSuites.map(runSuite));
+  } else {
+    reports = [];
+    for (const suite of filteredSuites) {
+      reports.push(await runSuite(suite));
+    }
   }
 
   const totals = reports.reduce(
