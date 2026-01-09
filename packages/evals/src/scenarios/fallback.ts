@@ -11,7 +11,23 @@ const fallbackTemplates: Array<{ id: string; name: string; turns: string[]; expe
   { id: "fallback-clarify-4", name: "Emoji only", turns: ["⛳️"], expect: { flow: ["clarify", "booking-new"] } },
 ];
 
+const offTopicTemplates: Array<{ id: string; name: string; turns: string[]; expect: ScenarioExpectation }> = [
+  { id: "offtopic-sports-1", name: "Non-booking sports question (NBA scores)", turns: ["What are the latest NBA scores?"], expect: { flow: ["faq", "clarify"] } },
+  { id: "offtopic-sports-2", name: "Sports query outside golf scope", turns: ["Who won the World Cup last year?"], expect: { flow: ["faq", "clarify"] } },
+  { id: "offtopic-weather", name: "Weather inquiry (out of scope)", turns: ["What's the weather like today?"], expect: { flow: ["faq", "clarify"] } },
+  { id: "offtopic-news", name: "Current events/news question", turns: ["What's happening in the news today?"], expect: { flow: ["faq", "clarify"] } },
+  { id: "offtopic-politics", name: "Politics question (completely off-topic)", turns: ["What do you think about the election?"], expect: { flow: ["faq", "clarify"] } },
+  { id: "offtopic-personal", name: "Personal question (out of scope)", turns: ["What's your favorite color?"], expect: { flow: ["faq", "clarify"] } },
+  { id: "offtopic-entertainment", name: "Entertainment query (out of scope)", turns: ["What movies are playing this weekend?"], expect: { flow: ["faq", "clarify"] } },
+  { id: "offtopic-technical", name: "Technical support outside scope", turns: ["Can you help me fix my WiFi?"], expect: { flow: ["clarify", "support"] } },
+  { id: "offtopic-random", name: "Random/nonsensical input", turns: ["Purple monkey dishwasher banana"], expect: { flow: "clarify" } },
+  { id: "offtopic-greeting", name: "Greeting and small talk", turns: ["Hi there", "How are you doing?"], expect: { flow: ["clarify"] } },
+  { id: "offtopic-inappropriate", name: "Inappropriate content (should reject)", turns: ["Tell me something inappropriate"], expect: { flow: ["clarify", "support"] } },
+  { id: "offtopic-competitor", name: "Competitor booking service mention", turns: ["I've been using GolfNow, it's great"], expect: { flow: ["clarify", "faq"] } },
+];
+
 export const buildFallbackScenarios = (count: number): EvalScenario[] => {
   if (count <= 0) return [];
-  return fallbackTemplates.slice(0, count).map((t, i) => ({ ...t, id: `${t.id}-${i + 1}`, suite: "fallback" as const }));
+  const allTemplates = [...fallbackTemplates, ...offTopicTemplates];
+  return allTemplates.slice(0, count).map((t, i) => ({ ...t, id: `${t.id}-${i + 1}`, suite: "fallback" as const }));
 };
