@@ -11,6 +11,7 @@ import {
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { isConfirmationMessage, sanitizePromptInput } from "../utils";
+import { formatModifySummary } from "@tee-time/core";
 
 export type ModifyBookingInput = {
   message: string;
@@ -96,23 +97,7 @@ const ModifyBookingParseSchema = z.object({
   notes: z.string().nullable(),
 });
 
-const buildSummary = (state: ModifyBookingState) => {
-  const parts = [
-    state.bookingId ? `🆔 Booking ID: ${state.bookingId}` : null,
-    state.bookingReference ? `🎫 Reference: ${state.bookingReference}` : null,
-    state.club ? `⛳ Club: ${state.club}` : null,
-    state.clubLocation ? `📍 Location: ${state.clubLocation}` : null,
-    state.preferredDate ? `📅 Date: ${state.preferredDate}` : null,
-    state.preferredTime ? `🕒 Time: ${state.preferredTime}` : null,
-    state.players ? `👥 Players: ${state.players}` : null,
-    state.guestNames ? `👤 Guests: ${state.guestNames}` : null,
-    state.notes ? `📝 Notes: ${state.notes}` : null,
-  ].filter(Boolean);
 
-  return parts.length
-    ? `Update the booking with:\n${parts.join("\n")}`
-    : "Update this booking with the changes you provided?";
-};
 
 export const runModifyBookingFlow = async (
   input: ModifyBookingInput
@@ -267,7 +252,7 @@ export const runModifyBookingFlow = async (
   await persistState(state);
   return {
     type: "confirm-update",
-    prompt: buildSummary(state),
+    prompt: formatModifySummary(state),
     nextState: state,
   };
 };

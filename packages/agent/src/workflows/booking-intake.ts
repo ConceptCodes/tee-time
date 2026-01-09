@@ -28,10 +28,16 @@ import { runClubSelectionFlow } from "./club-selection";
 import {
   isConfirmationMessage,
   isConfirmationMessageAsync,
-  normalizeMatchValue,
   debugLog,
-  sanitizePromptInput
+  sanitizePromptInput,
 } from "../utils";
+import {
+  formatTimeLabel,
+  formatTimeRangeLabel,
+  formatDateLabel,
+  formatBookingSummary,
+  normalizeMatchValue,
+} from "@tee-time/core";
 
 export type BookingIntakeInput = {
   message: string;
@@ -134,49 +140,7 @@ export type BookingIntakeDecision =
       prompt: string;
     };
 
-const formatTimeWindow = (state: BookingIntakeState) => {
-  if (state.preferredTimeEnd) {
-    return `${state.preferredTime ?? "-"} - ${state.preferredTimeEnd}`;
-  }
-  return state.preferredTime ?? "-";
-};
 
-const formatTimeLabel = (value?: string) => {
-  if (!value) return null;
-  const [hourPart, minutePart] = value.split(":");
-  const hour = Number(hourPart);
-  const minute = Number(minutePart ?? "0");
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
-    return value;
-  }
-  const meridiem = hour >= 12 ? "pm" : "am";
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-  const minuteLabel = minute === 0 ? "" : `:${minutePart?.padStart(2, "0")}`;
-  return `${displayHour}${minuteLabel}${meridiem}`;
-};
-
-const formatTimeRangeLabel = (state: BookingIntakeState) => {
-  const start = formatTimeLabel(state.preferredTime);
-  const end = formatTimeLabel(state.preferredTimeEnd ?? undefined);
-  if (start && end) return `${start}-${end}`;
-  return start;
-};
-
-const formatDateLabel = (value?: string) => {
-  if (!value) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split("-").map(Number);
-    const parsed = new Date(year, month - 1, day);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      });
-    }
-  }
-  return value;
-};
 
 const resolveClubByName = async (
   db: Database,
@@ -226,33 +190,7 @@ const missingFields = (state: BookingIntakeState) => {
   return missing[0];
 };
 
-const formatSummary = (state: BookingIntakeState) => {
-  const dateLabel = formatDateLabel(state.preferredDate) ?? "-";
-  const timeLabel = formatTimeRangeLabel(state) ?? formatTimeWindow(state);
-  const lines = [
-    `⛳ Club: ${state.club ?? "-"} ${state.clubLocation ? `(${state.clubLocation})` : ""}`,
-    state.bayLabel ? `🎯 Bay: ${state.bayLabel}` : null,
-    `📅 Date: ${dateLabel}`,
-    `🕒 Time: ${timeLabel ?? "-"}`,
-    `👥 Players: ${state.players ?? "-"}`,
-  ];
 
-  if (
-    state.players &&
-    state.players > 1 &&
-    state.guestNames &&
-    state.guestNames !== "None"
-  ) {
-    lines.push(`👤 Guests: ${state.guestNames}`);
-  }
-
-  if (state.notes && state.notes !== "None") {
-    lines.push(`📝 Notes: ${state.notes}`);
-  }
-
-  const validLines = lines.filter((l): l is string => Boolean(l));
-  return `Please confirm these booking details:\n\n${validLines.join("\n")}`;
-};
 
 const BookingIntakeParseSchema = z.object({
   club: z.string().nullable(),
@@ -1114,7 +1052,7 @@ export const runBookingIntakeFlow = async (
   await persistState(state);
   return {
     type: "review",
-    summary: formatSummary(state),
+    summary: formatBookingSummary(state),
     nextState: state,
   };
 };

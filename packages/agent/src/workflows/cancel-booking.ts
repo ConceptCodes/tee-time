@@ -11,6 +11,7 @@ import {
 } from "@tee-time/core";
 import { getOpenRouterClient, resolveModelId } from "../provider";
 import { isConfirmationMessage, sanitizePromptInput } from "../utils";
+import { formatCancelSummary } from "@tee-time/core";
 
 export type CancelBookingInput = {
   message: string;
@@ -105,20 +106,7 @@ const CancelBookingParseSchema = z.object({
   reason: z.string().nullable(),
 });
 
-const buildSummary = (state: CancelBookingState) => {
-  const parts = [
-    state.bookingId ? `🆔 Booking ID: ${state.bookingId}` : null,
-    state.bookingReference ? `🎫 Reference: ${state.bookingReference}` : null,
-    state.club ? `⛳ Club: ${state.club}` : null,
-    state.clubLocation ? `📍 Location: ${state.clubLocation}` : null,
-    state.preferredDate ? `📅 Date: ${state.preferredDate}` : null,
-    state.preferredTime ? `🕒 Time: ${state.preferredTime}` : null,
-  ].filter(Boolean);
 
-  return parts.length
-    ? `Cancel the booking with:\n${parts.join("\n")}`
-    : "Cancel this booking?";
-};
 
 export const runCancelBookingFlow = async (
   input: CancelBookingInput
@@ -235,11 +223,12 @@ export const runCancelBookingFlow = async (
       state.preferredTime = booking.preferredTimeEnd
         ? `${booking.preferredTimeStart} - ${booking.preferredTimeEnd}`
         : booking.preferredTimeStart;
-      return {
-        type: "confirm-cancel",
-        prompt: buildSummary(state),
-        nextState: state,
-      };
+
+    return {
+      type: "confirm-cancel",
+      prompt: formatCancelSummary(state),
+      nextState: state,
+    };
     }
     return {
       type: "need-booking-info",
