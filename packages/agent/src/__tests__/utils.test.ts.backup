@@ -82,3 +82,18 @@ describe("looksLikeFollowup", () => {
   });
 });
 
+describe("normalizeMatchValue", () => {
+  test("lowercases and removes special characters", () => {
+    expect(normalizeMatchValue("Topgolf Dallas")).toBe("topgolfdallas");
+    expect(normalizeMatchValue("Bay 1")).toBe("bay1");
+    expect(normalizeMatchValue("O'Hare")).toBe("ohare");
+  });
+
+  test("trims whitespace", () => {
+    expect(normalizeMatchValue("  Dallas  ")).toBe("dallas");
+  });
+
+  test("removes punctuation", () => {
+    expect(normalizeMatchValue("Hello, World!")).toBe("helloworld");
+  });
+});

@@ -1,13 +1,12 @@
-import {
-  findBestFuzzyMatch,
-  debugLog,
-  normalizeMatchValue,
-  levenshteinDistance,
-  sanitizePromptInput
-} from "../utils";
+import { debugLog, sanitizePromptInput } from "../utils";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getOpenRouterClient, resolveModelId } from "../provider";
+import {
+  findBestFuzzyMatch,
+  normalizeMatchValue,
+  levenshteinDistance,
+} from "@tee-time/core";
 
 export type ClubSelectionInput = {
   message: string;

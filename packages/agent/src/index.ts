@@ -99,7 +99,6 @@ export {
   isConfirmationMessage,
   isNegativeReply,
   looksLikeFollowup,
-  normalizeMatchValue,
   debugLog,
 } from "./utils";
 
