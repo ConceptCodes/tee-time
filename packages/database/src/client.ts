@@ -23,3 +23,19 @@ export const getDb = (): Database => {
   }
   return db;
 };
+
+export const closeDb = async (): Promise<void> => {
+  if (pool) {
+    await pool.end();
+    pool = null;
+    db = null;
+  }
+};
+
+const handleShutdown = async () => {
+  await closeDb();
+  process.exit(0);
+};
+
+process.on("SIGINT", handleShutdown);
+process.on("SIGTERM", handleShutdown);
