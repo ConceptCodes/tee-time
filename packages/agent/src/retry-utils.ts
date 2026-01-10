@@ -199,6 +199,11 @@ export class CircuitBreaker<T> {
 /**
  * Combines retry logic with circuit breaker for maximum resilience.
  * 
+ * NOTE: This creates a new CircuitBreaker instance per call, meaning circuit
+ * state is not preserved across calls. This provides per-request isolation
+ * but does not protect against repeated failures across different requests.
+ * For shared circuit state, create a single CircuitBreaker instance and reuse it.
+ * 
  * @example
  * ```typescript
  * const result = await withRetryAndCircuitBreaker(

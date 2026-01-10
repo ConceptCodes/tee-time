@@ -95,10 +95,6 @@ export const isConfirmationMessageAsync = async (message: string): Promise<boole
   }
 
   try {
-    const { generateObject } = await import("ai");
-    const { z } = await import("zod");
-    const { getOpenRouterClient, resolveModelId } = await import("./provider");
-    
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
     
@@ -327,18 +323,16 @@ export async function isCourseCorrection(message: string): Promise<boolean> {
   }
 
   try {
+    const { withRetry } = await import("./retry-utils");
     const openrouter = getOpenRouterClient();
     const modelId = resolveModelId();
-    const { generateObject: genObj } = await import("ai");
-    const { z: zod } = await import("zod");
-    const { withRetry } = await import("./retry-utils");
     
     // Wrap LLM call with retry logic
     const result = await withRetry(
-      () => genObj({
+      () => generateObject({
         model: openrouter.chat(modelId),
-        schema: zod.object({
-          isCorrection: zod.boolean(),
+        schema: z.object({
+          isCorrection: z.boolean(),
         }),
         prompt: `Analyze this message to determine if it's a mid-course correction (user wants to change their mind or stop what they're doing):
 

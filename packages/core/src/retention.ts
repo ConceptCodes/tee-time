@@ -1,4 +1,5 @@
-import { and, inArray, lt } from "drizzle-orm";
+import { and, inArray, lt, sql} from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
 import {
   auditLogs,
   bookingStates,
@@ -14,6 +15,7 @@ import { logger } from "./logger";
 import { ScheduledJobStatus } from "./jobs";
 
 const DEFAULT_RETENTION_DAYS = 90;
+const DEFAULT_BATCH_SIZE = 1000;
 
 export const parseRetentionDays = () => {
   const raw = process.env.RETENTION_DAYS;
@@ -21,6 +23,14 @@ export const parseRetentionDays = () => {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed)) return DEFAULT_RETENTION_DAYS;
   if (parsed <= 0) return null;
+  return parsed;
+};
+
+export const parseBatchSize = () => {
+  const raw = process.env.RETENTION_BATCH_SIZE;
+  if (!raw) return DEFAULT_BATCH_SIZE;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_BATCH_SIZE;
   return parsed;
 };
 
@@ -45,12 +55,53 @@ export type RetentionCleanupResult = {
   messageDedupExpired: number;
 };
 
+/**
+ * Delete records in batches to avoid long-running queries and potential timeouts.
+ * Returns the total number of records deleted.
+ */
+const batchDelete = async (
+  db: Database,
+  table: PgTable,
+  idColumn: unknown,
+  whereClause: ReturnType<typeof lt> | ReturnType<typeof and>,
+  batchSize: number
+): Promise<number> => {
+  let totalDeleted = 0;
+  let deletedInBatch: number;
+
+  do {
+    // Use a subquery to select IDs to delete in batches
+    const result = await db.execute(sql`
+      WITH to_delete AS (
+        SELECT ${idColumn} FROM ${table}
+        WHERE ${whereClause}
+        LIMIT ${batchSize}
+      )
+      DELETE FROM ${table}
+      WHERE ${idColumn} IN (SELECT ${idColumn} FROM to_delete)
+      RETURNING ${idColumn}
+    `);
+    
+    deletedInBatch = result.rowCount ?? 0;
+    totalDeleted += deletedInBatch;
+  } while (deletedInBatch === batchSize);
+
+  return totalDeleted;
+};
+
+type CleanupOptions = { 
+  retentionDays?: number | null;
+  now?: Date;
+  batchSize?: number;
+};
+
 export const runRetentionCleanup = async (
   db: Database,
-  options?: { retentionDays?: number | null; now?: Date }
+  options?: CleanupOptions
 ): Promise<RetentionCleanupResult> => {
   const now = options?.now ?? new Date();
   const retentionDays = options?.retentionDays ?? parseRetentionDays();
+  const batchSize = options?.batchSize ?? parseBatchSize();
   const cutoff = getRetentionCutoff(now, retentionDays);
 
   if (!cutoff) {
@@ -69,73 +120,94 @@ export const runRetentionCleanup = async (
     };
   }
 
-  const messageDedupExpired = (
-    await db
-      .delete(messageDedup)
-      .where(lt(messageDedup.expiresAt, now))
-      .returning({ id: messageDedup.id })
-  ).length;
+  logger.info("core.retention.start", {
+    retentionDays,
+    cutoff: cutoff.toISOString(),
+    batchSize
+  });
 
-  const notificationsDeleted = (
-    await db
-      .delete(notifications)
-      .where(lt(notifications.createdAt, cutoff))
-      .returning({ id: notifications.id })
-  ).length;
+  // Delete expired message dedup entries
+  const messageDedupExpired = await batchDelete(
+    db,
+    messageDedup,
+    messageDedup.id,
+    lt(messageDedup.expiresAt, now),
+    batchSize
+  );
 
-  const scheduledJobsDeleted = (
-    await db
-      .delete(scheduledJobs)
-      .where(
-        and(
-          lt(scheduledJobs.createdAt, cutoff),
-          inArray(scheduledJobs.status, [
-            ScheduledJobStatus.completed,
-            ScheduledJobStatus.failed
-          ])
-        )
-      )
-      .returning({ id: scheduledJobs.id })
-  ).length;
+  // Delete old notifications
+  const notificationsDeleted = await batchDelete(
+    db,
+    notifications,
+    notifications.id,
+    lt(notifications.createdAt, cutoff),
+    batchSize
+  );
 
-  const bookingHistoryDeleted = (
-    await db
-      .delete(bookingStatusHistory)
-      .where(lt(bookingStatusHistory.createdAt, cutoff))
-      .returning({ id: bookingStatusHistory.id })
-  ).length;
+  // Delete completed/failed scheduled jobs
+  const scheduledJobsDeleted = await batchDelete(
+    db,
+    scheduledJobs,
+    scheduledJobs.id,
+    and(
+      lt(scheduledJobs.createdAt, cutoff),
+      inArray(scheduledJobs.status, [
+        ScheduledJobStatus.completed,
+        ScheduledJobStatus.failed
+      ])
+    )!,
+    batchSize
+  );
 
-  const bookingsDeleted = (
-    await db
-      .delete(bookings)
-      .where(lt(bookings.createdAt, cutoff))
-      .returning({ id: bookings.id })
-  ).length;
+  // Delete old booking status history
+  const bookingHistoryDeleted = await batchDelete(
+    db,
+    bookingStatusHistory,
+    bookingStatusHistory.id,
+    lt(bookingStatusHistory.createdAt, cutoff),
+    batchSize
+  );
 
-  const bookingStatesDeleted = (
-    await db
-      .delete(bookingStates)
-      .where(lt(bookingStates.updatedAt, cutoff))
-      .returning({ id: bookingStates.id })
-  ).length;
+  // Delete old bookings
+  const bookingsDeleted = await batchDelete(
+    db,
+    bookings,
+    bookings.id,
+    lt(bookings.createdAt, cutoff),
+    batchSize
+  );
 
-  const messageLogsDeleted = (
-    await db
-      .delete(messageLogs)
-      .where(lt(messageLogs.createdAt, cutoff))
-      .returning({ id: messageLogs.id })
-  ).length;
+  // Delete old booking states
+  const bookingStatesDeleted = await batchDelete(
+    db,
+    bookingStates,
+    bookingStates.id,
+    lt(bookingStates.updatedAt, cutoff),
+    batchSize
+  );
 
-  const auditLogsDeleted = (
-    await db
-      .delete(auditLogs)
-      .where(lt(auditLogs.createdAt, cutoff))
-      .returning({ id: auditLogs.id })
-  ).length;
+  // Delete old message logs
+  const messageLogsDeleted = await batchDelete(
+    db,
+    messageLogs,
+    messageLogs.id,
+    lt(messageLogs.createdAt, cutoff),
+    batchSize
+  );
+
+  // Delete old audit logs
+  const auditLogsDeleted = await batchDelete(
+    db,
+    auditLogs,
+    auditLogs.id,
+    lt(auditLogs.createdAt, cutoff),
+    batchSize
+  );
 
   logger.info("core.retention.complete", {
     retentionDays,
     cutoff: cutoff.toISOString(),
+    batchSize,
     messageLogs: messageLogsDeleted,
     auditLogs: auditLogsDeleted,
     notifications: notificationsDeleted,
