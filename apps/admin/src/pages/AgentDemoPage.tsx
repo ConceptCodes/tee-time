@@ -28,9 +28,10 @@ import {
 import { Card } from "@/components/ui/card";
 
 export default function AgentDemoPage() {
+  const agentApiUrl = import.meta.env.VITE_AGENT_API_URL;
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: "http://localhost:3000/api/chat",
+      api: `${agentApiUrl ?? "http://localhost:3000"}/chat`,
     }),
   });
 
@@ -60,9 +61,7 @@ export default function AgentDemoPage() {
             )}
 
             <ConversationContent>
-              {messages.map((message) => {
-                console.log(`Message parts [${message.role}]:`, message.parts);
-                return (
+              {messages.map((message) => (
                   <Message key={message.id} from={message.role}>
                     <MessageContent>
                       {message.parts.map((part, index) => {
@@ -100,8 +99,7 @@ export default function AgentDemoPage() {
                       })}
                     </MessageContent>
                   </Message>
-                );
-              })}
+                ))}
             </ConversationContent>
 
             <ConversationScrollButton />

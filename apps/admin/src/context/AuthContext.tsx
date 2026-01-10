@@ -1,9 +1,30 @@
 import { createContext, useContext, ReactNode } from "react"
 import { useSession } from "@/lib/auth-client"
 
+type User = {
+  id: string
+  email: string
+  name: string
+  image?: string | null
+  emailVerified: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+type Session = {
+  id: string
+  userId: string
+  expiresAt: Date
+  token: string
+  createdAt: Date
+  updatedAt: Date
+  ipAddress?: string | null
+  userAgent?: string | null
+}
+
 interface AuthContextType {
-  user: any
-  session: any
+  user: User | null
+  session: Session | null
   isLoading: boolean
   isAuthenticated: boolean
 }
