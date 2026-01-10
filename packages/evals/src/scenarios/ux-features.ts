@@ -4,7 +4,6 @@ import {
   createClubRepository,
   createClubLocationRepository,
   createClubLocationBayRepository,
-  createBookingStatusHistoryRepository,
 } from "@tee-time/database";
 import {
   createMemberProfile,
@@ -145,7 +144,7 @@ export const buildMultiBookingScenarios = (count: number): EvalScenario[] =>
     .slice(0, count)
     .map((scenario) => ({
       ...toEvalScenario("multi-booking", scenario),
-      run: async ({ now: Date }) => {
+      run: async ({ now }) => {
         const db = getDb();
 
         const clubs = await createClubRepository(db).listActive();
@@ -172,6 +171,20 @@ export const buildMultiBookingScenarios = (count: number): EvalScenario[] =>
         if (availableBays.length === 0) {
           return { status: "fail", details: "No available bays for test location" };
         }
+
+        const member = await createMemberProfile(db, {
+          phoneNumber: `+1555${Math.floor(Math.random() * 9_000_000 + 1_000_000)}`,
+          name: `Eval MultiBooking`,
+          timezone: "America/Chicago",
+          favoriteLocationLabel: "Eval",
+          preferredLocationLabel: undefined,
+          preferredTimeOfDay: undefined,
+          preferredBayLabel: undefined,
+          onboardingCompletedAt: now,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        });
 
         const bookingCount = Math.min(2, availableBays.length);
         for (let i = 0; i < bookingCount; i++) {
