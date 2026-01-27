@@ -6,8 +6,13 @@ import {
   createClubRepository,
   createFaqRepository,
   getDb,
+  createDb,
+  closeDb,
   type Database,
 } from "@tee-time/database";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { sql } from "drizzle-orm";
+import path from "path";
 import {
   clearBookingState,
   createMemberProfile,
@@ -15,10 +20,7 @@ import {
   saveBookingState,
   wrapFlowState,
 } from "@tee-time/core";
-import {
-  routeAgentMessage,
-  type RouterDecision,
-} from "@tee-time/agent";
+import { routeAgentMessage, type RouterDecision } from "@tee-time/agent";
 import {
   buildScenarios,
   type ClubInfo,
@@ -107,15 +109,15 @@ const shuffle = <T>(items: T[], seed: number) => {
 
 const toDecisionInfo = (decision: RouterDecision) => {
   if (decision.flow === "booking-new") {
-    const d = decision.decision;
+    const d = decision.decision as any;
     return {
       flow: decision.flow,
       type: d.type,
-      text: d.type === "review" ? d.summary : d.prompt ?? d.message,
+      text: d.type === "review" ? d.summary : (d.prompt ?? d.message),
     };
   }
   if (decision.flow === "booking-status") {
-    const d = decision.decision;
+    const d = decision.decision as any;
     return {
       flow: decision.flow,
       type: d.type,
@@ -123,7 +125,7 @@ const toDecisionInfo = (decision: RouterDecision) => {
     };
   }
   if (decision.flow === "cancel-booking") {
-    const d = decision.decision;
+    const d = decision.decision as any;
     return {
       flow: decision.flow,
       type: d.type,
@@ -131,7 +133,7 @@ const toDecisionInfo = (decision: RouterDecision) => {
     };
   }
   if (decision.flow === "modify-booking") {
-    const d = decision.decision;
+    const d = decision.decision as any;
     return {
       flow: decision.flow,
       type: d.type,
@@ -139,7 +141,7 @@ const toDecisionInfo = (decision: RouterDecision) => {
     };
   }
   if (decision.flow === "faq") {
-    const d = decision.decision;
+    const d = decision.decision as any;
     return {
       flow: decision.flow,
       type: d.type,
@@ -147,9 +149,13 @@ const toDecisionInfo = (decision: RouterDecision) => {
     };
   }
   if (decision.flow === "clarify") {
-    return { flow: decision.flow, type: "clarify", text: decision.prompt };
+    return {
+      flow: decision.flow,
+      type: "clarify",
+      text: (decision as any).prompt,
+    };
   }
-  return { flow: decision.flow, type: decision.flow, text: undefined };
+  return { flow: decision.flow, type: (decision as any).flow, text: undefined };
 };
 
 const decisionToResponse = (decision: RouterDecision) => {
@@ -160,7 +166,7 @@ const decisionToResponse = (decision: RouterDecision) => {
 const matchesExpectation = (
   decision: RouterDecision,
   expectation: EvalScenario["expect"],
-  allowFaqEscalation: boolean
+  allowFaqEscalation: boolean,
 ) => {
   if (!expectation) {
     return { status: "pass" as const };
@@ -169,8 +175,8 @@ const matchesExpectation = (
   const flows = Array.isArray(expectation.flow)
     ? expectation.flow
     : expectation.flow
-    ? [expectation.flow]
-    : [];
+      ? [expectation.flow]
+      : [];
   if (flows.length > 0 && !flows.includes(info.flow)) {
     return {
       status: "fail" as const,
@@ -261,37 +267,77 @@ const setupTestFixtures = async (db: Database) => {
   const locationRepo = createClubLocationRepository(db);
   const bayRepo = createClubLocationBayRepository(db);
 
-  const club = await clubRepo.create({
-    name: "Test Club",
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  const fixtureClubs = [
+    { name: "Downtown Lounge", locations: ["Main St", "East Side"] },
+    { name: "Fairway Simulator", locations: ["North Hub"] },
+    { name: "The Clubhouse", locations: ["Central"] },
+  ];
 
-  const location = await locationRepo.create({
-    clubId: club.id,
-    name: "Test Location",
-    address: "123 Test St",
-    locationPoint: `POINT(0 0)`,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  for (let i = 0; i < 5; i++) {
-    await bayRepo.create({
-      clubLocationId: location.id,
-      name: `Bay ${i + 1}`,
-      status: "available",
+  for (const fixture of fixtureClubs) {
+    const club = await clubRepo.create({
+      name: fixture.name,
+      isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    for (const locName of fixture.locations) {
+      const location = await locationRepo.create({
+        clubId: club.id,
+        name: locName,
+        address: `123 ${locName} Rd`,
+        locationPoint: { x: 0, y: 0 },
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      for (let i = 0; i < 5; i++) {
+        await bayRepo.create({
+          clubLocationId: location.id,
+          name: `Bay ${i + 1}`,
+          status: "available",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+  }
+};
+
+const clearDatabase = async (db: Database) => {
+  // Truncate in reverse dependency order
+  const tables = [
+    "audit_logs",
+    "message_logs",
+    "message_dedup",
+    "notifications",
+    "support_requests",
+    "scheduled_jobs",
+    "booking_status_history",
+    "booking_states",
+    "bookings",
+    "team_memberships",
+    "teams",
+    "faq_entries",
+    "staff_users",
+    "club_location_bays",
+    "club_locations",
+    "clubs",
+    "member_profiles",
+  ];
+  for (const table of tables) {
+    try {
+      await (db as any).execute(sql.raw(`TRUNCATE TABLE ${table} CASCADE`));
+    } catch (e) {
+      // Ignore if table doesn't exist yet
+    }
   }
 };
 
 const runAgentScenario = async (
   scenario: EvalScenario,
-  config: EvalConfig
+  config: EvalConfig,
 ): Promise<EvalScenarioReport> => {
   const start = Date.now();
   if (scenario.skipReason) {
@@ -321,7 +367,10 @@ const runAgentScenario = async (
   if (member) {
     await clearBookingState(db, member.id);
   }
-  const conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+  const conversationHistory: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }> = [];
   let lastDecision: RouterDecision | null = null;
 
   for (const turn of scenario.turns) {
@@ -346,7 +395,7 @@ const runAgentScenario = async (
             wrapFlowState("booking-status", {
               allowSelection: true,
               selectionOptions: decision.selectionOptions,
-            })
+            }),
           );
         } else {
           await clearBookingState(db, member.id);
@@ -369,7 +418,7 @@ const runAgentScenario = async (
   const evaluation = matchesExpectation(
     lastDecision,
     scenario.expect,
-    config.allowFaqEscalation
+    config.allowFaqEscalation,
   );
 
   if (member) {
@@ -388,7 +437,7 @@ const runAgentScenario = async (
 
 const runScenario = async (
   scenario: EvalScenario,
-  config: EvalConfig
+  config: EvalConfig,
 ): Promise<EvalScenarioReport> => {
   const start = Date.now();
   try {
@@ -426,7 +475,10 @@ const runScenario = async (
   }
 };
 
-const summarizeSuite = (suite: ScenarioSuite, scenarios: EvalScenarioReport[]) => {
+const summarizeSuite = (
+  suite: ScenarioSuite,
+  scenarios: EvalScenarioReport[],
+) => {
   const passed = scenarios.filter((s) => s.status === "pass").length;
   const failed = scenarios.filter((s) => s.status === "fail").length;
   const skipped = scenarios.filter((s) => s.status === "skip").length;
@@ -447,14 +499,37 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
 
   const startedAt = Date.now();
 
-  const db = getDb();
+  // Use local Postgres for evals (supports PostGIS)
+  const evalDbUrl = "postgres://localhost/teetime_evals";
+  process.env.DATABASE_URL = evalDbUrl;
+
+  console.log(`Connecting to evaluation database: ${evalDbUrl}`);
+  const db = createDb(evalDbUrl);
+
+  // Run migrations
+  console.log("Applying migrations...");
+  const migrationsFolder = path.resolve(
+    import.meta.dir,
+    "../../../packages/database/drizzle",
+  );
+
+  try {
+    await migrate(db as any, { migrationsFolder });
+  } catch (err) {
+    const error = err as Error;
+    console.error("Failed to migrate test database:", error);
+    process.exit(1);
+  }
+
+  // Always seed fresh data for clean runs
+  console.log("Cleaning evaluation database...");
+  await clearDatabase(db);
+
+  console.log("Seeding test fixtures...");
+  await setupTestFixtures(db);
 
   const clubs = await collectClubInfo();
   const faqQuestions = await collectFaqQuestions(config.counts.faq);
-
-  if (config.suites.includes("multi-booking" as any) && clubs.length === 0) {
-    await setupTestFixtures(db);
-  }
 
   const scenariosBySuite = buildScenarios({
     clubs,
@@ -462,27 +537,40 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
     counts: config.counts,
   });
 
-  const allSuites: Array<{ suite: ScenarioSuite; scenarios: EvalScenario[] }> = [
-    { suite: "booking", scenarios: scenariosBySuite.booking },
-    { suite: "booking-status", scenarios: scenariosBySuite["booking-status"] },
-    { suite: "cancel", scenarios: scenariosBySuite.cancel },
-    { suite: "modify", scenarios: scenariosBySuite.modify },
-    { suite: "onboarding", scenarios: scenariosBySuite.onboarding },
-    { suite: "multi-turn", scenarios: scenariosBySuite["multi-turn"] },
-    { suite: "faq", scenarios: scenariosBySuite.faq },
-    { suite: "fallback", scenarios: scenariosBySuite.fallback },
-    { suite: "edge-cases", scenarios: scenariosBySuite["edge-cases"] },
-    { suite: "updates", scenarios: scenariosBySuite.updates },
-    { suite: "state-persistence", scenarios: scenariosBySuite["state-persistence"] },
-    { suite: "multi-booking", scenarios: scenariosBySuite["multi-booking"] },
-    { suite: "course-correction", scenarios: scenariosBySuite["course-correction"] },
-  ];
+  const allSuites: Array<{ suite: ScenarioSuite; scenarios: EvalScenario[] }> =
+    [
+      { suite: "booking", scenarios: scenariosBySuite.booking },
+      {
+        suite: "booking-status",
+        scenarios: scenariosBySuite["booking-status"],
+      },
+      { suite: "cancel", scenarios: scenariosBySuite.cancel },
+      { suite: "modify", scenarios: scenariosBySuite.modify },
+      { suite: "onboarding", scenarios: scenariosBySuite.onboarding },
+      { suite: "multi-turn", scenarios: scenariosBySuite["multi-turn"] },
+      { suite: "faq", scenarios: scenariosBySuite.faq },
+      { suite: "fallback", scenarios: scenariosBySuite.fallback },
+      { suite: "edge-cases", scenarios: scenariosBySuite["edge-cases"] },
+      { suite: "updates", scenarios: scenariosBySuite.updates },
+      {
+        suite: "state-persistence",
+        scenarios: scenariosBySuite["state-persistence"],
+      },
+      { suite: "multi-booking", scenarios: scenariosBySuite["multi-booking"] },
+      {
+        suite: "course-correction",
+        scenarios: scenariosBySuite["course-correction"],
+      },
+    ];
 
   const filteredSuites = allSuites.filter((suite) =>
-    config.suites.includes(suite.suite)
+    config.suites.includes(suite.suite),
   );
 
-  const runSuite = async (suite: { suite: ScenarioSuite; scenarios: EvalScenario[] }) => {
+  const runSuite = async (suite: {
+    suite: ScenarioSuite;
+    scenarios: EvalScenario[];
+  }) => {
     const shuffled = shuffle(suite.scenarios, config.seed + suite.suite.length);
     const results: EvalScenarioReport[] = [];
     const suiteTotal = shuffled.length;
@@ -498,8 +586,8 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
         result.status === "pass"
           ? "[PASS]"
           : result.status === "skip"
-          ? "[SKIP]"
-          : "[FAIL]";
+            ? "[SKIP]"
+            : "[FAIL]";
       const detail = result.details ? ` - ${result.details}` : "";
       if (!config.summaryOnly && !config.parallel) {
         console.log(`${statusLabel} ${scenario.id}${detail}`);
@@ -526,10 +614,13 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
       skipped: acc.skipped + suite.skipped,
       total: acc.total + suite.total,
     }),
-    { passed: 0, failed: 0, skipped: 0, total: 0 }
+    { passed: 0, failed: 0, skipped: 0, total: 0 },
   );
 
   const finishedAt = Date.now();
+
+  await closeDb();
+
   return {
     startedAt: new Date(startedAt).toISOString(),
     finishedAt: new Date(finishedAt).toISOString(),
