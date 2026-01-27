@@ -10,6 +10,7 @@
   "dependencies": {
     "@tee-time/core": "workspace:*",
     "@tee-time/database": "workspace:*",
+    "@tee-time/config": "workspace:*",
     "drizzle-orm": "^0.38.0"
   }
 }
