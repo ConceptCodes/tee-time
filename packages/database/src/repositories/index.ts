@@ -10,3 +10,5 @@ export * from "./notifications";
 export * from "./scheduled-jobs";
 export * from "./staff";
 export * from "./support-requests";
+export * from "./team-memberships";
+export * from "./teams";
