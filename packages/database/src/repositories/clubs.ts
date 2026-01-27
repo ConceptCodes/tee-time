@@ -1,6 +1,6 @@
-import { and, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
+import { and, eq, getTableColumns, isNull, sql, type SQL } from "drizzle-orm";
 import { type Database } from "../client";
-import { clubLocations, clubs } from "../schema";
+import { clubLocations, clubs, teams } from "../schema";
 import { firstOrNull } from "./utils";
 
 export type Club = typeof clubs.$inferSelect;
@@ -66,6 +66,53 @@ export const createClubRepository = (db: Database) => ({
     const rows = await db.select({ count: sql<number>`count(*)` }).from(clubs);
     return Number(rows[0]?.count ?? 0);
   },
+  listByTeamId: async (teamId: string, params?: { limit?: number; offset?: number }): Promise<Club[]> => {
+    const query = db.select().from(clubs).where(eq(clubs.teamId, teamId));
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  listGlobal: async (params?: { limit?: number; offset?: number }): Promise<Club[]> => {
+    const query = db.select().from(clubs).where(isNull(clubs.teamId));
+    if (params?.limit) {
+      query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query.offset(params.offset);
+    }
+    return query;
+  },
+  assignToTeam: async (clubId: string, teamId: string): Promise<Club | null> => {
+    const rows = await db
+      .update(clubs)
+      .set({ teamId })
+      .where(eq(clubs.id, clubId))
+      .returning();
+    return firstOrNull(rows);
+  },
+  getClubWithTeam: async (clubId: string): Promise<{ club: Club; team: typeof teams.$inferSelect | null } | null> => {
+    const rows = await db
+      .select({
+        club: getTableColumns(clubs),
+        team: getTableColumns(teams)
+      })
+      .from(clubs)
+      .leftJoin(teams, eq(clubs.teamId, teams.id))
+      .where(eq(clubs.id, clubId));
+    
+    if (rows.length === 0) {
+      return null;
+    }
+    
+    return {
+      club: rows[0].club as Club,
+      team: rows[0].team as typeof teams.$inferSelect | null
+    };
+  }
 });
 
 export const createClubLocationRepository = (db: Database) => ({
