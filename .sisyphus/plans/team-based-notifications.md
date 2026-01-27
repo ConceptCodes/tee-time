@@ -518,7 +518,7 @@ bun test --watch
 
 ### Phase 4: Admin UI
 
-- [ ] 9. Teams UI: Create team management page in admin
+- [x] 9. Teams UI: Create team management page in admin
 
   **What to do**:
   - Create `apps/admin/src/pages/settings/TeamsTab.tsx`

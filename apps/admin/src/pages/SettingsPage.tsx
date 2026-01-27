@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import StaffTab from "@/pages/settings/StaffTab"
 import KnowledgeBaseTab from "@/pages/settings/KnowledgeBaseTab"
+import TeamsTab from "@/pages/settings/TeamsTab"
 
 
 export default function SettingsPage() {
@@ -19,13 +20,17 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
-      <Tabs defaultValue="staff" className="space-y-4">
+       <Tabs defaultValue="staff" className="space-y-4">
         <TabsList>
           <TabsTrigger value="staff">Staff Management</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
           <TabsTrigger value="kb">Knowledge Base</TabsTrigger>
         </TabsList>
         <TabsContent value="staff" className="space-y-4">
             <StaffTab />
+        </TabsContent>
+        <TabsContent value="teams" className="space-y-4">
+            <TeamsTab />
         </TabsContent>
         <TabsContent value="kb" className="space-y-4">
             <KnowledgeBaseTab />

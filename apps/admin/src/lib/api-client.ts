@@ -54,6 +54,15 @@ export const apiPut = async <T,>(path: string, body: unknown): Promise<T> =>
     body: JSON.stringify(body),
   })
 
+export const apiPatch = async <T,>(path: string, body: unknown): Promise<T> =>
+  apiFetch<T>(path, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
 export const apiDelete = async <T,>(path: string): Promise<T> =>
   apiFetch<T>(path, {
     method: "DELETE",
