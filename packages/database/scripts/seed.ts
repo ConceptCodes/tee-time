@@ -1,34 +1,30 @@
 import { getDb } from "../src/client";
-import { createClubRepository } from "../src/repositories/clubs";
-import { createClubLocationRepository } from "../src/repositories/clubs";
-import { createClubLocationBayRepository } from "../src/repositories/bays";
-import { createFaqRepository } from "../src/repositories/faqs";
-import { createMemberRepository } from "../src/repositories/members";
-import { createBookingRepository } from "../src/repositories/bookings";
-import { generateFaqEmbedding } from "@tee-time/core";
-import { clubs, bookings, bookingStatusHistory, faqEntries } from "../src/schema";
-import { eq } from "drizzle-orm";
-async function main() {
-  console.log("🌱 Seeding database...");
+import { staffUsers } from "../src/schema";
+import { simpleHash } from "./seed-demo-staff";
+
+export async function seedDemoUser() {
+  const email = "admin@teetime.com";
+  const password = "DemoPass123!";
+  const hash = await simpleHash(password);
 
   const db = getDb();
-  
-  // -- Repositories --
-  const clubRepo = createClubRepository(db);
-  const locationRepo = createClubLocationRepository(db);
-  const bayRepo = createClubLocationBayRepository(db);
-  const faqRepo = createFaqRepository(db);
-  const memberRepo = createMemberRepository(db);
-  const bookingRepo = createBookingRepository(db);
 
-  // -- 1. Clubs --
-  console.log("Creating clubs...");
-  const clubData = [
-    { name: "Topgolf", isActive: true },
-    { name: "Drive Shack", isActive: true },
-    { name: "Puttery", isActive: true },
-    { name: "PopStroke", isActive: true },
-  ];
+  await db.insert(staffUsers).values({
+      email,
+      passwordHash: hash,
+      passwordSalt: "",
+      name: "Demo Admin",
+      role: "admin",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+  console.log("Demo user created successfully");
+  console.log("Email:", email);
+  console.log("Password:", password);
+  console.log("Use these credentials to login at http://localhost:5173/login");
+}
 
   for (const c of clubData) {
     const existing = await db.query.clubs.findFirst({
@@ -223,3 +219,31 @@ main().catch((err) => {
     console.error(err);
     process.exit(1);
 });
+
+import { getDb } from "../src/client";
+import { staffUsers } from "../src/schema";
+
+async function seedDemoUser() {
+  const email = "admin@teetime.com";
+  const password = "DemoPass123!";
+  const hash = password.split("").map(c => c.charCodeAt(0)).reduce((a, b) => ((a << 5) - a + b).toString(16);
+
+  const db = getDb();
+
+  await db.insert(staffUsers).values({
+      email,
+      passwordHash: hash,
+      passwordSalt: "",
+      name: "Demo Admin",
+      role: "admin",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+  console.log("Demo user created successfully");
+  console.log("Email:", email);
+  console.log("Password:", password);
+  console.log("Use these credentials to login at http://localhost:5173/login");
+}
+

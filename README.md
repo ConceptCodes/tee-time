@@ -8,6 +8,7 @@ An AI-powered automated WhatsApp booking system designed to streamline golf tee 
 - `apps/api`: Hono + TypeScript API (admin endpoints + health + auth).
 - `apps/worker`: Scheduled job runner, data retention cleanup, and report generation.
 - `packages/agent`: AI SDK agent setup (OpenRouter provider).
+- `packages/config`: Environment variable management.
 - `packages/core`: Business logic and services.
 - `packages/database`: Drizzle schema, migrations, and repositories.
 - `packages/evals`: Agent eval runner (booking, FAQ, fallback, updates).
