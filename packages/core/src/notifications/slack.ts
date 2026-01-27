@@ -141,15 +141,38 @@ const parseUsernames = (value?: string) =>
         .filter(Boolean)
     : [];
 
-export const notifyBooking = async (payload: { text: string }) => {
+export const notifyBooking = async (payload: { text: string; teamChannel?: string }) => {
   const updatesChannel = process.env.BOOKING_SLACK_UPDATES_CHANNEL;
   const usernames = parseUsernames(process.env.BOOKING_SLACK_USERNAMES);
-  if (!updatesChannel && usernames.length === 0) {
+  const teamChannel = payload.teamChannel?.trim();
+  
+  if (!updatesChannel && !teamChannel && usernames.length === 0) {
     return;
   }
-  await notifySlackTargets({
-    text: payload.text,
-    channel: updatesChannel,
-    usernames,
-  });
+  
+  try {
+    if (teamChannel) {
+      await notifySlackTargets({
+        text: payload.text,
+        channel: teamChannel,
+      });
+    }
+
+    if (updatesChannel) {
+      await notifySlackTargets({
+        text: payload.text,
+        channel: updatesChannel,
+      });
+    }
+
+    if (usernames.length) {
+      const userIds = await resolveSlackUserIds(usernames);
+      await Promise.all(
+        userIds.map((userId) => postSlackDm({ userId, text: payload.text }))
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn("core.slack.notifyFailed", { error: message });
+  }
 };
