@@ -136,3 +136,18 @@ export const faqSchemas = {
     isActive: z.boolean().optional()
   })
 };
+
+export const teamSchemas = {
+  create: z.object({
+    name: z.string().min(1),
+    slackChannel: z.string().min(1).optional()
+  }),
+  update: z.object({
+    name: z.string().min(1).optional(),
+    slackChannel: z.string().min(1).optional()
+  }),
+  addMember: z.object({
+    staffUserId: z.string().uuid()
+  })
+};
+

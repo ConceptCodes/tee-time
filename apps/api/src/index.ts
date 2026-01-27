@@ -22,6 +22,7 @@ import { bookingHistoryRoutes } from "./routes/admin/booking-history";
 import { bookingRoutes } from "./routes/admin/bookings";
 import { faqRoutes } from "./routes/admin/faqs";
 import { reportRoutes } from "./routes/admin/reports";
+import { teamRoutes } from "./routes/admin/teams";
 import { whatsappWebhookRoutes } from "./routes/webhooks/whatsapp";
 import { chatRoutes } from "./routes/chat";
 
@@ -75,9 +76,10 @@ app.route("/api/admin/overview", overviewRoutes);
 app.route("/api/support-requests", supportRequestRoutes);
 app.route("/api/audit-logs", auditLogRoutes);
 app.route("/api/message-logs", messageLogRoutes);
-app.route("/api/bookings", bookingRoutes); // NOTE: why two?
+app.route("/api/bookings", bookingRoutes);
 app.route("/api/bookings", bookingHistoryRoutes);
 app.route("/api/faqs", faqRoutes);
+app.route("/api/teams", teamRoutes);
 app.route("/api/reports", reportRoutes);
 app.route("/api/chat", chatRoutes);
 app.route("/webhooks/whatsapp", whatsappWebhookRoutes);

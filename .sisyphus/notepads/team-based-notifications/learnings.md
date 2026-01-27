@@ -635,3 +635,205 @@ notifyBooking orchestrates:
 - Minimal implementation (no over-engineering)
 - Type-safe throughout
 - Clear variable names and logic flow
+
+## [2026-01-27] Team Management API Endpoints - Task 7 Complete
+
+### API Implementation Summary
+
+Created comprehensive REST API for team management with 7 endpoints following existing Hono + Zod patterns.
+
+### File Changes
+
+1. **New File**: `apps/api/src/routes/admin/teams.ts` (108 lines)
+   - 7 endpoints implementing full CRUD operations
+   - Uses repository factory pattern: `createTeamRepository(db)` and `createTeamMembershipRepository(db)`
+   - Auth middleware applied: `requireAuth()`, `requireRole(["admin", "staff"])`
+   - Zod validation on request bodies via `validateJson()` middleware
+
+2. **Modified**: `apps/api/src/schemas.ts`
+   - Added `teamSchemas` export with three Zod schemas:
+     - `create`: `{ name: string, slackChannel?: string }`
+     - `update`: Both fields optional (PATCH support)
+     - `addMember`: `{ staffUserId: uuid }`
+
+3. **Modified**: `apps/api/src/index.ts`
+   - Added import: `import { teamRoutes } from "./routes/admin/teams"`
+   - Registered route: `app.route("/api/teams", teamRoutes)`
+   - Removed obsolete comment about duplicate bookings routes
+
+### Endpoint Implementation Details
+
+#### 1. GET /api/teams
+```typescript
+- No auth requirements beyond admin/staff
+- No pagination (returns all teams - can be added later)
+- Response: `{ data: Team[] }`
+- Status: 200
+```
+
+#### 2. POST /api/teams
+```typescript
+- Validation: teamSchemas.create (name required, slackChannel optional)
+- Creates team with current timestamp
+- Response: `{ data: Team }` with id and timestamps
+- Status: 201 Created
+- Note: slackChannel is nullable - allows teams without Slack integration initially
+```
+
+#### 3. PATCH /api/teams/:id
+```typescript
+- Validation: teamSchemas.update (both fields optional)
+- Updates specified fields, preserves others
+- Returns 404 if team not found
+- Updates updatedAt timestamp
+- Response: `{ data: Team }` or `{ error: "Not Found" }` (404)
+- Status: 200 or 404
+```
+
+#### 4. DELETE /api/teams/:id
+```typescript
+- No validation required
+- Calls teamRepo.delete() which:
+  1. Sets all clubs.teamId = null (orphans to global)
+  2. Deletes team record
+- Error handling: Try/catch returns 500 on database errors
+- Response: `{ success: true }` or `{ error: "..." }` (500)
+- Status: 200 or 500
+```
+
+#### 5. GET /api/teams/:id/members
+```typescript
+- Lists all staff members in a team
+- Calls membershipRepo.listByTeamId(teamId)
+- Returns array of TeamMembership records
+- Response: `{ data: TeamMembership[] }`
+- Status: 200
+- No team existence check - returns empty array if team not found (acceptable per pattern)
+```
+
+#### 6. POST /api/teams/:id/members
+```typescript
+- Validation: teamSchemas.addMember (staffUserId required, must be valid UUID)
+- Calls membershipRepo.addMember(teamId, staffUserId)
+- Handles duplicate gracefully: Repository returns existing membership (no error)
+- Error handling: Try/catch for unexpected database errors
+- Response: `{ data: TeamMembership }` or `{ error: "..." }` (500)
+- Status: 201 Created or 500
+```
+
+#### 7. DELETE /api/teams/:id/members/:staffId
+```typescript
+- Removes staff member from team
+- Calls membershipRepo.removeMember(teamId, staffUserId)
+- Returns boolean: true if removed, false if not found
+- Status 404 if membership not found, 200 if success
+- Error handling: Try/catch for database errors (500)
+- Response: `{ success: true }`, `{ error: "Membership not found" }` (404), or `{ error: "..." }` (500)
+```
+
+### Pattern Adherence Analysis
+
+#### Hono Route Pattern
+- ✅ Follows staff.ts and clubs.ts patterns exactly
+- ✅ Uses `async (c) =>` handlers with context parameter
+- ✅ Responses via `c.json()` with appropriate status codes
+- ✅ Middleware: `requireAuth()` and `requireRole()` from middleware module
+- ✅ Validation: `validateJson(schema)` middleware pattern
+- ✅ Gets validated body via `c.get("validatedBody") as z.infer<typeof schema>`
+
+#### Error Handling Pattern
+- ✅ Returns 404 for not found (matches staff.ts pattern)
+- ✅ Returns 500 for unexpected server errors with try/catch
+- ✅ Non-blocking: No throwing from route handlers, all errors caught
+- ✅ Error response format: `{ error: string }` with appropriate HTTP status
+
+#### Database Access Pattern
+- ✅ Gets db via `getDb()` (singleton, consistent with other routes)
+- ✅ Creates repositories from factories: `createTeamRepository(db)`
+- ✅ Uses repository methods (no direct queries in route handlers)
+- ✅ Type-safe: All repository methods return fully typed objects
+
+#### Zod Validation Pattern
+- ✅ Schemas exported as objects with multiple schemas (like `staffSchemas`, `clubLocationSchemas`)
+- ✅ Uses standard Zod patterns: `z.object()`, `z.string()`, `z.uuid()`
+- ✅ `.min(1)` on required strings prevents empty strings
+- `.optional()` on nullable fields like `slackChannel`
+- ✅ `create` vs `update` schemas: create requires fields, update makes all optional
+
+### HTTP Status Code Consistency
+
+| Status | Meaning | Used For |
+|--------|---------|----------|
+| 200 | OK | GET, PATCH success; DELETE success |
+| 201 | Created | POST success (new resource) |
+| 400 | Bad Request | Validation failures (handled by middleware) |
+| 404 | Not Found | Team not found on PATCH, membership not found on DELETE |
+| 500 | Server Error | Unexpected database errors in try/catch blocks |
+
+### Key Design Decisions
+
+1. **No Pagination on GET /api/teams**
+   - Returns all teams (typically small dataset)
+   - Can be added later if needed (existing pattern in clubs, members)
+   - Keeps implementation minimal per requirements
+
+2. **404 vs Error Response**
+   - PATCH returns 404 if team not found (standard REST convention)
+   - DELETE membership returns 404 if membership not found
+   - DELETE team returns 200 success (no concept of "team not found" - idempotent)
+
+3. **Status 201 vs 200**
+   - POST endpoints return 201 Created (following staff.ts pattern)
+   - Semantically correct: new resources are created
+
+4. **Optional slackChannel**
+   - `slackChannel?: string` in Zod schema allows teams without Slack initially
+   - Admin can update later via PATCH
+   - Matches booking notification requirement: only sends to channel if configured
+
+5. **Error Handling on Add/Remove Member**
+   - Add member catches duplicate gracefully (repository handles 23505 unique constraint)
+   - Remove member returns 404 if membership not found
+   - Consistent with database repository behavior
+
+### Repository Method Signatures Used
+
+All methods are async and return typed objects:
+
+**TeamRepository**:
+```typescript
+create(data: NewTeam): Promise<Team>
+listAll(): Promise<Team[]>
+update(id: string, data: Partial<NewTeam>): Promise<Team | null>
+delete(id: string): Promise<void>
+```
+
+**TeamMembershipRepository**:
+```typescript
+addMember(teamId: string, staffUserId: string): Promise<TeamMembership>
+removeMember(teamId: string, staffUserId: string): Promise<boolean>
+listByTeamId(teamId: string): Promise<TeamMembership[]>
+```
+
+### Verification
+
+✅ **Biome check**: Passed (no lint/format errors)
+✅ **Syntax validation**: JavaScript node --check passed
+✅ **Imports**: All imports resolve correctly (database, schemas, middleware)
+✅ **Route registration**: teamRoutes imported and registered in index.ts
+✅ **Middleware consistency**: Same auth/validation patterns as existing routes
+
+### Code Quality Notes
+
+- No unnecessary comments (removed route documentation duplicates)
+- Type safety throughout: `z.infer<typeof schema>` type guards
+- Consistent naming: `teamRepo`, `membershipRepo`, `parsed`, `db`
+- Clean error handling: Try/catch only where needed for database operations
+- Follows principle of least surprise: Standard REST semantics
+
+### Next Steps Dependencies
+
+- Task 8 (Club API Updates): Can now update clubs with team assignment via existing PATCH endpoint
+- Tasks 9-11 (Admin UI): Team endpoints now available for React Query integration
+- Full flow ready: Teams created → Members assigned → Clubs assigned → Bookings routed to Slack
+

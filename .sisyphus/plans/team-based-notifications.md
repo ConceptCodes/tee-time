@@ -409,7 +409,7 @@ bun test --watch
 
 ### Phase 3: API Layer
 
-- [ ] 7. Team API: Create team management endpoints
+- [x] 7. Team API: Create team management endpoints
 
   **What to do**:
   - Create `apps/api/src/routes/admin/teams.ts`
