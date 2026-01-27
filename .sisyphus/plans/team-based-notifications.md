@@ -621,7 +621,7 @@ bun test --watch
 
 ---
 
-- [ ] 11. Staff UI Updates: Show team memberships
+- [x] 11. Staff UI Updates: Show team memberships
 
   **What to do**:
   - Modify `apps/admin/src/pages/settings/StaffTab.tsx`

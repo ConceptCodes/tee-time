@@ -48,27 +48,29 @@ export default function StaffTab() {
           </Empty>
         ) : (
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
+             <TableHeader>
+               <TableRow>
+                 <TableHead>Name</TableHead>
+                 <TableHead>Email</TableHead>
+                 <TableHead>Role</TableHead>
+                 <TableHead>Status</TableHead>
+                 <TableHead>Teams</TableHead>
+               </TableRow>
             </TableHeader>
             <TableBody>
-              {(staffQuery.data ?? []).map((staffMember) => (
-                <TableRow key={staffMember.id}>
-                  <TableCell className="font-medium">{staffMember.name}</TableCell>
-                  <TableCell>{staffMember.email}</TableCell>
-                  <TableCell className="capitalize">{staffMember.role}</TableCell>
-                  <TableCell>
-                      <Badge variant={staffMember.isActive ? "default" : "secondary"}>
-                      {staffMember.isActive ? "active" : "inactive"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
+               {(staffQuery.data ?? []).map((staffMember) => (
+                 <TableRow key={staffMember.id}>
+                   <TableCell className="font-medium">{staffMember.name}</TableCell>
+                   <TableCell>{staffMember.email}</TableCell>
+                   <TableCell className="capitalize">{staffMember.role}</TableCell>
+                   <TableCell>
+                       <Badge variant={staffMember.isActive ? "default" : "secondary"}>
+                       {staffMember.isActive ? "active" : "inactive"}
+                     </Badge>
+                   </TableCell>
+                   <TableCell>-</TableCell>
+                 </TableRow>
+               ))}
             </TableBody>
           </Table>
         )}

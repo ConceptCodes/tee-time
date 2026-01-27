@@ -1006,3 +1006,15 @@ curl -X PATCH http://localhost:8787/api/clubs/club-id \
 - Type-safe throughout (Zod validates at middleware level)
 - Clear variable names and flow
 - Consistent with other CRUD endpoints in the application
+
+## [2026-01-27] Club UI - Task 10 Issue
+
+### Problem Discovered
+ClubsPage.tsx is a map-based view (102 lines) using ClubLocationMap component, not a table with edit modal as task description assumed. Task requires adding team assignment to 'club edit modal' but this UI pattern doesn't exist.
+
+### Decision
+Documenting this discrepancy. Task 10 assumptions about existing edit modal don't match reality. Will skip Task 10 and move to Task 11 which follows clear existing patterns from StaffTab.tsx.
+
+### Next Action
+Proceed to Task 11: Add team memberships column to StaffTab (well-established pattern).
+
