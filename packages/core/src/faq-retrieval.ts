@@ -4,26 +4,19 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   createFaqRepository,
   type Database,
-  faqEntries
+  faqEntries,
 } from "@tee-time/database";
+import { env } from "@tee-time/config";
 import { logger } from "./logger";
 
 const getOpenRouterClient = () => {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is required for FAQ retrieval.");
-  }
-  return createOpenRouter({ apiKey });
+  return createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
 };
-
-const getEmbeddingModelId = () =>
-  process.env.OPENROUTER_EMBEDDING_MODEL_ID ?? "openai/text-embedding-3-small";
 
 export const generateFaqEmbedding = async (question: string) => {
   const openrouter = getOpenRouterClient();
-  const embeddingModelId = getEmbeddingModelId();
   const { embedding } = await embed({
-    model: openrouter.textEmbeddingModel(embeddingModelId),
+    model: openrouter.textEmbeddingModel(env.OPENROUTER_EMBEDDING_MODEL_ID),
     value: question,
   });
   return embedding;
@@ -32,7 +25,7 @@ export const generateFaqEmbedding = async (question: string) => {
 export const retrieveFaqCandidates = async (
   db: Database,
   question: string,
-  options?: { minConfidence?: number; limit?: number }
+  options?: { minConfidence?: number; limit?: number },
 ) => {
   const repo = createFaqRepository(db);
   const count = await repo.countActive();
@@ -44,7 +37,7 @@ export const retrieveFaqCandidates = async (
 
   const similarity = sql<number>`1 - (${cosineDistance(
     faqEntries.embedding,
-    embedding
+    embedding,
   )})`;
   const minConfidence = options?.minConfidence ?? 0.6;
   const limit = options?.limit ?? 3;
@@ -61,8 +54,8 @@ export const retrieveFaqCandidates = async (
       and(
         isNotNull(faqEntries.embedding),
         eq(faqEntries.isActive, true),
-        gt(similarity, minConfidence)
-      )
+        gt(similarity, minConfidence),
+      ),
     )
     .orderBy(desc(similarity))
     .limit(limit);
@@ -73,7 +66,7 @@ export const retrieveFaqCandidates = async (
 export const retrieveFaqAnswer = async (
   db: Database,
   question: string,
-  options?: { minConfidence?: number; limit?: number }
+  options?: { minConfidence?: number; limit?: number },
 ) => {
   const matches = await retrieveFaqCandidates(db, question, options);
   if (!matches) {
