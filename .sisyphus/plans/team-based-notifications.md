@@ -472,7 +472,7 @@ bun test --watch
 
 ---
 
-- [ ] 8. Club API Updates: Add team assignment endpoint
+- [x] 8. Club API Updates: Add team assignment endpoint
 
   **What to do**:
   - Modify `apps/api/src/routes/admin/clubs.ts`

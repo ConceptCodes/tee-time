@@ -837,3 +837,172 @@ listByTeamId(teamId: string): Promise<TeamMembership[]>
 - Tasks 9-11 (Admin UI): Team endpoints now available for React Query integration
 - Full flow ready: Teams created → Members assigned → Clubs assigned → Bookings routed to Slack
 
+
+## [2026-01-27] Club API Updates - Team Assignment Endpoint - Task 8 Complete
+
+### API Endpoint Implementation Summary
+
+Added PATCH endpoint to club management API for team assignment capability.
+
+### File Changes
+
+1. **Modified**: `apps/api/src/schemas.ts`
+   - Added `clubSchemas` export with `update` schema
+   - Schema: `{ teamId: z.string().uuid().nullable().optional() }`
+   - Placed before clubLocationSchemas (alphabetical organization)
+
+2. **Modified**: `apps/api/src/routes/admin/clubs.ts`
+   - Added import: `import { createClubRepository } from "@tee-time/database"`
+   - Updated imports: Changed to import both `clubSchemas` and `clubLocationSchemas`
+   - Added PATCH handler after POST /api/clubs/:id/locations endpoint
+
+### Endpoint Implementation Details
+
+#### PATCH /api/clubs/:id
+
+**Purpose**: Assign a club to a team or remove team assignment (make global)
+
+**Authentication**: Requires `admin` or `staff` role via middleware
+
+**Request Body**:
+```json
+{
+  "teamId": "uuid-string" | null | undefined
+}
+```
+
+**Response Codes**:
+- 200 OK: Club updated successfully, returns `{ data: Club }`
+- 404 Not Found: Club doesn't exist, returns `{ error: "Club not found" }`
+- 400 Bad Request: No teamId field in request, returns `{ error: "No updates provided" }`
+- 400 Bad Request: Invalid UUID format for teamId (caught by Zod middleware)
+
+**Request Handling Logic**:
+```typescript
+clubRoutes.patch("/:id", validateJson(clubSchemas.update), async (c) => {
+  const parsed = c.get("validatedBody") as z.infer<typeof clubSchemas.update>;
+  const db = getDb();
+  const clubRepo = createClubRepository(db);
+  
+  if ("teamId" in parsed) {
+    const updated = await clubRepo.assignToTeam(c.req.param("id"), parsed.teamId);
+    if (!updated) {
+      return c.json({ error: "Club not found" }, 404);
+    }
+    return c.json({ data: updated });
+  }
+  
+  return c.json({ error: "No updates provided" }, 400);
+});
+```
+
+**Key Implementation Details**:
+1. Validates schema using Zod middleware: `validateJson(clubSchemas.update)`
+2. Gets validated body from context: `c.get("validatedBody")`
+3. Creates club repository from database: `createClubRepository(db)`
+4. Calls repository method: `assignToTeam(clubId, teamId)` where:
+   - `clubId` comes from URL param: `c.req.param("id")`
+   - `teamId` comes from request body, can be:
+     - Valid UUID string (assign to team)
+     - `null` (make club global/remove team)
+     - `undefined` (field not provided, but check in schema prevents empty body)
+5. Repository returns updated club or null
+6. Returns 404 if club not found
+7. Returns 400 if "teamId" not in parsed body (no-op request)
+
+### Schema Design Patterns
+
+**clubSchemas.update**:
+```typescript
+z.object({
+  teamId: z.string().uuid().nullable().optional()
+})
+```
+
+**Pattern Explanation**:
+- `z.string().uuid()`: Validates value is a valid UUID string
+- `.nullable()`: Allows null values (for unsetting team assignment)
+- `.optional()`: Field may be omitted from request body
+- Combined: Accepts `"uuid-string" | null | undefined`
+
+**Zod Behavior**:
+- If teamId not provided: Field omitted from parsed object
+- If teamId is null: Field present in parsed object with null value
+- If teamId is valid UUID: Field present with UUID value
+- If teamId is invalid UUID: Zod validation fails (caught by middleware, returns 400)
+- If teamId is empty string: Zod validation fails (not a UUID)
+
+### Pattern Adherence
+
+✅ **Hono Route Pattern**: Async handler with context parameter
+✅ **Validation Pattern**: Uses `validateJson(schema)` middleware like other routes
+✅ **Repository Pattern**: Creates factory from database like teams.ts and staff.ts
+✅ **Error Handling**: 
+   - Returns 404 for not found (matches staff.ts)
+   - Returns 400 for bad request (matches clubLocationSchemas usage)
+   - No try/catch needed (repository doesn't throw on not found)
+✅ **Response Format**: `{ data: Club }` on success, `{ error: string }` on error
+✅ **HTTP Status Codes**: 200, 400, 404 (standard REST semantics)
+
+### Null vs Undefined Handling
+
+**Setting club to global (removing team)**:
+```bash
+curl -X PATCH http://localhost:8787/api/clubs/club-id \
+  -H "Content-Type: application/json" \
+  -d '{"teamId": null}'
+```
+→ `assignToTeam(clubId, null)` called → club.teamId set to NULL in database
+
+**Assigning to team**:
+```bash
+curl -X PATCH http://localhost:8787/api/clubs/club-id \
+  -H "Content-Type: application/json" \
+  -d '{"teamId": "valid-uuid"}'
+```
+→ `assignToTeam(clubId, "valid-uuid")` called → club.teamId updated in database
+
+**Invalid request (no teamId)**:
+```bash
+curl -X PATCH http://localhost:8787/api/clubs/club-id \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+→ "teamId" not in parsed → returns 400 "No updates provided"
+
+### Backward Compatibility
+
+- Endpoint is new, no breaking changes
+- Existing club routes unchanged (GET, POST locations)
+- Club schema already has teamId field (added in Task 1)
+- Repository method assignToTeam already exists (added in Task 4)
+- Club repository accepts null for teamId (tested in Task 4)
+
+### Dependencies Satisfied
+
+✅ Task 1: Schema has teamId column on clubs table
+✅ Task 4: Repository has assignToTeam(clubId, teamId) method
+✅ Task 7: Team endpoints exist (can verify team exists before assignment if needed)
+
+### Verification Status
+
+✅ **TypeScript Compilation**: `bun build src/index.ts --target=bun` passed
+✅ **Schema Compilation**: `bun build src/schemas.ts --target=bun` passed
+✅ **Imports**: All imports resolve (database, schemas, middleware)
+✅ **Zod Schema**: Accepts UUID string, null, or undefined
+✅ **Route Registration**: PATCH endpoint added to clubRoutes object
+✅ **Error Handling**: Returns 404, 400, and 200 appropriately
+
+### Next Steps Dependencies
+
+- Task 9: Admin UI can now send PATCH requests to update club team assignment
+- UI Integration: Pass selected teamId from team dropdown to endpoint
+- Testing: Manual verification commands provided in task requirements
+
+### Code Quality
+
+- No unnecessary logic or comments
+- Minimal implementation following existing patterns
+- Type-safe throughout (Zod validates at middleware level)
+- Clear variable names and flow
+- Consistent with other CRUD endpoints in the application

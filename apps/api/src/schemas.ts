@@ -21,6 +21,12 @@ export const pointSchema = z.object({
   y: z.number()
 });
 
+export const clubSchemas = {
+  update: z.object({
+    teamId: z.string().uuid().nullable().optional()
+  })
+};
+
 export const clubLocationSchemas = {
   create: z.object({
     name: z.string().min(1),

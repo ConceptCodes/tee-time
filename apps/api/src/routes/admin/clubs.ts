@@ -4,13 +4,14 @@ import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
 import { getDb } from "@tee-time/database";
+import { createClubRepository } from "@tee-time/database";
 import {
   createClubLocation,
   listClubLocations,
   listClubs,
   listNearbyClubLocations
 } from "@tee-time/core";
-import { clubLocationSchemas } from "../../schemas";
+import { clubSchemas, clubLocationSchemas } from "../../schemas";
 import { paginatedResponse, parsePagination } from "../../pagination";
 
 export const clubRoutes = new Hono<{ Variables: ApiVariables }>();
@@ -85,4 +86,20 @@ clubRoutes.post(
     updatedAt: now
   });
   return c.json({ data: location }, 201);
+});
+
+clubRoutes.patch("/:id", validateJson(clubSchemas.update), async (c) => {
+  const parsed = c.get("validatedBody") as z.infer<typeof clubSchemas.update>;
+  const db = getDb();
+  const clubRepo = createClubRepository(db);
+  
+  if ("teamId" in parsed) {
+    const updated = await clubRepo.assignToTeam(c.req.param("id"), parsed.teamId);
+    if (!updated) {
+      return c.json({ error: "Club not found" }, 404);
+    }
+    return c.json({ data: updated });
+  }
+  
+  return c.json({ error: "No updates provided" }, 400);
 });
