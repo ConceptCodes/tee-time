@@ -9,8 +9,6 @@ import { sessionMiddleware } from "./middleware/auth";
 import { traceMiddleware } from "./middleware/trace";
 import type { ApiVariables } from "./middleware/types";
 
-import { getDb } from "@tee-time/database";
-
 import { staffRoutes } from "./routes/admin/staff";
 import { meRoutes } from "./routes/admin/me";
 import { clubRoutes } from "./routes/admin/clubs";
@@ -27,11 +25,14 @@ import { reportRoutes } from "./routes/admin/reports";
 import { whatsappWebhookRoutes } from "./routes/webhooks/whatsapp";
 import { chatRoutes } from "./routes/chat";
 
+import { getDb } from "@tee-time/database";
+import { env } from "@tee-time/config";
+
 const app = new Hono<{ Variables: ApiVariables }>();
 
-app.get('/', (c) => {
-  return c.text("Hello World")
-})
+app.get("/", (c) => {
+  return c.text("Hello World");
+});
 
 app.use("*", traceMiddleware());
 app.use("*", loggingMiddleware());
@@ -41,7 +42,7 @@ app.use(
   "*",
   cors({
     origin: (origin) => {
-      const allowedOrigin = process.env.ADMIN_APP_ORIGIN ?? "http://localhost:5173";
+      const allowedOrigin = env.ADMIN_APP_ORIGIN;
       // Allow the specific origin or any origin if it matches the pattern (for development flexibility)
       if (origin === allowedOrigin || !origin) return origin;
       return allowedOrigin;
@@ -49,7 +50,7 @@ app.use(
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 app.get("/health", (c) => c.json({ ok: true }));
 app.get("/ready", async (c) => {

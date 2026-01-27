@@ -13,6 +13,7 @@
     "@tee-time/agent": "workspace:*",
     "@tee-time/core": "workspace:*",
     "@tee-time/database": "workspace:*",
+    "@tee-time/config": "workspace:*",
     "ai": "^6.0.3",
     "better-auth": "^1.4.0",
     "hono": "^4.6.8",
