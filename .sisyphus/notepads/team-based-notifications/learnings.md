@@ -494,3 +494,144 @@ This codebase uses:
 - Club/team routing in booking notifications is now ready
 - Admin UI can pass teamChannel from club data
 
+
+## [2026-01-27] Booking Integration - Task 6 Complete
+
+### TDD Workflow Execution
+
+#### RED Phase
+- Created test file: `packages/core/src/__tests__/booking-notifications.test.ts`
+- 10 test cases covering:
+  1. Club repository getClubWithTeam method availability
+  2. notifyBooking accepts teamChannel parameter
+  3. notifyBooking backward compatible without teamChannel
+  4. booking create signature allows team lookup flow
+  5. booking cancel signature allows team lookup flow
+  6. Team channel extraction from team.slackChannel
+  7. Team channel extraction handles null team (global club)
+  8. Team channel extraction handles undefined slackChannel
+  9. Error handling during team lookup (non-blocking)
+  10. Integration test infrastructure
+
+#### GREEN Phase
+- Modified `packages/core/src/booking-create.ts`:
+  - Added import: `createClubRepository` from "@tee-time/database"
+  - Added team lookup before notifyBooking (lines 190-203)
+  - Pattern: Create clubRepo, call getClubWithTeam(booking.clubId)
+  - Extract slackChannel: `if (clubWithTeam?.team?.slackChannel) { teamChannel = ... }`
+  - Pass to notifyBooking: `await notifyBooking({ text: notificationText, teamChannel })`
+  - Error handling: Catch and log with logger.warn, don't throw (non-blocking)
+
+- Modified `packages/core/src/booking-cancel.ts`:
+  - Added imports: `createBookingRepository`, `createClubRepository` from "@tee-time/database"
+  - Applied identical team lookup pattern (lines 58-71)
+  - Same error handling approach
+  - Pass teamChannel to notifyBooking in cancel flow (line 73)
+
+#### REFACTOR Phase
+- Code already minimal and clean, no refactoring needed
+- Verified pattern consistency across both files
+- All tests pass with new implementation
+
+### Implementation Details
+
+#### Team Lookup Pattern
+Both booking files use the same pattern:
+```typescript
+let teamChannel: string | undefined;
+try {
+  const clubRepo = createClubRepository(db);
+  const clubWithTeam = await clubRepo.getClubWithTeam(booking.clubId);
+  if (clubWithTeam?.team?.slackChannel) {
+    teamChannel = clubWithTeam.team.slackChannel;
+  }
+} catch (error) {
+  logger.warn("core.booking.teamLookupFailed", {
+    bookingId: booking.id,
+    clubId: booking.clubId,
+    error: error instanceof Error ? error.message : String(error)
+  });
+}
+
+await notifyBooking({ text: notificationText, teamChannel });
+```
+
+#### Error Handling
+- Team lookup failures don't break notification
+- Logged with logger.warn (non-blocking pattern)
+- Falls back to global channel only if team lookup fails
+- Matches existing notification error handling philosophy
+
+#### Type Safety
+- `clubWithTeam?.team?.slackChannel` uses optional chaining (safe for null/undefined)
+- `teamChannel: string | undefined` allows passing undefined to notifyBooking
+- notifyBooking handles undefined teamChannel (treats as no team channel)
+
+### Test Verification
+✅ `bun test packages/core/src/__tests__/booking-notifications.test.ts` → 10 pass, 0 fail
+✅ No TypeScript errors (bun run type-check clean for booking files)
+✅ All existing core tests still pass (40 pass, 1 pre-existing fail unrelated)
+
+### Files Modified
+1. `packages/core/src/booking-create.ts` - Added team lookup in notify section
+2. `packages/core/src/booking-cancel.ts` - Added team lookup in notify section
+3. `packages/core/src/__tests__/booking-notifications.test.ts` - New test file
+
+### Key Learnings
+
+#### Repository Access Pattern
+- Access repositories through factory functions: `createClubRepository(db)`
+- These are passed the database transaction context
+- Essential for proper database scoping in async operations
+
+#### Optional Chaining for Safety
+- Use `obj?.team?.slackChannel` to safely access nested optional properties
+- Prevents null/undefined reference errors
+- Readable and idiomatic TypeScript pattern
+
+#### Non-Blocking Error Handling
+- This codebase pattern: Log errors, don't throw in high-level functions
+- Allows partial failures (one channel down, others still work)
+- Use `logger.warn()` with contextual information (bookingId, clubId, error message)
+
+#### notifyBooking Integration
+- Accepts optional `teamChannel` parameter: `{ text, teamChannel?: string }`
+- When provided AND non-empty, sends to both team and global channels
+- When undefined/empty, sends to global channel only (backward compatible)
+- Signature change: From `notifyBooking({ text })` to `notifyBooking({ text, teamChannel })`
+
+### Notification Flow Architecture
+```
+booking-create/cancel
+  ↓
+lookup getClubWithTeam(clubId)
+  ↓
+extract teamChannel from team.slackChannel
+  ↓
+call notifyBooking({ text, teamChannel })
+  ↓
+notifyBooking orchestrates:
+  - Send to teamChannel if provided (routes to team's Slack)
+  - Send to global BOOKING_SLACK_UPDATES_CHANNEL
+  - Send DMs to configured usernames
+  - All targets handled with non-blocking error handling
+```
+
+### Next Task Dependencies
+- Task 7 (Team API): Can now depend on team lookup being integrated into bookings
+- Task 9 (Team UI): Team management fully available for integration
+- API and UI layers can build on this solid foundation
+
+### Edge Cases Handled
+1. Club not found: clubWithTeam returns null, teamChannel stays undefined
+2. Club has no team: clubWithTeam.team is null, teamChannel stays undefined
+3. Team has no slackChannel: condition `if (clubWithTeam?.team?.slackChannel)` prevents passing undefined
+4. Team lookup throws: Caught, logged, notification still sent to global channel
+5. Empty slackChannel: Would pass "" to notifyBooking, which treats as no channel (handled by notifyBooking)
+
+### Code Quality
+- Follows existing patterns in booking functions
+- Consistent error handling with rest of codebase
+- Minimal implementation (no over-engineering)
+- Type-safe throughout
+- Clear variable names and logic flow

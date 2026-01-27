@@ -3,6 +3,7 @@ import {
   createBookingRepository,
   createBookingStatusHistoryRepository,
   createClubLocationBayRepository,
+  createClubRepository,
   type Booking,
   type Database,
 } from "@tee-time/database";
@@ -167,26 +168,42 @@ export const createBookingWithHistory = async (
     memberId: booking.memberId,
   });
 
-  if (params.notify) {
-    const dashboardUrl =
-      process.env.ADMIN_DASHBOARD_URL ?? "http://localhost:5173";
-    const bookingLink = `${dashboardUrl}/bookings/${booking.id}`;
-    const preferredDate =
-      typeof booking.preferredDate === "object" &&
-      booking.preferredDate !== null &&
-      "toISOString" in booking.preferredDate
-        ? (booking.preferredDate as Date).toISOString().slice(0, 10)
-        : String(booking.preferredDate);
-    const notificationText =
-      `New booking request (${booking.status}).\n` +
-      `Member: ${booking.memberId}\n` +
-      `Date: ${preferredDate}\n` +
-      `Time: ${booking.preferredTimeStart}\n` +
-      `Players: ${params.numberOfPlayers}\n` +
-      `Notes: ${params.notes || "None"}\n` +
-      `Review: ${bookingLink}`;
-    await notifyBooking({ text: notificationText });
-  }
+   if (params.notify) {
+     const dashboardUrl =
+       process.env.ADMIN_DASHBOARD_URL ?? "http://localhost:5173";
+     const bookingLink = `${dashboardUrl}/bookings/${booking.id}`;
+     const preferredDate =
+       typeof booking.preferredDate === "object" &&
+       booking.preferredDate !== null &&
+       "toISOString" in booking.preferredDate
+         ? (booking.preferredDate as Date).toISOString().slice(0, 10)
+         : String(booking.preferredDate);
+     const notificationText =
+       `New booking request (${booking.status}).\n` +
+       `Member: ${booking.memberId}\n` +
+       `Date: ${preferredDate}\n` +
+       `Time: ${booking.preferredTimeStart}\n` +
+       `Players: ${params.numberOfPlayers}\n` +
+       `Notes: ${params.notes || "None"}\n` +
+       `Review: ${bookingLink}`;
+     
+     let teamChannel: string | undefined;
+     try {
+       const clubRepo = createClubRepository(db);
+       const clubWithTeam = await clubRepo.getClubWithTeam(booking.clubId);
+       if (clubWithTeam?.team?.slackChannel) {
+         teamChannel = clubWithTeam.team.slackChannel;
+       }
+     } catch (error) {
+       logger.warn("core.booking.teamLookupFailed", {
+         bookingId: booking.id,
+         clubId: booking.clubId,
+         error: error instanceof Error ? error.message : String(error)
+       });
+     }
+     
+     await notifyBooking({ text: notificationText, teamChannel });
+   }
 
   return booking;
 };

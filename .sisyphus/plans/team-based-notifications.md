@@ -361,7 +361,7 @@ bun test --watch
 
 ---
 
-- [ ] 6. Booking Integration: Lookup team channel on booking create/cancel
+- [x] 6. Booking Integration: Lookup team channel on booking create/cancel
 
   **What to do**:
   - Modify `packages/core/src/booking-create.ts`
