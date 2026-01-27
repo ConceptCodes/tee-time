@@ -10,6 +10,7 @@ import {
   text,
   time,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
   vector
@@ -78,6 +79,7 @@ export const memberProfiles = pgTable(
 export const clubs = pgTable("clubs", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull().unique(),
+  teamId: uuid("team_id").references(() => teams.id),
   isActive: boolean("is_active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
@@ -249,20 +251,27 @@ export const faqEntries = pgTable(
 export const teams = pgTable("teams", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
+  slackChannel: text("slack_channel"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
 });
 
-export const teamMemberships = pgTable("team_memberships", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  teamId: uuid("team_id")
-    .notNull()
-    .references(() => teams.id),
-  staffUserId: uuid("staff_user_id")
-    .notNull()
-    .references(() => staffUsers.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull()
-});
+export const teamMemberships = pgTable(
+  "team_memberships",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id),
+    staffUserId: uuid("staff_user_id")
+      .notNull()
+      .references(() => staffUsers.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull()
+  },
+  (table) => ({
+    teamStaffUnique: unique().on(table.teamId, table.staffUserId)
+  })
+);
 
 export const notifications = pgTable(
   "notifications",
