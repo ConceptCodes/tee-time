@@ -16,7 +16,9 @@
     "@tee-time/database": "workspace:*"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.15",
     "@types/bun": "latest",
-    "@types/node": "^22.10.0"
+    "@types/node": "^22.10.0",
+    "drizzle-orm": "^0.45.1"
   }
 }
