@@ -14,7 +14,7 @@ const configSchema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   LOG_REDACT: z.coerce.boolean().default(true),
 
-  // AI & Models
+  // AI
   OPENROUTER_API_KEY: z.string(),
   OPENROUTER_MODEL_ID: z.string().default("google/gemini-3-flash-preview"),
   OPENROUTER_EMBEDDING_MODEL_ID: z
