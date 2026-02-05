@@ -40,12 +40,21 @@ import {
 
 import type { Database } from "@tee-time/database";
 
+/**
+ * Input parameters for the agent message router.
+ */
 export type RouterInput = {
+  /** The incoming message from the user */
   message: string;
+  /** Optional member ID for identifying the user */
   memberId?: string;
+  /** Optional locale for localization */
   locale?: string;
+  /** Whether the member has completed onboarding */
   memberExists?: boolean;
+  /** Database connection for state management */
   db?: Database;
+  /** Previous conversation turns for context */
   conversationHistory?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -98,8 +107,15 @@ const RouterSchema = z.object({
   reason: z.string().nullable(),
 });
 
-// NOTE: Removed isBookingStatusQuery regex heuristic - let LLM handle intent detection
-
+/**
+ * Routes incoming messages to appropriate conversation flows.
+ * Uses LLM-based intent classification with state management.
+ * 
+ * Flow priority:
+ * 1. Onboarding (if member doesn't exist)
+ * 2. Active flow continuation (if in progress)
+ * 3. Intent-based routing via LLM
+ */
 export const routeAgentMessage = async (
   input: RouterInput
 ): Promise<RouterDecision> => {

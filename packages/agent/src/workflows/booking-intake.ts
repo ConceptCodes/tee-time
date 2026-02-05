@@ -39,24 +39,37 @@ import {
   normalizeMatchValue,
 } from "@tee-time/core";
 
+/**
+ * Input parameters for the booking intake flow.
+ */
 export type BookingIntakeInput = {
+  /** The incoming message from the user */
   message: string;
+  /** Optional member ID for the booking */
   memberId?: string;
+  /** Optional locale for localization */
   locale?: string;
+  /** Existing flow state for multi-turn conversations */
   existingState?: Partial<BookingIntakeState>;
+  /** Default values to pre-fill fields */
   defaults?: Partial<BookingIntakeState>;
+  /** Whether the user has confirmed the booking */
   confirmed?: boolean;
+  /** Bay availability information */
   availability?: {
     locationFull?: boolean;
     suggestedTimes?: string[];
     availableBays?: Array<{ id: string; name: string }>;
   };
+  /** Function to submit the completed booking */
   submitBooking?: (payload: BookingIntakeState) => Promise<{
     bookingId: string;
     status: string;
     bookingReference?: string | null;
   }>;
+  /** Database connection */
   db?: Database;
+  /** Function to check bay availability */
   getAvailability?: (params: {
     clubLocation?: string;
     preferredDate?: string;
@@ -66,12 +79,14 @@ export type BookingIntakeInput = {
     suggestedTimes?: string[];
     availableBays?: Array<{ id: string; name: string }>;
   }>;
+  /** Suggested values for form fields */
   suggestions?: {
     clubs?: string[];
     clubLocations?: string[];
     times?: string[];
     bays?: string[];
   };
+  /** Previous conversation turns for context */
   conversationHistory?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -325,6 +340,11 @@ const applyParsedFields = (
 const hasGuestContext = (message: string) =>
   /\bguest(s)?\b/i.test(message);
 
+/**
+ * Executes the booking intake conversation flow.
+ * Collects booking details (club, date, time, players) through multi-turn dialogue.
+ * Validates inputs and creates the booking when complete.
+ */
 export const runBookingIntakeFlow = async (
   input: BookingIntakeInput
 ): Promise<BookingIntakeDecision> => {
