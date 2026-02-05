@@ -33,15 +33,17 @@ export const listClubLocations = async (
     repo.listByClubId(clubId, params),
     repo.countByClubId(clubId)
   ]);
-  const baysByLocation = await Promise.all(
-    result.map(async (location) => ({
-      clubLocationId: location.id,
-      bays: await bayRepo.listByLocationId(location.id)
-    }))
-  );
-  const baysMap = new Map(
-    baysByLocation.map((entry) => [entry.clubLocationId, entry.bays])
-  );
+
+  const locationIds = result.map((location) => location.id);
+  const allBays = await bayRepo.listByLocationIds(locationIds);
+
+  const baysMap = new Map<string, typeof allBays>();
+  for (const bay of allBays) {
+    const existing = baysMap.get(bay.clubLocationId) ?? [];
+    existing.push(bay);
+    baysMap.set(bay.clubLocationId, existing);
+  }
+
   logger.info("core.admin.clubLocations.list", {
     clubId,
     count: result.length

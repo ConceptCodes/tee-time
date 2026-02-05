@@ -1,6 +1,7 @@
 import { Twilio } from "twilio";
 import type { MessageListInstanceCreateOptions } from "twilio/lib/rest/api/v2010/account/message";
 import { logger } from "../logger";
+import { getErrorMessage } from "../errors";
 
 /**
  * Twilio WhatsApp client configuration.
@@ -63,8 +64,7 @@ export const sendWhatsAppMessage = async (params: {
   try {
     result = await client.messages.create(messagePayload);
   } catch (error) {
-    const message =
-      (error as Error)?.message ?? "twilio_send_failed";
+    const message = getErrorMessage(error, "twilio_send_failed");
     logger.error("core.twilio.sendFailed", {
       to: params.to,
       error: message,

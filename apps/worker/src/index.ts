@@ -1,5 +1,5 @@
 import { createDb } from "@tee-time/database";
-import { logger, runRetentionCleanup, type JobRunnerContext } from "@tee-time/core";
+import { logger, runRetentionCleanup, type JobRunnerContext, getErrorMessage } from "@tee-time/core";
 import { runReports, runScheduledJobs } from "./jobs";
 import { config } from "./config";
 
@@ -28,7 +28,7 @@ const startIntervalTask = (context: JobRunnerContext, task: WorkerTask) => {
       logger.error("Worker task failed", {
         service: "worker",
         task: task.name,
-        error: (error as Error).message
+        error: getErrorMessage(error, "Unknown error")
       });
     } finally {
       running = false;

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { clubLocationBays } from "../schema";
 import { firstOrNull } from "./utils";
@@ -34,6 +34,21 @@ export const createClubLocationBayRepository = (db: Database) => ({
     params?: { status?: "available" | "booked" | "maintenance" }
   ): Promise<ClubLocationBay[]> => {
     const conditions = [eq(clubLocationBays.clubLocationId, clubLocationId)];
+    if (params?.status) {
+      conditions.push(eq(clubLocationBays.status, params.status));
+    }
+    return db
+      .select()
+      .from(clubLocationBays)
+      .where(and(...conditions));
+  },
+
+  listByLocationIds: async (
+    clubLocationIds: string[],
+    params?: { status?: "available" | "booked" | "maintenance" }
+  ): Promise<ClubLocationBay[]> => {
+    if (clubLocationIds.length === 0) return [];
+    const conditions = [inArray(clubLocationBays.clubLocationId, clubLocationIds)];
     if (params?.status) {
       conditions.push(eq(clubLocationBays.status, params.status));
     }

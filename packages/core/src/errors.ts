@@ -93,3 +93,20 @@ export const isBookingNotFoundError = (error: unknown): error is BookingNotFound
 export const isBookingMissingIdsError = (error: unknown): error is BookingMissingIdsError => {
   return error instanceof BookingMissingIdsError;
 };
+
+/**
+ * Safely extracts an error message from an unknown error value.
+ * Returns a default message if the error is not an Error instance.
+ */
+export const getErrorMessage = (error: unknown, defaultMessage = "An error occurred"): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return defaultMessage;
+};

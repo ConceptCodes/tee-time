@@ -9,7 +9,8 @@ import {
   runReportGeneration,
   runScheduledJob,
   ScheduledJobStatus,
-  type JobRunnerContext
+  type JobRunnerContext,
+  getErrorMessage
 } from "@tee-time/core";
 import { config } from "../config";
 
@@ -63,7 +64,7 @@ export const runScheduledJobs = async ({ db }: JobRunnerContext) => {
         jobType: job.jobType
       });
     } catch (error) {
-      const message = (error as Error).message;
+      const message = getErrorMessage(error, "Unknown error occurred");
       const nextAttempt = job.attempts ?? 0;
       if (nextAttempt >= retryPolicy.maxAttempts) {
         await repository.update(job.id, {

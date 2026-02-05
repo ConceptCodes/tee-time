@@ -8,6 +8,7 @@ import {
   type Booking,
 } from "@tee-time/database";
 import { logger } from "./logger";
+import { getErrorMessage } from "./errors";
 import {
   sendWhatsAppMessage,
   getBookingNotificationMessage,
@@ -153,15 +154,16 @@ export const processBookingNotification = async (
         });
       }
     } catch (error) {
+      const errorMessage = getErrorMessage(error, "Notification failed");
       await notificationRepo.update(notification.id, {
         status: "failed",
-        error: (error as Error).message,
+        error: errorMessage,
       });
 
       logger.error("core.notification.failed", {
         notificationId: notification.id,
         bookingId,
-        error: (error as Error).message,
+        error: errorMessage,
       });
     }
   }

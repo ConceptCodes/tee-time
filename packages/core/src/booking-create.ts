@@ -9,7 +9,7 @@ import {
 } from "@tee-time/database";
 import { notifyBooking } from "./notifications/slack";
 import { logger } from "./logger";
-import { BookingInPastError, BookingTooSoonError } from "./errors";
+import { BookingInPastError, BookingTooSoonError, getErrorMessage } from "./errors";
 
 export type CreateBookingParams = {
   memberId: string;
@@ -42,14 +42,17 @@ const generateBookingReference = () => {
 };
 
 const isBookingReferenceConflict = (error: unknown) => {
-  const err = error as { code?: string; constraint?: string };
-  if (err?.code !== "23505") {
-    return false;
+  if (error && typeof error === "object") {
+    const err = error as { code?: string; constraint?: string };
+    if (err.code !== "23505") {
+      return false;
+    }
+    if (!err.constraint) {
+      return true;
+    }
+    return err.constraint === "bookings_booking_reference_idx";
   }
-  if (!err.constraint) {
-    return true;
-  }
-  return err.constraint === "bookings_booking_reference_idx";
+  return false;
 };
 
 export const createBookingWithHistory = async (
@@ -160,7 +163,10 @@ export const createBookingWithHistory = async (
   }
 
   if (!booking) {
-    throw (lastError as Error) ?? new Error("booking_reference_generation_failed");
+    const errorMessage = lastError instanceof Error
+      ? lastError.message
+      : "booking_reference_generation_failed";
+    throw new Error(errorMessage);
   }
 
   logger.info("core.booking.create", {
