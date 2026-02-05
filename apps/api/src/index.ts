@@ -28,6 +28,7 @@ import { chatRoutes } from "./routes/chat";
 
 import { getDb } from "@tee-time/database";
 import { env } from "@tee-time/config";
+import { getErrorMessage } from "@tee-time/core";
 
 const app = new Hono<{ Variables: ApiVariables }>();
 
@@ -61,7 +62,7 @@ app.get("/ready", async (c) => {
     await db.execute("select 1");
     checks.database = { ok: true };
   } catch (error) {
-    checks.database = { ok: false, error: (error as Error).message };
+    checks.database = { ok: false, error: getErrorMessage(error, "Database connection failed") };
   }
   const ok = Object.values(checks).every((check) => check.ok);
   return c.json({ ok, checks }, ok ? 200 : 503);

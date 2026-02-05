@@ -1,3 +1,13 @@
+import type {
+  StaffUser,
+  MemberProfile,
+  Booking,
+  BookingStatus,
+  FAQ,
+  Club,
+  ClubLocation,
+} from "@tee-time/core";
+
 export type PaginationMeta = {
   limit: number
   offset: number
@@ -18,17 +28,7 @@ type DateInput = string | Date
 const parseDate = (value?: DateInput | null) =>
   value ? new Date(value) : undefined
 
-export type StaffUser = {
-  id: string
-  authUserId: string
-  email: string
-  name: string
-  role: "admin" | "staff" | "member"
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-  lastActiveAt?: Date
-}
+export type { StaffUser };
 
 type StaffUserApi = Omit<StaffUser, "createdAt" | "updatedAt" | "lastActiveAt"> & {
   createdAt: DateInput
@@ -43,22 +43,7 @@ export const toStaffUser = (input: StaffUserApi): StaffUser => ({
   lastActiveAt: parseDate(input.lastActiveAt),
 })
 
-export type MemberProfile = {
-  id: string
-  phoneNumber: string
-  name: string
-  timezone: string
-  favoriteLocationLabel: string
-  favoriteLocationPoint?: { x: number; y: number }
-  preferredLocationLabel?: string
-  preferredTimeOfDay?: string
-  preferredBayLabel?: string
-  membershipId: string
-  onboardingCompletedAt?: Date
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
+export type { MemberProfile };
 
 type MemberProfileApi = Omit<
   MemberProfile,
@@ -76,35 +61,9 @@ export const toMemberProfile = (input: MemberProfileApi): MemberProfile => ({
   onboardingCompletedAt: parseDate(input.onboardingCompletedAt),
 })
 
-export type BookingStatus =
-  | "Pending"
-  | "Confirmed"
-  | "Not Available"
-  | "Cancelled"
-  | "Follow-up required"
+export type { BookingStatus };
 
-export type Booking = {
-  id: string
-  memberId: string
-  clubId: string
-  clubLocationId?: string | null
-  bayId?: string | null
-  preferredDate: string
-  preferredTimeStart: string
-  preferredTimeEnd?: string | null
-  bookingReference: string
-  numberOfPlayers: number
-  guestNames: string
-  notes: string
-  status: BookingStatus
-  staffMemberId?: string | null
-  cancelledAt?: Date
-  createdAt: Date
-  updatedAt: Date
-  clubName?: string
-  clubLocationName?: string
-  bayLabel?: string
-}
+export type { Booking };
 
 type BookingApi = Omit<Booking, "createdAt" | "updatedAt" | "cancelledAt"> & {
   createdAt: DateInput
@@ -119,15 +78,7 @@ export const toBooking = (input: BookingApi): Booking => ({
   cancelledAt: parseDate(input.cancelledAt),
 })
 
-export type FAQ = {
-  id: string
-  question: string
-  answer: string
-  tags: string[]
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
+export type { FAQ };
 
 type FAQApi = Omit<FAQ, "createdAt" | "updatedAt"> & {
   createdAt: DateInput
@@ -140,13 +91,7 @@ export const toFAQ = (input: FAQApi): FAQ => ({
   updatedAt: new Date(input.updatedAt),
 })
 
-export type Club = {
-  id: string
-  name: string
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
+export type { Club }
 
 type ClubApi = Omit<Club, "createdAt" | "updatedAt"> & {
   createdAt: DateInput
@@ -159,16 +104,7 @@ export const toClub = (input: ClubApi): Club => ({
   updatedAt: new Date(input.updatedAt),
 })
 
-export type ClubLocation = {
-  id: string
-  clubId: string
-  name: string
-  address: string
-  locationPoint: { x: number; y: number }
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
+export type { ClubLocation }
 
 type ClubLocationApi = Omit<ClubLocation, "createdAt" | "updatedAt"> & {
   createdAt: DateInput

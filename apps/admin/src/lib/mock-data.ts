@@ -1,91 +1,15 @@
 import { addDays, format, subDays } from "date-fns"
+import type {
+  StaffUser,
+  MemberProfile,
+  Booking,
+  BookingStatus,
+  FAQ,
+  Club,
+  ClubLocation,
+} from "@tee-time/core";
 
-export type StaffUser = {
-  id: string
-  authUserId: string
-  email: string
-  name: string
-  role: "admin" | "staff" | "member"
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-  lastActiveAt?: Date
-}
-
-export type MemberProfile = {
-  id: string
-  phoneNumber: string
-  name: string
-  timezone: string
-  favoriteLocationLabel: string
-  favoriteLocationPoint?: { x: number; y: number }
-  preferredLocationLabel?: string
-  preferredTimeOfDay?: string
-  preferredBayLabel?: string
-  membershipId: string
-  onboardingCompletedAt?: Date
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type BookingStatus =
-  | "Pending"
-  | "Confirmed"
-  | "Not Available"
-  | "Cancelled"
-  | "Follow-up required"
-
-export type Booking = {
-  id: string
-  memberId: string
-  clubId: string
-  clubLocationId?: string
-  bayId?: string
-  preferredDate: string
-  preferredTimeStart: string
-  preferredTimeEnd?: string
-  numberOfPlayers: number
-  guestNames: string
-  notes: string
-  status: BookingStatus
-  staffMemberId?: string
-  cancelledAt?: string
-  createdAt: Date
-  updatedAt: Date
-  clubName?: string
-  clubLocationName?: string
-  bayLabel?: string
-}
-
-export type FAQ = {
-  id: string
-  question: string
-  answer: string
-  tags: string[]
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type Club = {
-  id: string
-  name: string
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type ClubLocation = {
-  id: string
-  clubId: string
-  name: string
-  address: string
-  locationPoint: { x: number; y: number }
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
+export type { StaffUser, MemberProfile, Booking, BookingStatus, FAQ, Club, ClubLocation };
 
 export type AuditLog = {
   id: string
@@ -187,7 +111,7 @@ export const mockBookings: Booking[] = [
     clubName: "Wentworth Club",
     clubLocationName: "West Course",
     bayLabel: "Bay 3",
-  },
+  } as Booking,
   {
     id: "bk_2",
     memberId: "mem_2",
@@ -206,7 +130,7 @@ export const mockBookings: Booking[] = [
     clubName: "Sunningdale Golf Club",
     clubLocationName: "Old Course",
     bayLabel: "Bay 6",
-  },
+  } as Booking,
   {
     id: "bk_3",
     memberId: "mem_3",
@@ -222,7 +146,7 @@ export const mockBookings: Booking[] = [
     updatedAt: subDays(new Date(), 2),
     clubName: "Royal Birkdale",
     clubLocationName: "Championship Course",
-  },
+  } as Booking,
 ]
 
 export const mockFAQs: FAQ[] = [
