@@ -1,4 +1,4 @@
-import { and, inArray, lt, sql} from "drizzle-orm";
+import { and, eq, inArray, lt, sql} from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import {
   auditLogs,
@@ -8,7 +8,9 @@ import {
   messageDedup,
   messageLogs,
   notifications,
+  rateLimitCounters,
   scheduledJobs,
+  webhookDlq,
   type Database
 } from "@tee-time/database";
 import { logger } from "./logger";
@@ -53,6 +55,8 @@ export type RetentionCleanupResult = {
   bookingStates: number;
   scheduledJobs: number;
   messageDedupExpired: number;
+  rateLimitCounters: number;
+  webhookDlqResolved: number;
 };
 
 /**
@@ -116,7 +120,9 @@ export const runRetentionCleanup = async (
       bookings: 0,
       bookingStates: 0,
       scheduledJobs: 0,
-      messageDedupExpired: 0
+      messageDedupExpired: 0,
+      rateLimitCounters: 0,
+      webhookDlqResolved: 0
     };
   }
 
@@ -204,6 +210,27 @@ export const runRetentionCleanup = async (
     batchSize
   );
 
+  // Delete old distributed rate limit buckets
+  const rateLimitCountersDeleted = await batchDelete(
+    db,
+    rateLimitCounters,
+    rateLimitCounters.id,
+    lt(rateLimitCounters.windowStart, cutoff),
+    batchSize
+  );
+
+  // Delete old resolved webhook DLQ records
+  const webhookDlqResolvedDeleted = await batchDelete(
+    db,
+    webhookDlq,
+    webhookDlq.id,
+    and(
+      eq(webhookDlq.status, "resolved"),
+      lt(webhookDlq.updatedAt, cutoff)
+    )!,
+    batchSize
+  );
+
   logger.info("core.retention.complete", {
     retentionDays,
     cutoff: cutoff.toISOString(),
@@ -215,7 +242,9 @@ export const runRetentionCleanup = async (
     bookings: bookingsDeleted,
     bookingStates: bookingStatesDeleted,
     scheduledJobs: scheduledJobsDeleted,
-    messageDedupExpired
+    messageDedupExpired,
+    rateLimitCounters: rateLimitCountersDeleted,
+    webhookDlqResolved: webhookDlqResolvedDeleted
   });
 
   return {
@@ -228,6 +257,8 @@ export const runRetentionCleanup = async (
     bookings: bookingsDeleted,
     bookingStates: bookingStatesDeleted,
     scheduledJobs: scheduledJobsDeleted,
-    messageDedupExpired
+    messageDedupExpired,
+    rateLimitCounters: rateLimitCountersDeleted,
+    webhookDlqResolved: webhookDlqResolvedDeleted
   };
 };
