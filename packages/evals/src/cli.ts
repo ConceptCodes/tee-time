@@ -15,6 +15,7 @@ const DEFAULT_COUNTS = {
   "state-persistence": 2,
   "multi-booking": 2,
   "course-correction": 2,
+  operational: 4,
 };
 
 const ALL_SUITES = [
@@ -31,6 +32,7 @@ const ALL_SUITES = [
   "state-persistence",
   "multi-booking",
   "course-correction",
+  "operational",
 ] as const;
 
 const parseArgs = (args: string[]) => {
@@ -141,6 +143,13 @@ const parseArgs = (args: string[]) => {
       i += 1;
       continue;
     }
+    if (arg === "--operational") {
+      config.counts.operational = Number(
+        args[i + 1] ?? DEFAULT_COUNTS.operational
+      );
+      i += 1;
+      continue;
+    }
     if (arg === "--seed") {
       config.seed = Number(args[i + 1] ?? Date.now());
       i += 1;
@@ -207,6 +216,7 @@ Suites:
   state-persistence State continuity and context retention (default: ${DEFAULT_COUNTS["state-persistence"]})
   multi-booking  Multi-booking selections and disambiguation (default: ${DEFAULT_COUNTS["multi-booking"]})
   course-correction Mid-flow corrections and resets (default: ${DEFAULT_COUNTS["course-correction"]})
+  operational     Webhook operational behaviors (default: ${DEFAULT_COUNTS.operational})
 
  Options:
   --suite <list>            Run specific suites (comma-separated)
@@ -224,6 +234,7 @@ Suites:
   --state-persistence <n>   Number of state-persistence scenarios
   --multi-booking <n>       Number of multi-booking scenarios
   --course-correction <n>   Number of course-correction scenarios
+  --operational <n>         Number of operational scenarios
   --seed <n>                Shuffle seed (default: now)
   --allow-faq-escalation    Treat FAQ escalations as pass
   --summary-only            Print only the final summary table (suppresses per-test logs)

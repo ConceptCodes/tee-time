@@ -146,7 +146,7 @@ const bookingTemplates: BookingTemplate[] = [
         id: `booking-informal-${index}`,
         name: "Informal language",
         turns: [`yo can I get a tee time at ${clubText} tmrw around 2 for just me? no notes`],
-        expect: { flow: "booking-new", decisionTypes: ["review", "ask"] },
+        expect: { flow: "booking-new", decisionTypes: ["review"] },
       };
     },
   },
@@ -159,7 +159,7 @@ const bookingTemplates: BookingTemplate[] = [
         id: `booking-polite-${index}`,
         name: "Polite request",
         turns: [`Hi! I would like to book a tee time at ${clubText} for tomorrow afternoon around 2pm please. It will be just me. No special notes needed.`],
-        expect: { flow: "booking-new", decisionTypes: ["review", "ask"] },
+        expect: { flow: "booking-new", decisionTypes: ["review"] },
       };
     },
   },
@@ -173,7 +173,7 @@ const bookingTemplates: BookingTemplate[] = [
         id: `booking-next-monday-${index}`,
         name: "Next Monday booking",
         turns: [`Book ${clubText} next Monday at 10am for 1 player. Notes: none.`],
-        expect: { flow: "booking-new", decisionTypes: ["review", "ask"] },
+        expect: { flow: "booking-new", decisionTypes: ["review"] },
       };
     },
   },
@@ -186,7 +186,7 @@ const bookingTemplates: BookingTemplate[] = [
         id: `booking-morning-${index}`,
         name: "Morning time preference",
         turns: [`Book ${clubText} tomorrow morning for 1 player. Notes: none.`],
-        expect: { flow: "booking-new", decisionTypes: ["review", "ask"] },
+        expect: { flow: "booking-new", decisionTypes: ["review", "ask"], promptIncludes: ["time"] },
       };
     },
   },

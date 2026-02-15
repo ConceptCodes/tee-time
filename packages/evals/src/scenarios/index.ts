@@ -21,6 +21,7 @@ export { buildFaqScenarios } from "./faq";
 export { buildFallbackScenarios } from "./fallback";
 export { buildEdgeCaseScenarios } from "./edge-cases";
 export { buildUpdateScenarios } from "./updates";
+export { buildOperationalScenarios } from "./operational";
 export {
   statePersistenceScenarios,
   multiBookingScenarios,
@@ -42,6 +43,7 @@ import { buildFaqScenarios } from "./faq";
 import { buildFallbackScenarios } from "./fallback";
 import { buildEdgeCaseScenarios } from "./edge-cases";
 import { buildUpdateScenarios } from "./updates";
+import { buildOperationalScenarios } from "./operational";
 import {
   buildStatePersistenceScenarios,
   buildMultiBookingScenarios,
@@ -68,6 +70,7 @@ export const buildScenarios = (params: {
     "state-persistence": number;
     "multi-booking": number;
     "course-correction": number;
+    operational: number;
   };
 }) => {
   return {
@@ -88,5 +91,6 @@ export const buildScenarios = (params: {
     "course-correction": buildCourseCorrectionScenarios(
       params.counts["course-correction"]
     ),
+    operational: buildOperationalScenarios(params.counts.operational),
   };
 };

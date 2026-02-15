@@ -13,7 +13,8 @@ export type ScenarioSuite =
   | "updates"
   | "state-persistence"
   | "multi-booking"
-  | "course-correction";
+  | "course-correction"
+  | "operational";
 
 export type FlowType = RouterDecision["flow"];
 

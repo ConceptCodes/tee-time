@@ -12,7 +12,7 @@ const cancelBookingTemplates: Array<{
     turns: ["Cancel my booking for tomorrow"], 
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "not-found", "offer-booking"] 
+      decisionTypes: ["not-found"] 
     }
   },
   { 
@@ -21,7 +21,7 @@ const cancelBookingTemplates: Array<{
     turns: ["I need to cancel my tee time"], 
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "need-booking-info", "offer-booking", "not-found"] 
+      decisionTypes: ["offer-booking"] 
     } 
   },
   { 
@@ -30,7 +30,7 @@ const cancelBookingTemplates: Array<{
     turns: ["Cancel booking ABC123"], 
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "not-found", "lookup"] 
+      decisionTypes: ["not-found"] 
     } 
   },
   { 
@@ -39,7 +39,7 @@ const cancelBookingTemplates: Array<{
     turns: ["Cancel my Friday 2pm booking"], 
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "not-found", "lookup"] 
+      decisionTypes: ["not-found"] 
     } 
   },
   { 
@@ -48,7 +48,7 @@ const cancelBookingTemplates: Array<{
     turns: ["nvm cancel that booking"],
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "need-booking-info", "offer-booking", "not-found"] 
+      decisionTypes: ["offer-booking"] 
     } 
   },
   { 
@@ -57,7 +57,7 @@ const cancelBookingTemplates: Array<{
     turns: ["I need to cancel my booking, something came up"], 
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "need-booking-info", "offer-booking", "not-found"] 
+      decisionTypes: ["offer-booking"] 
     } 
   },
   { 
@@ -66,7 +66,7 @@ const cancelBookingTemplates: Array<{
     turns: ["Cancel my next booking please"], 
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "not-found", "offer-booking"] 
+      decisionTypes: ["offer-booking"] 
     } 
   },
   { 
@@ -75,7 +75,7 @@ const cancelBookingTemplates: Array<{
     turns: ["I can't make it to my tee time, please cancel"], 
     expect: { 
       flow: "cancel-booking", 
-      decisionTypes: ["confirm-cancel", "need-booking-info", "offer-booking", "not-found"] 
+      decisionTypes: ["offer-booking"] 
     } 
   },
 ];
