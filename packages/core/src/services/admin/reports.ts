@@ -1,4 +1,4 @@
-import { sql, eq, and, gte, lte, desc, isNotNull } from "drizzle-orm";
+import { sql, eq, and, gte, lte, desc, isNotNull, ne } from "drizzle-orm";
 import type { Database } from "@tee-time/database";
 import {
   bookings,
@@ -167,7 +167,8 @@ export const getAverageStaffResponseTime = async (
       and(
         gte(bookings.createdAt, dateRange.start),
         lte(bookings.createdAt, dateRange.end),
-        eq(bookingStatusHistory.previousStatus, "Pending")
+        eq(bookingStatusHistory.previousStatus, "Pending"),
+        ne(bookingStatusHistory.previousStatus, bookingStatusHistory.nextStatus)
       )
     )
     .groupBy(bookingStatusHistory.bookingId, bookings.createdAt);
@@ -263,7 +264,7 @@ export const getMemberActivityStats = async (
     .select({
       totalMembers: sql<number>`count(distinct ${bookings.memberId})`,
       avgBookingsPerMember: sql<number>`count(*)::float / nullif(count(distinct ${bookings.memberId}), 0)`,
-      repeatBookers: sql<number>`count(*) filter (where ${bookings.memberId} in (
+      repeatBookers: sql<number>`count(distinct ${bookings.memberId}) filter (where ${bookings.memberId} in (
         select member_id from bookings 
         where created_at >= ${dateRange.start} and created_at <= ${dateRange.end}
         group by member_id having count(*) > 1
@@ -531,7 +532,8 @@ export const getConversionResponseTrend = async (
       and(
         gte(bookings.createdAt, dateRange.start),
         lte(bookings.createdAt, dateRange.end),
-        eq(bookingStatusHistory.previousStatus, "Pending")
+        eq(bookingStatusHistory.previousStatus, "Pending"),
+        ne(bookingStatusHistory.previousStatus, bookingStatusHistory.nextStatus)
       )
     )
     .groupBy(responsePeriodSql);

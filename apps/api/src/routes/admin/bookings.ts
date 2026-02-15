@@ -83,6 +83,15 @@ bookingRoutes.post("/", validateJson(bookingSchemas.create), async (c) => {
 
 bookingRoutes.put("/:id", validateJson(bookingSchemas.update), async (c) => {
   const payload = c.get("validatedBody") as z.infer<typeof bookingSchemas.update>;
+  if (payload.status !== undefined || payload.cancelledAt !== undefined) {
+    return c.json(
+      {
+        error:
+          "Status updates must use explicit transition endpoints (/confirm, /reject, /request-info).",
+      },
+      400
+    );
+  }
   const db = getDb();
   const bookingRepo = createBookingRepository(db);
   const booking = await bookingRepo.update(c.req.param("id"), {

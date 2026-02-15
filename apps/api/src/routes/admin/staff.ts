@@ -8,6 +8,7 @@ import {
   createStaffUser,
   getStaffUserById,
   listStaffUsers,
+  logAuditEvent,
   updateStaffUser
 } from "@tee-time/core";
 import { staffSchemas } from "../../schemas";
@@ -16,6 +17,8 @@ import { paginatedResponse, parsePagination } from "../../pagination";
 export const staffRoutes = new Hono<{ Variables: ApiVariables }>();
 
 staffRoutes.use("*", requireAuth(), requireRole(["admin", "staff"]));
+
+const requireAdmin = (role: string | undefined) => role === "admin";
 
 staffRoutes.get("/", async (c) => {
   const pagination = parsePagination(c);
@@ -37,6 +40,9 @@ staffRoutes.get("/:id", async (c) => {
 });
 
 staffRoutes.post("/", validateJson(staffSchemas.create), async (c) => {
+  if (!requireAdmin(c.get("staffUser")?.role)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const parsed = c.get("validatedBody") as z.infer<typeof staffSchemas.create>;
   const now = new Date();
   const db = getDb();
@@ -46,10 +52,20 @@ staffRoutes.post("/", validateJson(staffSchemas.create), async (c) => {
     createdAt: now,
     updatedAt: now
   });
+  await logAuditEvent(db, {
+    actorId: c.get("staffUser")?.id ?? null,
+    action: "staff.create",
+    resourceType: "staff_user",
+    resourceId: staffUser.id,
+    metadata: {}
+  });
   return c.json({ data: staffUser }, 201);
 });
 
 staffRoutes.put("/:id", validateJson(staffSchemas.update), async (c) => {
+  if (!requireAdmin(c.get("staffUser")?.role)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const parsed = c.get("validatedBody") as z.infer<typeof staffSchemas.update>;
   const db = getDb();
   const staffUser = await updateStaffUser(db, c.req.param("id"), {
@@ -59,10 +75,20 @@ staffRoutes.put("/:id", validateJson(staffSchemas.update), async (c) => {
   if (!staffUser) {
     return c.json({ error: "Not Found" }, 404);
   }
+  await logAuditEvent(db, {
+    actorId: c.get("staffUser")?.id ?? null,
+    action: "staff.update",
+    resourceType: "staff_user",
+    resourceId: staffUser.id,
+    metadata: {}
+  });
   return c.json({ data: staffUser });
 });
 
 staffRoutes.post("/:id/disable", async (c) => {
+  if (!requireAdmin(c.get("staffUser")?.role)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const db = getDb();
   const staffUser = await updateStaffUser(db, c.req.param("id"), {
     isActive: false,
@@ -71,5 +97,12 @@ staffRoutes.post("/:id/disable", async (c) => {
   if (!staffUser) {
     return c.json({ error: "Not Found" }, 404);
   }
+  await logAuditEvent(db, {
+    actorId: c.get("staffUser")?.id ?? null,
+    action: "staff.disable",
+    resourceType: "staff_user",
+    resourceId: staffUser.id,
+    metadata: {}
+  });
   return c.json({ data: staffUser });
 });

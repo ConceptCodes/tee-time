@@ -44,6 +44,7 @@ export type EvalConfig = {
     "state-persistence": number;
     "multi-booking": number;
     "course-correction": number;
+    operational: number;
   };
   seed: number;
   verbose: boolean;

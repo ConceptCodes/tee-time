@@ -95,6 +95,7 @@ export type RouterDecision =
 
 const RouterSchema = z.object({
   flow: z.enum([
+    "onboarding",
     "faq",
     "booking-new",
     "booking-status",
@@ -278,7 +279,7 @@ export const routeAgentMessage = async (
 
     const historyContext = input.conversationHistory?.length
       ? `\nConversation history:\n${input.conversationHistory
-          .slice(-6)
+          .slice(-10)
           .map((m) => `${m.role}: ${m.content}`)
           .join("\n")}\n`
       : "";
@@ -301,6 +302,7 @@ export const routeAgentMessage = async (
         "- modify-booking: user wants to CHANGE/UPDATE/RESCHEDULE an EXISTING booking. Keywords: 'change', 'reschedule', 'modify', 'update', 'add player', 'remove player', 'move', 'change time', 'change date', 'instead of'.\n" +
         "- faq: general questions about membership, policies, hours, pricing, dress code, etc.\n" +
         "- support: user asks for human help, has issues, or wants to talk to staff.\n" +
+        "- onboarding: user shares profile details needed for setup (name, timezone, preferences) when not onboarded.\n" +
         "- clarify: intent is unclear and doesn't fit any other flow.\n" +
         "IMPORTANT: Distinguish between booking-new vs modify-booking by whether user wants to CREATE vs CHANGE an existing booking.\n" +
         "Return a JSON object with the flow, confidence (0-1), and a reason (string or null).\n\n" +
@@ -371,6 +373,10 @@ export const routeAgentMessage = async (
 
     if (result.object.flow === "faq") {
       return { flow: "faq", decision: await runFaqFlow(input as FaqFlowInput) };
+    }
+
+    if (result.object.flow === "onboarding") {
+      return { flow: "onboarding" };
     }
 
     if (result.object.flow === "support") {

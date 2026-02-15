@@ -9,4 +9,5 @@ export type ApiVariables = {
   session: Session | null;
   staffUser: StaffUser | null;
   validatedBody?: unknown;
+  validatedQuery?: unknown;
 };

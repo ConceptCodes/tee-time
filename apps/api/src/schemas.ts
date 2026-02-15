@@ -157,3 +157,12 @@ export const teamSchemas = {
   })
 };
 
+export const reportSchemas = {
+  period: z.enum(["day", "week", "month", "quarter", "year"]),
+  groupBy: z.enum(["day", "week", "month"]),
+  dateRange: z.object({
+    start: z.string().datetime(),
+    end: z.string().datetime(),
+  }),
+};
+

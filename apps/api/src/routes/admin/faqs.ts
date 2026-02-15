@@ -5,13 +5,15 @@ import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateJson } from "../../middleware/validate";
 import { getDb } from "@tee-time/database";
 import { createFaqRepository } from "@tee-time/database";
-import { generateFaqEmbedding } from "@tee-time/core";
+import { generateFaqEmbedding, logAuditEvent } from "@tee-time/core";
 import { faqSchemas } from "../../schemas";
 import { paginatedResponse, parsePagination } from "../../pagination";
 
 export const faqRoutes = new Hono<{ Variables: ApiVariables }>();
 
 faqRoutes.use("*", requireAuth(), requireRole(["admin", "staff"]));
+
+const requireAdmin = (role: string | undefined) => role === "admin";
 
 faqRoutes.get("/", async (c) => {
   const pagination = parsePagination(c);
@@ -28,6 +30,9 @@ faqRoutes.get("/", async (c) => {
 });
 
 faqRoutes.post("/", validateJson(faqSchemas.create), async (c) => {
+  if (!requireAdmin(c.get("staffUser")?.role)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const payload = c.get("validatedBody") as z.infer<typeof faqSchemas.create>;
   const now = new Date();
   const db = getDb();
@@ -42,10 +47,20 @@ faqRoutes.post("/", validateJson(faqSchemas.create), async (c) => {
     createdAt: now,
     updatedAt: now
   });
+  await logAuditEvent(db, {
+    actorId: c.get("staffUser")?.id ?? null,
+    action: "faq.create",
+    resourceType: "faq_entry",
+    resourceId: faq.id,
+    metadata: {}
+  });
   return c.json({ data: faq }, 201);
 });
 
 faqRoutes.put("/:id", validateJson(faqSchemas.update), async (c) => {
+  if (!requireAdmin(c.get("staffUser")?.role)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const payload = c.get("validatedBody") as z.infer<typeof faqSchemas.update>;
   const db = getDb();
   const repo = createFaqRepository(db);
@@ -60,10 +75,20 @@ faqRoutes.put("/:id", validateJson(faqSchemas.update), async (c) => {
   if (!faq) {
     return c.json({ error: "Not Found" }, 404);
   }
+  await logAuditEvent(db, {
+    actorId: c.get("staffUser")?.id ?? null,
+    action: "faq.update",
+    resourceType: "faq_entry",
+    resourceId: faq.id,
+    metadata: {}
+  });
   return c.json({ data: faq });
 });
 
 faqRoutes.delete("/:id", async (c) => {
+  if (!requireAdmin(c.get("staffUser")?.role)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const db = getDb();
   const repo = createFaqRepository(db);
   const faq = await repo.update(c.req.param("id"), {
@@ -73,5 +98,12 @@ faqRoutes.delete("/:id", async (c) => {
   if (!faq) {
     return c.json({ error: "Not Found" }, 404);
   }
+  await logAuditEvent(db, {
+    actorId: c.get("staffUser")?.id ?? null,
+    action: "faq.disable",
+    resourceType: "faq_entry",
+    resourceId: faq.id,
+    metadata: {}
+  });
   return c.json({ data: faq });
 });

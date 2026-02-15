@@ -6,6 +6,9 @@ export const config = {
     reportsIntervalMs: env.WORKER_REPORTS_INTERVAL_MS,
     jobBatchSize: env.WORKER_JOB_BATCH_SIZE,
     retentionIntervalMs: env.WORKER_RETENTION_INTERVAL_MS,
+    staleProcessingMinutes: env.WORKER_STALE_PROCESSING_MINUTES,
+    webhookDlqIntervalMs: env.WORKER_WEBHOOK_DLQ_INTERVAL_MS,
+    webhookDlqBatchSize: env.WORKER_WEBHOOK_DLQ_BATCH_SIZE,
   },
   retry: {
     maxAttempts: env.WORKER_MAX_ATTEMPTS,

@@ -8,6 +8,7 @@ import {
   clearBookingState,
   createSupportRequest,
   extractSharedContext,
+  getFlowStateMeta,
   getBookingState,
   isFlowStateEnvelope,
   mergeSharedContext,
@@ -57,6 +58,7 @@ export async function runAgentConversation(
   const sharedContext = storedEnvelope
     ? extractSharedContext(storedEnvelope)
     : undefined;
+  const flowStateMeta = storedEnvelope ? getFlowStateMeta(storedEnvelope) : undefined;
 
   // Route the message to determine the flow
   const decision = await routeAgentMessage({
@@ -78,10 +80,15 @@ export async function runAgentConversation(
     const mergedContext = contextUpdates
       ? mergeSharedContext(sharedContext, contextUpdates)
       : sharedContext;
+    const turnCount =
+      storedEnvelope?.flow === flow ? (flowStateMeta?.turnCount ?? 0) + 1 : 1;
     await saveBookingState(
       db,
       member.id,
-      wrapFlowState(flow, state, mergedContext)
+      wrapFlowState(flow, state, mergedContext, {
+        turnCount,
+        lastUserMessageAt: new Date().toISOString(),
+      })
     );
   };
   const clearFlowState = async () => {

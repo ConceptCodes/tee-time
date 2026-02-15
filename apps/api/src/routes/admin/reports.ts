@@ -1,6 +1,9 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import type { ApiVariables } from "../../middleware/types";
 import { requireAuth, requireRole } from "../../middleware/auth";
+import { validateQuery } from "../../middleware/validate";
+import { reportSchemas } from "../../schemas";
 import { getDb } from "@tee-time/database";
 import {
   getMonthlyReport,
@@ -42,111 +45,138 @@ reportRoutes.get("/monthly/:year/:month", async (c) => {
 /**
  * Get bookings by club for a period.
  */
-reportRoutes.get("/bookings-by-club", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getBookingsByClub(db, dateRange);
-  return c.json({ data, period, dateRange });
-});
+reportRoutes.get(
+  "/bookings-by-club",
+  validateQuery(z.object({ period: reportSchemas.period })),
+  async (c) => {
+    const { period } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getBookingsByClub(db, dateRange);
+    return c.json({ data, period, dateRange });
+  }
+);
 
 /**
  * Get conversion rate for a period.
  */
-reportRoutes.get("/conversion-rate", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getConversionRate(db, dateRange);
-  return c.json({ data, period, dateRange });
-});
+reportRoutes.get(
+  "/conversion-rate",
+  validateQuery(z.object({ period: reportSchemas.period })),
+  async (c) => {
+    const { period } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getConversionRate(db, dateRange);
+    return c.json({ data, period, dateRange });
+  }
+);
 
 /**
  * Get average staff response time for a period.
  */
-reportRoutes.get("/response-time", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getAverageStaffResponseTime(db, dateRange);
-  return c.json({ data, period, dateRange });
-});
+reportRoutes.get(
+  "/response-time",
+  validateQuery(z.object({ period: reportSchemas.period })),
+  async (c) => {
+    const { period } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getAverageStaffResponseTime(db, dateRange);
+    return c.json({ data, period, dateRange });
+  }
+);
 
 /**
  * Get booking trend for a period.
  */
-reportRoutes.get("/booking-trend", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const groupBy = (c.req.query("groupBy") ?? "day") as "day" | "week" | "month";
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getBookingTrend(db, dateRange, groupBy);
-  return c.json({ data, period, groupBy, dateRange });
-});
+reportRoutes.get(
+  "/booking-trend",
+  validateQuery(z.object({ period: reportSchemas.period, groupBy: reportSchemas.groupBy })),
+  async (c) => {
+    const { period, groupBy } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year"; groupBy: "day" | "week" | "month" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getBookingTrend(db, dateRange, groupBy);
+    return c.json({ data, period, groupBy, dateRange });
+  }
+);
 
 /**
  * Get member activity stats for a period.
  */
-reportRoutes.get("/member-activity", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getMemberActivityStats(db, dateRange);
-  return c.json({ data, period, dateRange });
-});
+reportRoutes.get(
+  "/member-activity",
+  validateQuery(z.object({ period: reportSchemas.period })),
+  async (c) => {
+    const { period } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getMemberActivityStats(db, dateRange);
+    return c.json({ data, period, dateRange });
+  }
+);
 
 /**
  * Get request mix breakdown.
  */
-reportRoutes.get("/request-mix", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getRequestMix(db, dateRange);
-  return c.json({ data, period, dateRange });
-});
+reportRoutes.get(
+  "/request-mix",
+  validateQuery(z.object({ period: reportSchemas.period })),
+  async (c) => {
+    const { period } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getRequestMix(db, dateRange);
+    return c.json({ data, period, dateRange });
+  }
+);
 
 /**
  * Get automation trend.
  */
-reportRoutes.get("/automation-trend", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getAutomationTrend(db, dateRange);
-  return c.json({ data, period, dateRange });
-});
+reportRoutes.get(
+  "/automation-trend",
+  validateQuery(z.object({ period: reportSchemas.period })),
+  async (c) => {
+    const { period } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getAutomationTrend(db, dateRange);
+    return c.json({ data, period, dateRange });
+  }
+);
 
 /**
  * Get conversion and response time trend.
  */
-reportRoutes.get("/conversion-trend", async (c) => {
-  const period = (c.req.query("period") ?? "month") as ReportPeriod;
-  const db = getDb();
-  const dateRange = getDateRangeForPeriod(period);
-  const data = await getConversionResponseTrend(db, dateRange);
-  return c.json({ data, period, dateRange });
-});
-
-/**
- * Export bookings data as JSON (for spreadsheet export).
- */
-reportRoutes.get("/export/bookings", async (c) => {
-  const startParam = c.req.query("start");
-  const endParam = c.req.query("end");
-
-  let dateRange: DateRange;
-  if (startParam && endParam) {
-    dateRange = {
-      start: new Date(startParam),
-      end: new Date(endParam),
-    };
-  } else {
-    dateRange = getDateRangeForPeriod("month");
+reportRoutes.get(
+  "/conversion-trend",
+  validateQuery(z.object({ period: reportSchemas.period })),
+  async (c) => {
+    const { period } = c.get("validatedQuery") as { period: "day" | "week" | "month" | "quarter" | "year" };
+    const db = getDb();
+    const dateRange = getDateRangeForPeriod(period);
+    const data = await getConversionResponseTrend(db, dateRange);
+    return c.json({ data, period, dateRange });
   }
+);
 
-  const db = getDb();
-  const data = await exportBookingsData(db, dateRange);
+  /**
+   * Export bookings data as JSON (for spreadsheet export).
+   */
+  reportRoutes.get(
+    "/export/bookings",
+    validateQuery(z.object({ format: reportSchemas.dateRange })),
+    async (c) => {
+      const { start, end } = c.get("validatedQuery") as { start: string; end: string };
+      const dateRange = {
+        start: new Date(start),
+        end: new Date(end),
+      };
+
+      const db = getDb();
+      const data = await exportBookingsData(db, dateRange);
 
   // Check if CSV format is requested
   const format = c.req.query("format");
@@ -165,21 +195,23 @@ reportRoutes.get("/export/bookings", async (c) => {
       "Created At",
     ];
 
-    const rows = data.map((row) => [
-      row.bookingId,
-      row.memberName ?? "",
-      row.memberPhone ?? "",
-      row.clubName ?? "",
-      String(row.preferredDate),
-      row.preferredTimeStart,
-      row.numberOfPlayers,
-      row.guestNames ?? "",
-      row.notes ?? "",
-      row.status,
-      row.createdAt ? new Date(row.createdAt).toISOString() : "",
-    ]);
+    const rows = data.map((row) =>
+      [
+        `"${String(row.bookingId ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.memberName ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.memberPhone ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.clubName ?? "").replace(/"/g, '""')}"`,
+        `"${row.preferredDate ? new Date(row.preferredDate).toISOString() : ""}"`,
+        `"${String(row.preferredTimeStart ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.numberOfPlayers ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.guestNames ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.notes ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.status ?? "").replace(/"/g, '""')}"`,
+        `"${row.createdAt ? new Date(row.createdAt).toISOString() : ""}"`,
+      ].join(",")
+    );
 
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rows].join("\n");
 
     c.header("Content-Type", "text/csv");
     c.header(
@@ -192,25 +224,21 @@ reportRoutes.get("/export/bookings", async (c) => {
   return c.json({ data, dateRange });
 });
 
-/**
- * Export message logs as JSON (for spreadsheet export).
- */
-reportRoutes.get("/export/messages", async (c) => {
-  const startParam = c.req.query("start");
-  const endParam = c.req.query("end");
+  /**
+   * Export message logs as JSON (for spreadsheet export).
+   */
+  reportRoutes.get(
+    "/export/messages",
+    validateQuery(z.object({ format: reportSchemas.dateRange })),
+    async (c) => {
+      const { start, end } = c.get("validatedQuery") as { start: string; end: string };
+      const dateRange = {
+        start: new Date(start),
+        end: new Date(end),
+      };
 
-  let dateRange: DateRange;
-  if (startParam && endParam) {
-    dateRange = {
-      start: new Date(startParam),
-      end: new Date(endParam),
-    };
-  } else {
-    dateRange = getDateRangeForPeriod("month");
-  }
-
-  const db = getDb();
-  const data = await exportMessageLogs(db, dateRange);
+      const db = getDb();
+      const data = await exportMessageLogs(db, dateRange);
 
   // Check if CSV format is requested
   const format = c.req.query("format");
@@ -224,16 +252,18 @@ reportRoutes.get("/export/messages", async (c) => {
       "Created At",
     ];
 
-    const rows = data.map((row) => [
-      row.id,
-      row.memberName ?? "",
-      row.direction,
-      row.channel,
-      `"${(row.bodyRedacted ?? "").replace(/"/g, '""')}"`,
-      row.createdAt ? new Date(row.createdAt).toISOString() : "",
-    ]);
+    const rows = data.map((row) =>
+      [
+        `"${String(row.id ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.memberName ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.direction ?? "").replace(/"/g, '""')}"`,
+        `"${String(row.channel ?? "").replace(/"/g, '""')}"`,
+        `"${(row.bodyRedacted ?? "").replace(/"/g, '""')}"`,
+        `"${row.createdAt ? new Date(row.createdAt).toISOString() : ""}"`,
+      ].join(",")
+    );
 
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rows].join("\n");
 
     c.header("Content-Type", "text/csv");
     c.header(

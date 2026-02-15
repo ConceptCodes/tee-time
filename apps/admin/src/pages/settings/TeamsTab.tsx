@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +18,7 @@ export default function TeamsTab() {
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ name: "", slackChannel: "" });
+  const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const teamsQuery = useTeams();
@@ -310,9 +311,10 @@ export default function TeamsTab() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() =>
-                            removeMemberMutation.mutate({ teamId: selectedTeam!.id, staffUserId: member.staffUserId })
-                          }
+                          onClick={() => {
+                            if (!selectedTeam) return;
+                            removeMemberMutation.mutate({ teamId: selectedTeam.id, staffUserId: member.staffUserId });
+                          }}
                           disabled={removeMemberMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -329,16 +331,18 @@ export default function TeamsTab() {
               <Label htmlFor="add-member">Add Staff Member</Label>
               <Input
                 id="add-member"
+                ref={inputRef}
                 placeholder="Enter staff user ID"
                 className="h-9"
               />
             </div>
             <Button
               onClick={() => {
-                const input = document.getElementById("add-member") as HTMLInputElement;
-                if (input?.value) {
-                  addMemberMutation.mutate({ teamId: selectedTeam!.id, staffUserId: input.value });
-                  input.value = "";
+                if (!selectedTeam) return;
+                const value = inputRef.current?.value;
+                if (value) {
+                  addMemberMutation.mutate({ teamId: selectedTeam.id, staffUserId: value });
+                  inputRef.current!.value = "";
                 }
               }}
               disabled={addMemberMutation.isPending}

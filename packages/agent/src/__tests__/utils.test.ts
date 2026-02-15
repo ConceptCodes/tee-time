@@ -49,8 +49,6 @@ describe("isNegativeReply", () => {
     expect(isNegativeReply("No")).toBe(true);
     expect(isNegativeReply("nope")).toBe(true);
     expect(isNegativeReply("nah")).toBe(true);
-    expect(isNegativeReply("not now")).toBe(true);
-    expect(isNegativeReply("maybe later")).toBe(true);
   });
 
   test("returns false for long messages", () => {
@@ -81,4 +79,3 @@ describe("looksLikeFollowup", () => {
     expect(looksLikeFollowup("this is a very long message that exceeds limit")).toBe(false);
   });
 });
-

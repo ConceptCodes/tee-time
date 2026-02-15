@@ -1,9 +1,15 @@
+import { describe, expect, test, beforeEach } from "bun:test";
 import { cancelBookingWithHistory } from "../booking-cancel";
 import { setBookingStatusWithHistory } from "../booking-status";
 import { notifyBooking } from "../notifications/slack";
+import { jest } from "bun:test";
 
-jest.mock("../booking-status");
-jest.mock("../notifications/slack");
+jest.mock("../booking-status", () => ({
+  setBookingStatusWithHistory: jest.fn(),
+}));
+jest.mock("../notifications/slack", () => ({
+  notifyBooking: jest.fn(),
+}));
 
 describe("cancelBookingWithHistory", () => {
   const mockDb = {} as any;
@@ -13,7 +19,7 @@ describe("cancelBookingWithHistory", () => {
     jest.clearAllMocks();
   });
 
-  it("cancels booking with history", async () => {
+  test("cancels booking with history", async () => {
     const mockBooking = {
       id: "booking_123",
       clubId: "club_456",
@@ -22,7 +28,7 @@ describe("cancelBookingWithHistory", () => {
       preferredTimeEnd: "16:00",
     };
 
-    (setBookingStatusWithHistory as jest.Mock).mockResolvedValue({
+    (setBookingStatusWithHistory as any).mockResolvedValue({
       booking: mockBooking,
       history: { id: "history_123" },
     });
@@ -50,8 +56,8 @@ describe("cancelBookingWithHistory", () => {
     expect(result.booking).toEqual(mockBooking);
   });
 
-  it("returns null when booking not found", async () => {
-    (setBookingStatusWithHistory as jest.Mock).mockResolvedValue({
+  test("returns null when booking not found", async () => {
+    (setBookingStatusWithHistory as any).mockResolvedValue({
       booking: null,
       history: null,
     });
@@ -65,8 +71,8 @@ describe("cancelBookingWithHistory", () => {
     expect(result.history).toBeNull();
   });
 
-  it("includes staff member in audit when provided", async () => {
-    (setBookingStatusWithHistory as jest.Mock).mockResolvedValue({
+  test("includes staff member in audit when provided", async () => {
+    (setBookingStatusWithHistory as any).mockResolvedValue({
       booking: { id: "booking_123", clubId: "club_456" },
       history: { id: "history_123" },
     });

@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import type { ZodSchema } from "zod";
+import type { ZodSchema, ZodType } from "zod";
 
 export const validateJson = <T>(schema: ZodSchema<T>): MiddlewareHandler => {
   return async (c, next) => {
@@ -18,6 +18,21 @@ export const validateJson = <T>(schema: ZodSchema<T>): MiddlewareHandler => {
       return c.json({ error: "Invalid payload", details: parsed.error.format() }, 400);
     }
     c.set("validatedBody", parsed.data);
+    await next();
+  };
+};
+
+export const validateQuery = <T>(schema: ZodType<T>): MiddlewareHandler => {
+  return async (c, next) => {
+    const query: Record<string, string> = {};
+    for (const [key, value] of c.req.query()) {
+      query[key] = value;
+    }
+    const parsed = schema.safeParse(query);
+    if (!parsed.success) {
+      return c.json({ error: "Invalid query parameters", details: parsed.error.format() }, 400);
+    }
+    c.set("validatedQuery", parsed.data);
     await next();
   };
 };

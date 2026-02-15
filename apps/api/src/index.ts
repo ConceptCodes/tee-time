@@ -23,6 +23,7 @@ import { bookingRoutes } from "./routes/admin/bookings";
 import { faqRoutes } from "./routes/admin/faqs";
 import { reportRoutes } from "./routes/admin/reports";
 import { teamRoutes } from "./routes/admin/teams";
+import { webhookDlqRoutes } from "./routes/admin/webhook-dlq";
 import { whatsappWebhookRoutes } from "./routes/webhooks/whatsapp";
 import { chatRoutes } from "./routes/chat";
 
@@ -38,7 +39,7 @@ app.get("/", (c) => {
 
 app.use("*", traceMiddleware());
 app.use("*", loggingMiddleware());
-app.use("*", sessionMiddleware());
+app.use("/api/*", sessionMiddleware());
 app.use("*", contentTypeMiddleware());
 app.use(
   "*",
@@ -82,6 +83,7 @@ app.route("/api/bookings", bookingHistoryRoutes);
 app.route("/api/faqs", faqRoutes);
 app.route("/api/teams", teamRoutes);
 app.route("/api/reports", reportRoutes);
+app.route("/api/webhook-dlq", webhookDlqRoutes);
 app.route("/api/chat", chatRoutes);
 app.route("/webhooks/whatsapp", whatsappWebhookRoutes);
 app.onError(errorHandler);

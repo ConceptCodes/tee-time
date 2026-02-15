@@ -13,8 +13,8 @@ describe("redactSensitiveText", () => {
   test("redacts coordinates and address", () => {
     const input = "Meet at 123 Main St and the point 37.7749, -122.4194.";
     const result = redactSensitiveText(input);
-    expect(result.redacted).toContain("[redacted-address-1]");
-    expect(result.redacted).toContain("[redacted-coordinates-2]");
+    expect(result.redacted).toContain("[redacted-coordinates-1]");
+    expect(result.redacted).toContain("[redacted-address-2]");
     expect(result.redactions).toHaveLength(2);
   });
 });

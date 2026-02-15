@@ -9,7 +9,8 @@ import {
   createClubLocation,
   listClubLocations,
   listClubs,
-  listNearbyClubLocations
+  listNearbyClubLocations,
+  logAuditEvent
 } from "@tee-time/core";
 import { clubSchemas, clubLocationSchemas } from "../../schemas";
 import { paginatedResponse, parsePagination } from "../../pagination";
@@ -17,6 +18,8 @@ import { paginatedResponse, parsePagination } from "../../pagination";
 export const clubRoutes = new Hono<{ Variables: ApiVariables }>();
 
 clubRoutes.use("*", requireAuth(), requireRole(["admin", "staff"]));
+
+const requireAdmin = (role: string | undefined) => role === "admin";
 
 clubRoutes.get("/nearby", async (c) => {
   const latParam = c.req.query("lat");
@@ -73,6 +76,9 @@ clubRoutes.post(
   "/:id/locations",
   validateJson(clubLocationSchemas.create),
   async (c) => {
+    if (!requireAdmin(c.get("staffUser")?.role)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     const parsed = c.get("validatedBody") as z.infer<typeof clubLocationSchemas.create>;
   const db = getDb();
   const now = new Date();
@@ -85,10 +91,20 @@ clubRoutes.post(
     createdAt: now,
     updatedAt: now
   });
+  await logAuditEvent(db, {
+    actorId: c.get("staffUser")?.id ?? null,
+    action: "club.location.create",
+    resourceType: "club_location",
+    resourceId: location.id,
+    metadata: { clubId: c.req.param("id") }
+  });
   return c.json({ data: location }, 201);
 });
 
 clubRoutes.patch("/:id", validateJson(clubSchemas.update), async (c) => {
+  if (!requireAdmin(c.get("staffUser")?.role)) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const parsed = c.get("validatedBody") as z.infer<typeof clubSchemas.update>;
   const db = getDb();
   const clubRepo = createClubRepository(db);
@@ -98,6 +114,13 @@ clubRoutes.patch("/:id", validateJson(clubSchemas.update), async (c) => {
     if (!updated) {
       return c.json({ error: "Club not found" }, 404);
     }
+    await logAuditEvent(db, {
+      actorId: c.get("staffUser")?.id ?? null,
+      action: "club.assign_team",
+      resourceType: "club",
+      resourceId: updated.id,
+      metadata: { teamId: parsed.teamId ?? null }
+    });
     return c.json({ data: updated });
   }
   

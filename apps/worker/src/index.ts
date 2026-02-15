@@ -1,6 +1,6 @@
 import { createDb } from "@tee-time/database";
 import { logger, runRetentionCleanup, type JobRunnerContext, getErrorMessage } from "@tee-time/core";
-import { runReports, runScheduledJobs } from "./jobs";
+import { runReports, runScheduledJobs, runWebhookDlqReplay } from "./jobs";
 import { config } from "./config";
 
 type WorkerTask = {
@@ -64,6 +64,11 @@ const main = async () => {
       run: async (context) => {
         await runRetentionCleanup(context.db);
       }
+    },
+    {
+      name: "webhook-dlq-replay",
+      everyMs: config.worker.webhookDlqIntervalMs,
+      run: runWebhookDlqReplay
     }
   ];
 

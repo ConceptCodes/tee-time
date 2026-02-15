@@ -7,12 +7,17 @@ import {
   createMemberRepository,
   createMessageLogRepository,
   createMessageDedupRepository,
+  createNotificationRepository,
+  createRateLimitCounterRepository,
+  createWebhookDlqRepository,
 } from "@tee-time/database";
 import {
   clearBookingState,
   createSupportRequest,
+  getFlowStateMeta,
   getBookingState,
   isFlowStateEnvelope,
+  logAuditEvent,
   logMessage,
   createMemberProfile,
   redactSensitiveText,
@@ -131,6 +136,24 @@ export const whatsappWebhookRoutes = new Hono();
 const DEFAULT_TIMEZONE = "Etc/UTC";
 const DEFAULT_DEBOUNCE_WINDOW_SECONDS = 15;
 const DEFAULT_DEDUP_WINDOW_SECONDS = 60;
+const DEFAULT_HISTORY_WINDOW_TURNS = 10;
+const DEFAULT_INACTIVITY_TIMEOUT_HOURS = 24;
+const DEFAULT_MEMBER_RATE_LIMIT_MESSAGES_PER_HOUR = 30;
+const DEFAULT_GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE = 1000;
+
+const FLOW_MAX_TURNS: Record<string, number> = {
+  onboarding: 10,
+  "booking-new": 15,
+  faq: 3,
+};
+
+type RateLimitCounter = {
+  exceeded: boolean;
+  retryAfterSeconds: number;
+  count: number;
+};
+
+const RESET_CONVERSATION_PATTERN = /\b(start over|restart|reset)\b/i;
 
 const parseDebounceWindowSeconds = () => {
   const raw = process.env.DEBOUNCE_WINDOW_SECONDS;
@@ -150,6 +173,77 @@ const parseDedupWindowSeconds = () => {
   return parsed;
 };
 
+const parseInactivityTimeoutHours = () => {
+  const raw = process.env.CONVERSATION_INACTIVITY_TIMEOUT_HOURS;
+  if (!raw) return DEFAULT_INACTIVITY_TIMEOUT_HOURS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_INACTIVITY_TIMEOUT_HOURS;
+  if (parsed <= 0) return DEFAULT_INACTIVITY_TIMEOUT_HOURS;
+  return parsed;
+};
+
+const parseMemberRateLimitPerHour = () => {
+  const raw = process.env.MEMBER_RATE_LIMIT_PER_HOUR;
+  if (!raw) return DEFAULT_MEMBER_RATE_LIMIT_MESSAGES_PER_HOUR;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_MEMBER_RATE_LIMIT_MESSAGES_PER_HOUR;
+  if (parsed <= 0) return DEFAULT_MEMBER_RATE_LIMIT_MESSAGES_PER_HOUR;
+  return parsed;
+};
+
+const parseGlobalRateLimitPerMinute = () => {
+  const raw = process.env.WEBHOOK_GLOBAL_RATE_LIMIT_PER_MINUTE;
+  if (!raw) return DEFAULT_GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE;
+  if (parsed <= 0) return DEFAULT_GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE;
+  return parsed;
+};
+
+const parseHistoryWindowTurns = () => {
+  const raw = process.env.CONVERSATION_HISTORY_WINDOW_TURNS;
+  if (!raw) return DEFAULT_HISTORY_WINDOW_TURNS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_HISTORY_WINDOW_TURNS;
+  if (parsed <= 0) return DEFAULT_HISTORY_WINDOW_TURNS;
+  return parsed;
+};
+
+const consumePersistentToken = async (
+  db: ReturnType<typeof getDb>,
+  params: {
+    scope: string;
+    identifier: string;
+    limit: number;
+    windowSeconds: number;
+    now?: Date;
+  }
+): Promise<RateLimitCounter> => {
+  const now = params.now ?? new Date();
+  const repo = createRateLimitCounterRepository(db);
+  const row = await repo.consume({
+    scope: params.scope,
+    identifier: params.identifier,
+    windowSeconds: params.windowSeconds,
+    now,
+  });
+  if (!row) {
+    return { exceeded: false, retryAfterSeconds: 0, count: 0 };
+  }
+  const windowEndMs =
+    row.windowStart.getTime() + Number(row.windowSeconds) * 1000;
+  return {
+    exceeded: Number(row.count) > params.limit,
+    retryAfterSeconds: Math.max(
+      1,
+      Math.ceil((windowEndMs - now.getTime()) / 1000)
+    ),
+    count: Number(row.count),
+  };
+};
+
+const getFlowMaxTurns = (flow: string) => FLOW_MAX_TURNS[flow] ?? 15;
+
 const buildEmptyTwimlResponse = () => `<?xml version="1.0" encoding="UTF-8"?>
 <Response></Response>`;
 
@@ -168,6 +262,7 @@ whatsappWebhookRoutes.get("/", (c) => {
 whatsappWebhookRoutes.post("/", async (c) => {
   const db = getDb();
   const memberRepo = createMemberRepository(db);
+  let dlqPayload: Record<string, string> | null = null;
 
   try {
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -184,6 +279,7 @@ whatsappWebhookRoutes.post("/", async (c) => {
     formData.forEach((value, key) => {
       payload[key] = value.toString();
     });
+    dlqPayload = payload;
 
     const isValid = validateRequest(authToken, signature, c.req.url, payload);
     if (!isValid) {
@@ -241,9 +337,78 @@ whatsappWebhookRoutes.post("/", async (c) => {
       return c.text("Invalid member", 400);
     }
 
+    const memberRateLimitPerHour = parseMemberRateLimitPerHour();
+    const globalRateLimitPerMinute = parseGlobalRateLimitPerMinute();
+    const globalRateLimit = await consumePersistentToken(db, {
+      scope: "webhook.global",
+      identifier: "all",
+      limit: globalRateLimitPerMinute,
+      windowSeconds: 60,
+      now,
+    });
+    if (globalRateLimit.exceeded) {
+      await logAuditEvent(db, {
+        action: "webhook.rate_limit.global_exceeded",
+        resourceType: "member_profile",
+        resourceId: memberId,
+        metadata: {
+          retryAfterSeconds: globalRateLimit.retryAfterSeconds,
+          configuredLimitPerMinute: globalRateLimitPerMinute,
+        },
+      });
+      c.header("Content-Type", "application/xml");
+      return c.body(
+        formatTwimlResponse(
+          "We're receiving high traffic right now. Please try again in a moment."
+        )
+      );
+    }
+
+    const memberRateLimit = await consumePersistentToken(db, {
+      scope: "webhook.member",
+      identifier: memberId,
+      limit: memberRateLimitPerHour,
+      windowSeconds: 60 * 60,
+      now,
+    });
+    if (memberRateLimit.exceeded) {
+      await logAuditEvent(db, {
+        action: "webhook.rate_limit.member_exceeded",
+        resourceType: "member_profile",
+        resourceId: memberId,
+        metadata: {
+          retryAfterSeconds: memberRateLimit.retryAfterSeconds,
+          configuredLimitPerHour: memberRateLimitPerHour,
+        },
+      });
+      await logMessage(db, {
+        memberId,
+        direction: "inbound",
+        channel: "whatsapp",
+        providerMessageId: MessageSid,
+        bodyRedacted: messageRedaction.redacted,
+        bodyHash: messageHash,
+        metadata: {
+          profileName: profileNameRedaction.redacted,
+          phoneNumber: phoneRedaction.redacted,
+          redactions: combinedRedactions,
+          rateLimited: true,
+          retryAfterSeconds: memberRateLimit.retryAfterSeconds,
+        },
+      });
+      c.header("Content-Type", "application/xml");
+      return c.body(
+        formatTwimlResponse(
+          `You've reached the message limit. Please try again in about ${memberRateLimit.retryAfterSeconds} seconds.`
+        )
+      );
+    }
+
     const dedupRepo = createMessageDedupRepository(db);
     const debounceSeconds = parseDebounceWindowSeconds();
     const dedupSeconds = parseDedupWindowSeconds();
+    const historyWindowTurns = parseHistoryWindowTurns();
+    const inactivityTimeoutHours = parseInactivityTimeoutHours();
     const dedupExpiresAt = new Date(now.getTime() + dedupSeconds * 1000);
     if (dedupSeconds > 0) {
       const existingDedup = await dedupRepo.getByMemberAndHash(
@@ -278,15 +443,36 @@ whatsappWebhookRoutes.post("/", async (c) => {
     const storedState = memberId
       ? await getBookingState<Record<string, unknown>>(db, memberId)
       : null;
-    const storedEnvelope =
+    let storedEnvelope =
       storedState && isFlowStateEnvelope(storedState.state)
         ? storedState.state
         : null;
 
     const messageLogRepo = createMessageLogRepository(db);
-    const historyLogs = await messageLogRepo.listByMemberId(memberId);
+    const historyLogs = await messageLogRepo.list({
+      memberId,
+      limit: Math.max(historyWindowTurns + 2, 12),
+    });
+    const lastMessageLog = historyLogs[0];
+    if (
+      lastMessageLog &&
+      now.getTime() - lastMessageLog.createdAt.getTime() >
+        inactivityTimeoutHours * 60 * 60 * 1000
+    ) {
+      await clearBookingState(db, memberId);
+      storedEnvelope = null;
+      await logAuditEvent(db, {
+        action: "conversation.inactivity_reset",
+        resourceType: "member_profile",
+        resourceId: memberId,
+        metadata: {
+          inactivityTimeoutHours,
+          lastMessageAt: lastMessageLog.createdAt.toISOString(),
+        },
+      });
+    }
     if (debounceSeconds > 0) {
-      const lastLog = historyLogs[0];
+      const lastLog = lastMessageLog;
       if (
         lastLog &&
         lastLog.direction === "inbound" &&
@@ -325,7 +511,78 @@ whatsappWebhookRoutes.post("/", async (c) => {
       },
     });
 
-    const recentLogs = historyLogs.slice(0, 6);
+    if (RESET_CONVERSATION_PATTERN.test(message)) {
+      await clearBookingState(db, memberId);
+      await logAuditEvent(db, {
+        action: "conversation.manual_reset",
+        resourceType: "member_profile",
+        resourceId: memberId,
+        metadata: {
+          trigger: messageRedaction.redacted,
+        },
+      });
+      const restartMessage =
+        "Done. I reset our conversation. I can book a tee time, check booking status, cancel, modify, or answer FAQs.";
+      const restartMessageHash = createHash("sha256")
+        .update(restartMessage)
+        .digest("hex");
+      await logMessage(db, {
+        memberId,
+        direction: "outbound",
+        channel: "whatsapp",
+        bodyRedacted: restartMessage,
+        bodyHash: restartMessageHash,
+        metadata: {
+          inReplyTo: MessageSid,
+          agentFlow: "clarify",
+          reset: true,
+        },
+      });
+      c.header("Content-Type", "application/xml");
+      return c.body(formatTwimlResponse(restartMessage));
+    }
+
+    const activeFlow = storedEnvelope?.flow;
+    const activeFlowMeta = getFlowStateMeta(storedEnvelope);
+    if (
+      activeFlow &&
+      activeFlowMeta &&
+      activeFlowMeta.turnCount >= getFlowMaxTurns(activeFlow)
+    ) {
+      await clearBookingState(db, memberId);
+      await logAuditEvent(db, {
+        action: "conversation.turn_limit_exceeded",
+        resourceType: "member_profile",
+        resourceId: memberId,
+        metadata: {
+          flow: activeFlow,
+          turnCount: activeFlowMeta.turnCount,
+          configuredMaxTurns: getFlowMaxTurns(activeFlow),
+        },
+      });
+      const limitMessage =
+        "We've gone through a lot of messages on this request, so I reset this flow. Please send your booking request again and I'll continue from a clean state.";
+      const limitMessageHash = createHash("sha256")
+        .update(limitMessage)
+        .digest("hex");
+      await logMessage(db, {
+        memberId,
+        direction: "outbound",
+        channel: "whatsapp",
+        bodyRedacted: limitMessage,
+        bodyHash: limitMessageHash,
+        metadata: {
+          inReplyTo: MessageSid,
+          agentFlow: "clarify",
+          flowReset: true,
+          reason: "turn_limit",
+        },
+      });
+      c.header("Content-Type", "application/xml");
+      return c.body(formatTwimlResponse(limitMessage));
+    }
+
+    const recentLogs = historyLogs.slice(0, historyWindowTurns);
     if (
       recentLogs[0]?.direction === "inbound" &&
       recentLogs[0]?.bodyRedacted === messageRedaction.redacted
@@ -351,12 +608,28 @@ whatsappWebhookRoutes.post("/", async (c) => {
     const decision = await routeAgentMessage(routerInput);
 
     let finalDecision = decision;
+    const stateTurnCounts = new Map<string, number>();
+    const nextTurnCount = (flow: string) => {
+      const cached = stateTurnCounts.get(flow);
+      if (cached) return cached;
+      const base = storedEnvelope?.flow === flow ? activeFlowMeta?.turnCount ?? 0 : 0;
+      const next = base + 1;
+      stateTurnCounts.set(flow, next);
+      return next;
+    };
     const saveFlowState = async (
       flow: string,
       state: Record<string, unknown>
     ) => {
       if (!memberId) return;
-      await saveBookingState(db, memberId, wrapFlowState(flow, state));
+      await saveBookingState(
+        db,
+        memberId,
+        wrapFlowState(flow, state, undefined, {
+          turnCount: nextTurnCount(flow),
+          lastUserMessageAt: now.toISOString(),
+        })
+      );
     };
     const clearFlowState = async () => {
       if (!memberId) return;
@@ -519,6 +792,26 @@ whatsappWebhookRoutes.post("/", async (c) => {
     return c.body(formatTwimlResponse(responseMessage));
   } catch (error) {
     console.error("WhatsApp webhook error:", error);
+    const now = new Date();
+    const isReplay = c.req.header("x-dlq-replay") === "1";
+    if (dlqPayload && !isReplay) {
+      try {
+        const webhookDlqRepo = createWebhookDlqRepository(db);
+        await webhookDlqRepo.create({
+          provider: "twilio",
+          eventType: "whatsapp_inbound",
+          payload: dlqPayload,
+          status: "pending",
+          attempts: 0,
+          lastError: error instanceof Error ? error.message : String(error),
+          nextRetryAt: new Date(now.getTime() + 60 * 1000),
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (dlqError) {
+        console.error("Failed to persist webhook DLQ event:", dlqError);
+      }
+    }
     c.header("Content-Type", "application/xml");
     return c.body(
       formatTwimlResponse(
@@ -533,6 +826,7 @@ whatsappWebhookRoutes.post("/", async (c) => {
  */
 whatsappWebhookRoutes.post("/status", async (c) => {
   const db = getDb();
+  let dlqPayload: Record<string, string> | null = null;
 
   try {
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -547,6 +841,7 @@ whatsappWebhookRoutes.post("/status", async (c) => {
     formData.forEach((value, key) => {
       payload[key] = value.toString();
     });
+    dlqPayload = payload;
 
     const isValid = validateRequest(authToken, signature, c.req.url, payload);
     if (!isValid) {
@@ -556,17 +851,59 @@ whatsappWebhookRoutes.post("/status", async (c) => {
 
     const messageSid = payload.MessageSid;
     const messageStatus = payload.MessageStatus;
+    const errorCode = payload.ErrorCode;
+    const errorMessage = payload.ErrorMessage;
 
     if (messageSid && messageStatus) {
-      // Log status update - we'll find by provider message ID
+      const normalized = messageStatus.toLowerCase();
+      const notificationRepo = createNotificationRepository(db);
+      const terminalFailure =
+        normalized === "failed" || normalized === "undelivered";
+      const nextStatus = terminalFailure
+        ? "failed"
+        : normalized === "delivered" || normalized === "read"
+          ? "delivered"
+          : normalized === "sent"
+            ? "sent"
+            : "processing";
+
+      await notificationRepo.updateByProviderMessageId(messageSid, {
+        status: nextStatus,
+        sentAt:
+          nextStatus === "sent" || nextStatus === "delivered"
+            ? new Date()
+            : undefined,
+        error:
+          terminalFailure && (errorMessage || errorCode)
+            ? `twilio:${errorCode ?? "unknown"}:${errorMessage ?? "delivery_failed"}`
+            : null,
+      });
       console.log(`Message ${messageSid} status: ${messageStatus}`);
-      // Note: updateBySid method would need to be added to the repository
-      // For now, just log the status update
     }
 
     return c.text("OK", 200);
   } catch (error) {
     console.error("Status callback error:", error);
+    const now = new Date();
+    const isReplay = c.req.header("x-dlq-replay") === "1";
+    if (dlqPayload && !isReplay) {
+      try {
+        const webhookDlqRepo = createWebhookDlqRepository(db);
+        await webhookDlqRepo.create({
+          provider: "twilio",
+          eventType: "whatsapp_status",
+          payload: dlqPayload,
+          status: "pending",
+          attempts: 0,
+          lastError: error instanceof Error ? error.message : String(error),
+          nextRetryAt: new Date(now.getTime() + 60 * 1000),
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (dlqError) {
+        console.error("Failed to persist status callback DLQ event:", dlqError);
+      }
+    }
     return c.text("Error", 500);
   }
 });
