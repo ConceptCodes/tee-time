@@ -7,6 +7,7 @@ import {
   type Database,
   type Booking,
 } from "@tee-time/database";
+import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getErrorMessage } from "./errors";
 import {
@@ -22,6 +23,7 @@ export type QueueNotificationParams = {
   channel?: "whatsapp" | "slack" | "email";
   runAt?: Date;
   reason?: string;
+  jobType?: "reminder" | "follow_up" | "retention";
 };
 
 /**
@@ -33,30 +35,29 @@ export const queueBookingNotification = async (
   db: Database,
   params: QueueNotificationParams
 ) => {
-  const notificationRepo = createNotificationRepository(db);
-  const scheduledJobRepo = createScheduledJobRepository(db);
   const now = new Date();
+  const jobType = params.jobType ?? "reminder";
+  const notification = await db.transaction(async (tx) => {
+    const notificationRepo = createNotificationRepository(tx);
+    const scheduledJobRepo = createScheduledJobRepository(tx);
+    const created = await notificationRepo.create({
+      bookingId: params.bookingId,
+      channel: params.channel ?? "whatsapp",
+      templateName: params.template,
+      status: "pending",
+      createdAt: now,
+    });
 
-  // Create the notification record
-  const notification = await notificationRepo.create({
-    bookingId: params.bookingId,
-    channel: params.channel ?? "whatsapp",
-    templateName: params.template,
-    status: "pending",
-    createdAt: now,
-  });
-
-  // Schedule a job to process the notification
-  // We use "reminder" type for now since it can process booking-related tasks
-  // The job metadata will indicate it's a notification job
-  await scheduledJobRepo.create({
-    jobType: "reminder", // Reusing existing job type
-    bookingId: params.bookingId,
-    runAt: params.runAt ?? now,
-    status: "pending",
-    attempts: 0,
-    createdAt: now,
-    updatedAt: now,
+    await scheduledJobRepo.create({
+      jobType,
+      bookingId: params.bookingId,
+      runAt: params.runAt ?? now,
+      status: "pending",
+      attempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return created;
   });
 
   logger.info("core.notification.queued", {
@@ -67,6 +68,35 @@ export const queueBookingNotification = async (
   });
 
   return notification;
+};
+
+export const resetStaleNotifications = async (
+  db: Database,
+  staleMinutes: number
+): Promise<number> => {
+  const staleThreshold = new Date(
+    Date.now() - staleMinutes * 60 * 1000
+  );
+
+  const result = await db.execute(
+    sql`
+      update notifications
+      set status = pending,
+          error = null
+      where status = processing
+        and updated_at <= ${staleThreshold}
+      returning *
+    `
+  );
+
+  if (result.rows.length > 0) {
+    logger.info("core.notification.staleReset", {
+      count: result.rows.length,
+      staleMinutes,
+    });
+  }
+
+  return result.rows.length;
 };
 
 /**
@@ -81,9 +111,12 @@ export const processBookingNotification = async (
   const clubRepo = createClubRepository(db);
   const notificationRepo = createNotificationRepository(db);
 
-  // Get the pending notifications for this booking
-  const notifications = await notificationRepo.listByBookingId(bookingId);
-  const pending = notifications.filter((n) => n.status === "pending");
+  // Reset stale notifications before claiming to prevent deadlock
+  const staleMinutes = Number(process.env.WORKER_STALE_NOTIFICATION_MINUTES ?? "15");
+  await resetStaleNotifications(db, staleMinutes);
+
+  // Atomically claim pending notifications to avoid duplicate sends across workers.
+  const pending = await notificationRepo.claimPendingByBookingId(bookingId);
 
   if (pending.length === 0) {
     logger.info("core.notification.noPending", { bookingId });
@@ -147,7 +180,11 @@ export const processBookingNotification = async (
           messageSid: result.messageSid,
         });
       } else {
-        // For other channels (slack, email), mark as pending implementation
+        // Unsupported channels are terminal failures until implemented.
+        await notificationRepo.update(notification.id, {
+          status: "failed",
+          error: `channel_not_implemented:${notification.channel}`,
+        });
         logger.warn("core.notification.channelNotImplemented", {
           notificationId: notification.id,
           channel: notification.channel,
@@ -260,6 +297,7 @@ export const scheduleBookingFollowUp = async (
   await queueBookingNotification(db, {
     bookingId: booking.id,
     template: BookingNotificationTemplates.BOOKING_FOLLOW_UP,
+    jobType: "follow_up",
     runAt: followUpTime,
   });
 

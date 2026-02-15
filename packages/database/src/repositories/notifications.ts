@@ -1,4 +1,4 @@
-import { desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { type Database } from "../client";
 import { notifications } from "../schema";
 import { firstOrNull } from "./utils";
@@ -34,6 +34,30 @@ export const createNotificationRepository = (db: Database) => ({
       .select()
       .from(notifications)
       .where(eq(notifications.bookingId, bookingId));
+  },
+  claimPendingByBookingId: async (bookingId: string): Promise<Notification[]> => {
+    const rows = await db
+      .update(notifications)
+      .set({ status: "processing" })
+      .where(
+        and(
+          eq(notifications.bookingId, bookingId),
+          eq(notifications.status, "pending")
+        )
+      )
+      .returning();
+    return rows as Notification[];
+  },
+  updateByProviderMessageId: async (
+    providerMessageId: string,
+    data: Partial<NewNotification>
+  ): Promise<Notification | null> => {
+    const rows = await db
+      .update(notifications)
+      .set(data)
+      .where(eq(notifications.providerMessageId, providerMessageId))
+      .returning();
+    return firstOrNull(rows);
   },
   listRecentErrors: async (limit = 10): Promise<Notification[]> => {
     return db
