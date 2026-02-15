@@ -371,6 +371,55 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull()
 });
 
+export const rateLimitCounters = pgTable(
+  "rate_limit_counters",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    scope: text("scope").notNull(),
+    identifier: text("identifier").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    windowSeconds: smallint("window_seconds").notNull(),
+    count: smallint("count").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    scopeIdentifierWindowUnique: uniqueIndex(
+      "rate_limit_counters_scope_identifier_window_idx"
+    ).on(table.scope, table.identifier, table.windowStart),
+    scopeWindowIdx: index("rate_limit_counters_scope_window_idx").on(
+      table.scope,
+      table.windowStart
+    ),
+  })
+);
+
+export const webhookDlq = pgTable(
+  "webhook_dlq",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").notNull(),
+    status: text("status").notNull().default("pending"),
+    attempts: smallint("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    statusRetryIdx: index("webhook_dlq_status_next_retry_idx").on(
+      table.status,
+      table.nextRetryAt
+    ),
+    providerEventIdx: index("webhook_dlq_provider_event_idx").on(
+      table.provider,
+      table.eventType
+    ),
+  })
+);
+
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -437,10 +486,12 @@ export const schema = {
   messageDedup,
   messageLogs,
   notifications,
+  rateLimitCounters,
   bookingStates,
   scheduledJobs,
   staffUsers,
   supportRequests,
   teamMemberships,
-  teams
+  teams,
+  webhookDlq
 };
