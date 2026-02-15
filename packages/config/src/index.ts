@@ -27,7 +27,7 @@ const configSchema = z.object({
 
   // Booking Logic
   BOOKING_MAX_PLAYERS: z.coerce.number().default(6),
-  BOOKING_STATE_TTL_MINUTES: z.coerce.number().default(120),
+  BOOKING_STATE_TTL_MINUTES: z.coerce.number().default(10080),
   BOOKING_MIN_LEAD_MINUTES: z.coerce.number().default(0),
   BOOKING_BAY_PROMPT_LIMIT: z.coerce.number().default(8),
 
@@ -51,6 +51,10 @@ const configSchema = z.object({
   WORKER_SCHEDULED_INTERVAL_MS: z.coerce.number().default(60000), // 1 minute
   WORKER_REPORTS_INTERVAL_MS: z.coerce.number().default(3600000), // 1 hour
   WORKER_RETENTION_INTERVAL_MS: z.coerce.number().default(86400000), // 1 day
+  WORKER_STALE_PROCESSING_MINUTES: z.coerce.number().default(15),
+  WORKER_STALE_NOTIFICATION_MINUTES: z.coerce.number().default(15),
+  WORKER_WEBHOOK_DLQ_INTERVAL_MS: z.coerce.number().default(60000), // 1 minute
+  WORKER_WEBHOOK_DLQ_BATCH_SIZE: z.coerce.number().default(25),
   WORKER_JOB_BATCH_SIZE: z.coerce.number().default(25),
   WORKER_MAX_ATTEMPTS: z.coerce.number().default(5),
   WORKER_RETRY_BASE_DELAY_MS: z.coerce.number().default(60000), // 1 minute
