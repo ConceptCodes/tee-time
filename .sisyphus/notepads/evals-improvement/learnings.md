@@ -204,3 +204,25 @@ Operational scenarios test webhook logic at the database level without requiring
 - Clearer test expectations for agent behavior
 - Better coverage of specific decision paths
 - Maintains test environment compatibility (no bookings needed)
+
+---
+
+## Realistic Simulation Patterns Implementation
+
+### Added Scenarios Summary
+- **Typo Scenarios (6 added)**: Club name misspellings (Topgolf → Topgolf, Topgolf), date/time typos (tomorrow → tommorow, Friday → Frday, 2pm → 2 pm, 9am → 9 am)
+- **Ambiguity Scenarios (3 added)**: Time AM/PM ambiguity, next week date ambiguity, afternoon time ambiguity  
+- **Natural Language Scenarios (5 added)**: Contractions, sentence fragments, slang/informal, mixed informal/formal, casual requests
+- **Tool Failure Scenarios (2 added)**: No clubs available, booking conflict simulation
+
+### Pattern Effectiveness
+- Typo scenarios effectively test fuzzy matching and correction capabilities
+- Ambiguity scenarios validate clarification prompts for unclear user input
+- Natural language scenarios test conversational flexibility and informal input handling
+- Tool failure scenarios simulate graceful degradation when external dependencies fail
+
+### Implementation Notes
+- Added scenarios to existing `edge-cases.ts` and `booking.ts` files as specified
+- All scenarios include clear expected agent behavior (flow types, decision types, prompt includes)
+- No external API mocking required - scenarios test agent behavior at the conversation level
+- Scenarios are designed to mirror real user behavior patterns observed in production

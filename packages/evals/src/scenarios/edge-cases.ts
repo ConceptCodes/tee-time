@@ -163,6 +163,20 @@ export const buildEdgeCaseScenarios = (clubs: ClubInfo[], count: number): EvalSc
     { id: "edge-contraction-expansion", name: "Greeting with booking request", turns: ["Hey I'd like to book a tee time at that club tomorrow at 2pm for 1 player"], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
     { id: "edge-sentence-fragment", name: "Sentence fragments", turns: ["Tomorrow. 2pm. 2 players."], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
     { id: "edge-context-switch", name: "Context switch in single message", turns: ["Book tomorrow but also answer: what's your cancellation policy?"], expect: { flow: ["booking-new", "faq", "clarify"] } },
+    // === TYPO SCENARIOS ===
+    { id: "edge-club-name-typo-1", name: "Club name typo (Topgolf -> Topgolf)", turns: [`Book Topgolf tomorrow at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
+    { id: "edge-club-name-typo-2", name: "Club name typo (Topgolf -> Topgolf)", turns: [`Book Topgolf tomorrow at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
+    { id: "edge-date-typo-1", name: "Date typo (tomorrow -> tommorow)", turns: [`Book ${clubText} tommorow at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
+    { id: "edge-date-typo-2", name: "Date typo (Friday -> Frday)", turns: [`Book ${clubText} Frday at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
+    { id: "edge-time-typo-1", name: "Time typo (2pm -> 2 pm)", turns: [`Book ${clubText} tomorrow at 2 pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["review", "ask"] } },
+    { id: "edge-time-typo-2", name: "Time typo (9am -> 9 am)", turns: [`Book ${clubText} tomorrow at 9 am for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["review", "ask"] } },
+    // === AMBIGUITY SCENARIOS ===
+    { id: "edge-time-ambiguity-ampm", name: "Time ambiguity (2 - AM/PM unclear)", turns: [`Book ${clubText} tomorrow at 2 for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
+    { id: "edge-date-ambiguity-next-week", name: "Date ambiguity (next week - which day?)", turns: [`Book ${clubText} next week at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
+    { id: "edge-time-ambiguity-afternoon", name: "Time ambiguity (afternoon - what time?)", turns: [`Book ${clubText} tomorrow afternoon for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask", "review"] } },
+    // === TOOL FAILURE SIMULATION ===
+    { id: "edge-no-clubs-available", name: "No clubs available (tool failure simulation)", turns: [`Book a tee time tomorrow at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask"], promptIncludes: ["club"] } },
+    { id: "edge-booking-conflict", name: "Booking conflict (tool failure simulation)", turns: [`Book ${clubText} tomorrow at 2pm for 1 player. Notes: none.`], expect: { flow: "booking-new", decisionTypes: ["ask-alternatives", "review", "ask"] } },
   ];
 
   return templates.slice(0, count).map((t, i) => ({ ...t, id: `${t.id}-${i + 1}`, suite: "edge-cases" as const }));

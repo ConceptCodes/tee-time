@@ -190,6 +190,72 @@ const bookingTemplates: BookingTemplate[] = [
       };
     },
   },
+  // === NATURAL LANGUAGE VARIATIONS ===
+  {
+    key: "contractions",
+    build: (club, index) => {
+      const includeLocation = club.locations.length > 1;
+      const clubText = formatClub(club, includeLocation);
+      return {
+        id: `booking-contractions-${index}`,
+        name: "Contractions and informal phrasing",
+        turns: [`I'd like to book a tee time at ${clubText} tomorrow at 2pm for 1 player. It's just me, no guests.`],
+        expect: { flow: "booking-new", decisionTypes: ["review"] },
+      };
+    },
+  },
+  {
+    key: "sentence-fragments",
+    build: (club, index) => {
+      const includeLocation = club.locations.length > 1;
+      const clubText = formatClub(club, includeLocation);
+      return {
+        id: `booking-fragments-${index}`,
+        name: "Sentence fragments",
+        turns: [`${clubText}. Tomorrow. 2pm. 2 players. No notes.`],
+        expect: { flow: "booking-new", decisionTypes: ["ask", "review"] },
+      };
+    },
+  },
+  {
+    key: "slang-informal",
+    build: (club, index) => {
+      const includeLocation = club.locations.length > 1;
+      const clubText = formatClub(club, includeLocation);
+      return {
+        id: `booking-slang-${index}`,
+        name: "Slang and very informal",
+        turns: [`gimme a tee time at ${clubText} tmrw around 2 for just me pls`],
+        expect: { flow: "booking-new", decisionTypes: ["review"] },
+      };
+    },
+  },
+  {
+    key: "mixed-informal",
+    build: (club, index) => {
+      const includeLocation = club.locations.length > 1;
+      const clubText = formatClub(club, includeLocation);
+      return {
+        id: `booking-mixed-informal-${index}`,
+        name: "Mixed informal and formal",
+        turns: [`hey can I get a tee time at ${clubText} tomorrow afternoon? it'll be for 2 players, no special notes`],
+        expect: { flow: "booking-new", decisionTypes: ["ask", "review"] },
+      };
+    },
+  },
+  {
+    key: "casual-request",
+    build: (club, index) => {
+      const includeLocation = club.locations.length > 1;
+      const clubText = formatClub(club, includeLocation);
+      return {
+        id: `booking-casual-${index}`,
+        name: "Casual request style",
+        turns: [`wanna book a slot at ${clubText} next friday at 10am for 1 player. nothing special`],
+        expect: { flow: "booking-new", decisionTypes: ["review"] },
+      };
+    },
+  },
 ];
 
 export const buildBookingScenarios = (clubs: ClubInfo[], count: number): EvalScenario[] => {
