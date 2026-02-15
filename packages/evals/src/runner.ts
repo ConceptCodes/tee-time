@@ -52,6 +52,7 @@ export type EvalConfig = {
   captureTranscripts: boolean;
   summaryOnly: boolean;
   parallel: boolean;
+  dbUrl?: string;
 };
 
 export type EvalScenarioReport = {
@@ -499,8 +500,12 @@ export const runEvals = async (config: EvalConfig): Promise<EvalReport> => {
 
   const startedAt = Date.now();
 
-  // Use local Postgres for evals (supports PostGIS)
-  const evalDbUrl = "postgres://localhost/teetime_evals";
+  // Determine evaluation database URL
+  // Priority: config.dbUrl > ENV eval_DATABASE_URL > fallback
+  const evalDbUrl =
+    config.dbUrl ??
+    process.env.EVAL_DATABASE_URL ??
+    "postgres://localhost/teetime_evals";
   process.env.DATABASE_URL = evalDbUrl;
 
   console.log(`Connecting to evaluation database: ${evalDbUrl}`);

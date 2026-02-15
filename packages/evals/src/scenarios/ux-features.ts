@@ -152,9 +152,9 @@ export const buildMultiBookingScenarios = (count: number): EvalScenario[] =>
           return { status: "skip", details: "No active clubs available" };
         }
 
-        const club = clubs.find(c => c.name === "Test Club");
+        const club = clubs.find(c => c.name === "Downtown Lounge");
         if (!club) {
-          return { status: "skip", details: "Test Club fixture not found" };
+          return { status: "skip", details: "Downtown Lounge fixture not found" };
         }
 
         const locationRepo = createClubLocationRepository(db);

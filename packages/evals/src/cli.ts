@@ -48,20 +48,28 @@ const parseArgs = (args: string[]) => {
   let json = false;
   let transcriptsPath: string | null = null;
 
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    if (arg === "--suite" || arg === "--suites") {
-      const value = args[i + 1];
-      if (!value) {
-        throw new Error("Missing value for --suite");
-      }
-      config.suites = value
-        .split(",")
-        .map((suite) => suite.trim())
-        .filter(Boolean) as EvalConfig["suites"];
-      i += 1;
-      continue;
-    }
+   for (let i = 0; i < args.length; i += 1) {
+     const arg = args[i];
+     if (arg === "--suite" || arg === "--suites") {
+       const value = args[i + 1];
+       if (!value) {
+         throw new Error("Missing value for --suite");
+       }
+       config.suites = value
+         .split(",")
+         .map((suite) => suite.trim())
+         .filter(Boolean) as EvalConfig["suites"];
+       i += 1;
+       continue;
+     }
+     if (arg === "--db-url") {
+       config.dbUrl = args[i + 1] ?? undefined;
+       if (!config.dbUrl) {
+         throw new Error("Missing value for --db-url");
+       }
+       i += 1;
+       continue;
+     }
     if (arg === "--booking") {
       config.counts.booking = Number(args[i + 1] ?? DEFAULT_COUNTS.booking);
       i += 1;
@@ -200,12 +208,13 @@ Suites:
   multi-booking  Multi-booking selections and disambiguation (default: ${DEFAULT_COUNTS["multi-booking"]})
   course-correction Mid-flow corrections and resets (default: ${DEFAULT_COUNTS["course-correction"]})
 
-Options:
+ Options:
   --suite <list>            Run specific suites (comma-separated)
+  --db-url <url>            Database URL for evaluation (default: postgres://localhost/teetime_evals)
   --booking <n>             Number of booking scenarios
   --booking-status <n>      Number of booking-status scenarios
   --cancel <n>              Number of cancel scenarios
-  --modify <n>              Number of modify scenarios  
+  --modify <n>              Number of modify scenarios
   --onboarding <n>          Number of onboarding scenarios
   --multi-turn <n>          Number of multi-turn scenarios
   --faq <n>                 Number of FAQ scenarios
