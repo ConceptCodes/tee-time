@@ -6,7 +6,7 @@ export type StoredBookingState<TState = Record<string, unknown>> = {
   state: TState;
 };
 
-const DEFAULT_BOOKING_STATE_TTL_MINUTES = 120;
+const DEFAULT_BOOKING_STATE_TTL_MINUTES = 7 * 24 * 60;
 
 const parseBookingStateTtlMinutes = () => {
   const raw = process.env.BOOKING_STATE_TTL_MINUTES;
@@ -26,6 +26,12 @@ const parseBookingStateTtlMinutes = () => {
 export type FlowStateEnvelope<TState = Record<string, unknown>> = {
   flow: string;
   data: TState;
+  meta?: FlowStateMeta;
+};
+
+export type FlowStateMeta = {
+  turnCount: number;
+  lastUserMessageAt: string;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -58,12 +64,37 @@ export const SHARED_CONTEXT_KEY = "sharedBookingContext";
 export const wrapFlowState = <TState>(
   flow: string,
   data: TState,
-  sharedContext?: SharedBookingContext
+  sharedContext?: SharedBookingContext,
+  meta?: FlowStateMeta
 ): FlowStateEnvelope<TState> => ({
   flow,
   data,
   ...(sharedContext && { [SHARED_CONTEXT_KEY]: sharedContext }),
+  ...(meta ? { meta } : {}),
 });
+
+export const getFlowStateMeta = (value: unknown): FlowStateMeta | undefined => {
+  if (!isFlowStateEnvelope(value)) {
+    return undefined;
+  }
+  const meta = value.meta;
+  if (!meta || typeof meta !== "object") {
+    return undefined;
+  }
+  const turnCount =
+    typeof meta.turnCount === "number" && Number.isFinite(meta.turnCount)
+      ? meta.turnCount
+      : 0;
+  const lastUserMessageAt =
+    typeof meta.lastUserMessageAt === "string" ? meta.lastUserMessageAt : "";
+  if (!lastUserMessageAt) {
+    return undefined;
+  }
+  return {
+    turnCount,
+    lastUserMessageAt,
+  };
+};
 
 export const unwrapFlowState = <TState>(
   value: unknown,

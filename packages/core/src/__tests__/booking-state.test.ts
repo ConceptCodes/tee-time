@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   extractSharedContext,
+  getFlowStateMeta,
   wrapFlowState,
   type SharedBookingContext
 } from "../booking-state";
@@ -29,5 +30,21 @@ describe("booking state shared context", () => {
     };
     const extracted = extractSharedContext(legacyState);
     expect(extracted).toEqual(shared);
+  });
+
+  test("stores and reads flow metadata from envelope", () => {
+    const wrapped = wrapFlowState(
+      "booking-new",
+      { club: "Topgolf" },
+      undefined,
+      {
+        turnCount: 4,
+        lastUserMessageAt: "2026-02-05T00:00:00.000Z",
+      }
+    );
+    expect(getFlowStateMeta(wrapped)).toEqual({
+      turnCount: 4,
+      lastUserMessageAt: "2026-02-05T00:00:00.000Z",
+    });
   });
 });
