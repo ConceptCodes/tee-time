@@ -39,6 +39,20 @@ Common development commands mapping to `package.json` scripts:
 - `bun run chat`: Run the local CLI chat harness for testing agent flows.
 - `bun run evals`: Run agent evaluation suite.
 
+## Webhook Safety Config
+
+The WhatsApp webhook supports these conversation safety controls:
+
+- `CONVERSATION_HISTORY_WINDOW_TURNS` (default `10`): max turns sent to the router/LLM.
+- `CONVERSATION_INACTIVITY_TIMEOUT_HOURS` (default `24`): reset flow state after inactivity.
+- `MEMBER_RATE_LIMIT_PER_HOUR` (default `30`): per-member inbound message limit.
+- `WEBHOOK_GLOBAL_RATE_LIMIT_PER_MINUTE` (default `1000`): global webhook request limit.
+- `BOOKING_STATE_TTL_MINUTES` (default `10080`): persisted booking state retention (7 days).
+- `WORKER_STALE_PROCESSING_MINUTES` (default `15`): reset stuck `processing` jobs for retry.
+- `RETENTION_DAYS` (default `90`): retention window for logs, rate-limit buckets, and resolved DLQ records.
+- `WORKER_WEBHOOK_DLQ_INTERVAL_MS` (default `60000`): worker loop interval for replaying failed webhook events.
+- `WORKER_WEBHOOK_DLQ_BATCH_SIZE` (default `25`): max webhook DLQ events replayed per loop.
+
 
 ## Agent Routing Overview
 
@@ -248,6 +262,7 @@ The `packages/evals` module provides a comprehensive agent evaluation framework 
 | `state-persistence` | State continuity & context retention | 2 |
 | `multi-booking` | Multi-booking selections & disambiguation | 2 |
 | `course-correction` | Mid-flow corrections & resets | 2 |
+| `operational` | Webhook behavior validation (dedup, rate limits, inactivity, DLQ) | 4 |
 
 ### Running Evals
 
@@ -266,7 +281,21 @@ bun run evals --summary-only
 
 # Output JSON report
 bun run evals --json
+
+# Use custom database URL for CI environments
+EVAL_DATABASE_URL=postgres://ci-host/teetime_evals bun run evals
+
+# Use CLI flag for database URL
+bun run evals --db-url postgres://custom-host/teetime_evals
 ```
+
+The evals framework now includes realistic simulation patterns:
+- **Typos**: Club name misspellings, date/time errors
+- **Ambiguity**: "tomorrow at 2" (AM/PM), "next week" vagueness
+- **Natural Language**: Informal phrasing, contractions, sentence fragments
+- **Tool Failures**: Simulated API unavailability and service issues
+
+Critical suites (booking, cancel, modify, status, operational) maintain 80%+ single-flow expectations for clear pass/fail cases.
 
 ### CLI Options
 
@@ -274,6 +303,7 @@ bun run evals --json
 |--------|-------------|
 | `--suite <list>` | Run specific suites (comma-separated) |
 | `--<suite-name> <n>` | Set scenario count for a suite (e.g., `--booking 20`) |
+| `--db-url <url>` | Custom database URL (overrides `EVAL_DATABASE_URL` env var) |
 | `--seed <n>` | Shuffle seed for reproducibility (default: current timestamp) |
 | `--allow-faq-escalation` | Treat FAQ escalations as pass |
 | `--summary-only` | Print only the final summary table |
@@ -282,6 +312,8 @@ bun run evals --json
 | `--json` | Output JSON report |
 | `--transcripts [path]` | Save conversation transcripts to file |
 | `--verbose` | Verbose output (sets log level higher) |
+
+**Assertion Quality**: Critical suites enforce 80%+ single-flow expectations, ensuring clear pass/fail boundaries and reducing false negatives.
 
 ### Transcript Capture
 

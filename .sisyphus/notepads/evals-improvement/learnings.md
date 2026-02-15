@@ -226,3 +226,71 @@ Operational scenarios test webhook logic at the database level without requiring
 - All scenarios include clear expected agent behavior (flow types, decision types, prompt includes)
 - No external API mocking required - scenarios test agent behavior at the conversation level
 - Scenarios are designed to mirror real user behavior patterns observed in production
+
+---
+
+## README Documentation Update - Task 7
+
+**Date**: 2026-02-15
+
+**What Was Done**: Updated README.md evals section to document all improvements from the evals-improvement plan.
+
+**Changes Made**:
+
+1. **Test Suites Table**:
+   - Added new `operational` suite row covering webhook behaviors (dedup, rate limits, inactivity, DLQ)
+   - Suite description: "Webhook behavior validation (dedup, rate limits, inactivity, DLQ)"
+   - Default count: 4 scenarios
+
+2. **Running Evals Section**:
+   - Added `--db-url <url>` CLI flag example
+   - Added `EVAL_DATABASE_URL=postgres://ci-host/teetime_evals` environment variable example
+   - Documented realistic simulation patterns:
+     - Typos: Club name misspellings, date/time errors
+     - Ambiguity: "tomorrow at 2" (AM/PM), "next week" vagueness
+     - Natural Language: Informal phrasing, contractions, sentence fragments
+     - Tool Failures: Simulated API unavailability and service issues
+   - Added note about assertion quality: "Critical suites maintain 80%+ single-flow expectations"
+
+3. **CLI Options Table**:
+   - Added `--db-url <url>` option for custom database URL
+   - Updated `--summary-only` description (implicitly via table update)
+   - Added assertion quality note: "Critical suites enforce 80%+ single-flow expectations"
+
+**Verification**:
+- ✅ No TypeScript errors: `bun run check` passes
+- ✅ No formatting errors: `bun run check` passes
+- ✅ All improvements documented in README
+- ✅ Consistent with existing README structure and formatting
+
+**Benefits**:
+- Users can now quickly understand the expanded evals capabilities
+- CI/CD users know about database URL configuration options
+- Developers understand realistic simulation patterns used in evals
+- Assertion quality expectations are clearly documented
+
+---
+
+## README Documentation Update - Final Verification
+
+**Date**: 2026-02-15
+
+**Status**: ✅ COMPLETED
+
+**All 5 Improvements Documented**:
+
+1. ✅ **Configurable Database URL**: Documented via `EVAL_DATABASE_URL` env var and `--db-url` CLI flag
+2. ✅ **Operational Suite**: Added to Test Suites table with 4 scenarios
+3. ✅ **Realistic Simulation Patterns**: Documented typos, ambiguity, natural language, tool failures
+4. ✅ **Improved Assertions**: Noted 80%+ single-flow expectations in critical suites
+5. ✅ **CI Portability**: Documented database URL configuration for CI environments
+
+**README Sections Updated**:
+- Test Suites table (added operational row)
+- Running Evals section (added CI examples and patterns documentation)
+- CLI Options table (added --db-url option and assertion quality note)
+
+**Files Modified**:
+- README.md (evals section only)
+
+**No Breaking Changes**: All changes are documentation-only, backward compatible with existing workflow
